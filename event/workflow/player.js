@@ -11,7 +11,7 @@
  * là nợ kỹ thuật đã có sẵn, xem docstring từng hàm ở file đó.
  *
  * NẠP SAU: core/playlist/actions.js, core/playlist/render.js (attachCoverFallback), core/playlist/order.js,
- * core/player-controls.js (requestWakeLock), core/listen-stats.js, core/media-element-ui.js, event/workflow/
+ * event/workflow/wakelock.js, core/listen-stats.js, core/media-element-ui.js, event/workflow/
  * subtitle-display.js (chỉ gọi lúc chạy), event/workflow/audio-engine.js (workflowAudioEngine.setup), event/bus.js,
  * event/workflow/video-player.js, event/workflow/media-wait.js (lúc chạy). NẠP TRƯỚC: event/workflow/player-controls.js,
  * event/router/playlist.js, event/router/playlist-empty-state.js (cả 3 đều gọi `workflowPlayer.playMedia()`).
@@ -83,7 +83,7 @@ const workflowPlayer = {
             eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
             return;
         }
-        requestWakeLock();
+        workflowWakeLock.request();
 
         // display=false: chuyển bài chạy logic trong shield (khoá chồng lệnh) nhưng KHÔNG hiện
         // lớp che -> bỏ cú nháy đen bg-black/80 mỗi lần Next/Prev (rõ nhất khi có video nền).

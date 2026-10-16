@@ -6,7 +6,8 @@
  *
  * NẠP SAU: core/gameplay/engine.js, core/gameplay/engine-ui.js, components/gameplay-overlay.js, core/modal-choice-ui.js,
  * core/number-countup.js, event/workflow/number-countup.js, core/file-manager/video.js (stripFileExtension),
- * service/task-manager.js, service/db.js, lang/lang.js.
+ * service/task-manager.js, service/db.js, lang/lang.js, core/player-controls.js (getActiveMediaElement). Lúc chạy:
+ * event/workflow/{player-controls,video-player}.js (cổng seek).
  */
 const GAMEPLAY_COUNTDOWN_TASK = 'gameplayCountdown';
 const GAMEPLAY_SCORE_COUNTUP_TASK = 'gameplayScoreCountUp';
@@ -73,6 +74,16 @@ const GAMEPLAY_COUNTDOWN_STEP_BY_RUNNING = {
     },
 };
 
+// Media về đầu cho ván Game (shouldGateGameplayRewind(), core/gameplay/engine.js): cổng seek về 0, hoặc pause + seek 0 thường.
+const GAMEPLAY_REWIND_BY_GATE = {
+    true: (mediaEl, isVideoPlayerMode) => GAMEPLAY_REWIND_GATE_BY_VIDEO[isVideoPlayerMode](),
+    false: (mediaEl) => resetGameplayMediaToStart(mediaEl), // core/gameplay/engine.js
+};
+const GAMEPLAY_REWIND_GATE_BY_VIDEO = {
+    true: () => workflowVideoPlayer.seekToStartGated(), // event/workflow/video-player.js — kèm khung đóng băng
+    false: () => workflowPlayerControls.runGatedSeek(audioPlayer, 0, false), // event/workflow/player-controls.js
+};
+
 const workflowGameplayEngine = {
 
     /** Mở phiên chơi cho game `mode` — router 'gameplay.mediaChanged' (game đang armed) và workflowGameCatalog.armGame()
@@ -102,6 +113,18 @@ const workflowGameplayEngine = {
     },
 
     /** Đếm ngược GAMEPLAY_COUNTDOWN_SECONDS giây (taskManager 'timeout', 1 nhịp/giây) rồi gọi `onComplete()`. */
+    /** Media đang dùng về đầu (bắt đầu ván / Chơi lại / thoát) — xem GAMEPLAY_REWIND_BY_GATE. */
+    rewindActiveMedia() {
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
+        const mediaEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
+        GAMEPLAY_REWIND_BY_GATE[shouldGateGameplayRewind(mediaEl.paused, mediaEl.currentTime)](mediaEl, isVideoPlayerMode); // core/gameplay/engine.js
+    },
+
+    /** Hết đếm ngược -> phát. Cổng seek về đầu còn chạy (máy chậm) thì để cổng play() sau khi seek xong. */
+    playActiveMedia() {
+        workflowPlayerControls.playAfterSeekGate(getActiveMediaElement(appState.get('isVideoPlayerMode'))); // event/workflow/player-controls.js + core/player-controls.js
+    },
+
     startCountdown(onComplete) {
         appState.set('gameplayCountdownValue', GAMEPLAY_COUNTDOWN_SECONDS, { skipCheck: true });
         console.log(`writer: "workflowGameplayEngine.startCountdown", page: "gameplayCountdownValue", content: "${GAMEPLAY_COUNTDOWN_SECONDS}"`);

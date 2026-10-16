@@ -1,34 +1,20 @@
 /**
- * event/workflow/app-visibility.js — Workflow cụm "appVisibility" (MỚI 25/09/2026, Giang yêu cầu): ẩn tab / ẩn PWA
- * (khoá máy, chuyển app, chuyển tab) thì CHỈ để audio của Song (`audioPlayer`) phát nền, đăng ký Audio Session,
- * tạm dừng mọi hoạt động render của Visualizer (khi KHÔNG chơi Game) — chỉ giữ hoạt động tối thiểu.
+ * event/workflow/app-visibility.js — Workflow cụm "appVisibility": ẩn tab / PWA (khoá máy, chuyển app/tab) thì chỉ để tiếng
+ * Song phát nền và dừng render Visualizer (khi không chơi Game).
  *
- * LỖI GỐC được sửa: `audioPlayer` đi qua Web Audio (createMediaElementSource) -> tiếng thật phát ra từ AudioContext;
- * ẩn app thì iOS chuyển AudioContext sang 'interrupted' (câm) trong khi <audio> vẫn chạy (currentTime vẫn tăng); hết
- * bài -> Next -> playSong() -> setupAudioContext() gọi resume() nên bài mới mới có tiếng lại. Sửa bằng 2 lớp:
- *   (1) `applyPlaybackAudioSession()` (core/audio-engine.js) — khai báo session 'playback' (Audio Session API) NGAY lúc
- *       boot + mỗi lần vào nền, để iOS cho phát nền như app nhạc.
- *   (2) Lưới an toàn `BACKGROUND_AUDIO_KEEPALIVE_TASK` — suốt lúc app ẩn, mỗi giây kiểm tra: Song đang phát mà
- *       AudioContext bị ngắt/treo -> resume() (đúng thao tác Next vô tình "chữa" được, nay làm chủ động, không chờ hết
- *       bài). Task này chạy CẢ khi đang chơi Game (tiếng Song là việc chung).
+ * Giữ tiếng nền (mọi gameplayPhase): `audioPlayer` đi qua Web Audio, ẩn app thì iOS chuyển AudioContext sang 'interrupted'
+ * (câm) trong khi <audio> vẫn chạy. 2 lớp: (1) Audio Session 'playback' (applyPlaybackAudioSession(), core/audio-engine.js)
+ * lúc boot + mỗi lần vào nền; (2) task keep-alive mỗi giây: Song đang phát mà AudioContext bị ngắt/treo -> resume().
  *
- * CHẾ ĐỘ NỀN TỐI GIẢN (chỉ khi ẩn lúc gameplayPhase === 'idle' — Router tự rẽ nhánh, xem event/router/app-visibility.js):
- *   - Ghi `isBackgroundSuspended = true` (service/state/wakelock-tab.js).
- *   - Tạm dừng 2 task render `audioAnalysis` + `visualizerRender` (workflowVisualizerRender.suspendForBackground()).
- *   - Tự động đổi hiệu ứng (auto-switch-visual) đứng yên — workflowAutoSwitchVisual tự đọc cờ trên qua `_isRunAllowed()`.
- *   - Visual Background đứng yên như lúc Song pause: video nền + âm thanh video nền, Motion, hẹn giờ đổi ảnh, Movement
- *     gradient (workflowVisualBg.onBackgroundSuspendChange() — VBG tự đọc cờ trên qua `_isSongActiveForVbg()`, nên
- *     đổi bài giữa lúc ẩn cũng không phát lại video nền).
- *   - Video/Photo Player mode (không phải Song) -> tạm dừng video/đồng hồ ảnh, ghi nhớ để hiện lại thì phát tiếp
- *     (`_pausedVideoPlayer`/`_pausedPhotoPlayer`). Playlist tự Next từ Song sang Video/Photo lúc đang ẩn cũng bị bắt ở
- *     tick keep-alive kế tiếp (`_enforcePlayerMediaPaused()`).
- *   Hiện lại -> đảo ngược đúng những gì ĐÃ tạm dừng.
- * KHÔNG đụng: đồng hồ đếm thời gian nghe (bài vẫn đang được nghe thật), sự kiện 'ended' -> Next (Song phải tự chuyển
- * bài được lúc ẩn), video nền màn App Panel (cụm theme đã tự dừng khi ẩn app).
+ * Chế độ nền tối giản (chỉ khi ẩn lúc gameplayPhase === 'idle' — Router rẽ): `isBackgroundSuspended = true`, tạm dừng 2 task
+ * render Visualizer, VBG + auto-switch tự đứng yên theo cờ đó, Video/Photo Player đang phát thì tạm dừng (ghi nhớ để phát tiếp;
+ * Playlist tự Next sang Video/Photo lúc ẩn cũng bị bắt ở nhịp keep-alive kế tiếp). Hiện lại -> đảo ngược đúng những gì đã dừng.
+ * Không đụng: đồng hồ nghe, 'ended' -> Next, video nền App Panel (cụm theme tự lo).
+ * Điều kiện phát nền gộp ở core thuần computeBackgroundPlaybackView() (core/app-visibility.js).
  *
- * NẠP SAU: event/workflow/visualizer-render.js, event/workflow/visual-bg-common.js, event/workflow/photo-player.js, core/wakelock.js
- * (chỉ tham chiếu lúc RUNTIME), core/audio-engine.js, service/task-manager.js, core/dom-refs.js (audioPlayer,
- * bgVideoElement). NẠP TRƯỚC: event/router/app-visibility.js.
+ * NẠP SAU: core/app-visibility.js, core/audio-engine.js, core/media-element-ui.js, core/dom-refs.js, service/task-manager.js;
+ * lúc chạy: event/workflow/{visualizer-render,visual-bg-common,photo-player,player-controls,wakelock,subtitle-display}.js.
+ * NẠP TRƯỚC: event/router/app-visibility.js.
  */
 const BACKGROUND_AUDIO_KEEPALIVE_TASK = 'backgroundAudioKeepAlive';
 const BACKGROUND_AUDIO_KEEPALIVE_MS = 1000;
@@ -58,7 +44,7 @@ const workflowAppVisibility = {
         workflowVisualizerRender.suspendForBackground(); // event/workflow/visualizer-render.js
         workflowVisualBg.onBackgroundSuspendChange(); // event/workflow/visual-bg-common.js
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — đồng hồ/mốc tự đổi hiệu ứng đứng yên
-        this._enforcePlayerMediaPaused();
+        this._enforcePlayerMediaPaused(this._readPlaybackView().view);
     },
 
     /** Ứng 'appVisibility.document.change' khi app hiện lại — tắt keep-alive, đánh thức AudioContext nếu cần, rồi
@@ -66,16 +52,31 @@ const workflowAppVisibility = {
     exitBackground() {
         taskManager.kill(BACKGROUND_AUDIO_KEEPALIVE_TASK);
         this._lastLoggedContextState = '';
-        const resumingVideo = this._pausedVideoPlayer && appState.get('isVideoPlayerMode');
-        resumeAudioContextIfInterrupted(appState.get('audioContext'), this._isAnyMediaPlaying() || resumingVideo); // core/audio-engine.js
-        this._exitBackgroundSuspend();
+        const { state, view } = this._readPlaybackView();
+        resumeAudioContextIfInterrupted(state.audioContext, view.shouldWakeContextOnShow); // core/audio-engine.js
+        this._exitBackgroundSuspend(state.isBackgroundSuspended);
         this._reacquireWakeLockIfPlaying();
         workflowSubtitleDisplay.resync(); // event/workflow/subtitle-display.js — ẩn lâu: karaoke/hiệu ứng phụ đề về đúng vị trí đang phát
     },
 
-    /** Tách từ exitBackground() (06/10/2026) — khôi phục đúng những gì chế độ nền đã tạm dừng. */
-    _exitBackgroundSuspend() {
-        if (!appState.get('isBackgroundSuspended')) return; // guard: không vào chế độ nền (vd đang chơi Game)
+    /** Trạng thái Player + kết luận phát nền (core thuần) đọc 1 lần. @returns {{state: object, view: object}} */
+    _readPlaybackView() {
+        const state = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'photoPlayerPaused', 'isBackgroundSuspended', 'audioContext']);
+        const view = computeBackgroundPlaybackView({ // core/app-visibility.js
+            isVideoPlayerMode: state.isVideoPlayerMode,
+            isPhotoPlayerMode: state.isPhotoPlayerMode,
+            photoPlayerPaused: state.photoPlayerPaused,
+            isAudioPaused: audioPlayer.paused,
+            isVideoPaused: bgVideoElement.paused,
+            pausedVideoPlayer: this._pausedVideoPlayer,
+            pausedPhotoPlayer: this._pausedPhotoPlayer,
+        });
+        return { state, view };
+    },
+
+    /** Khôi phục đúng những gì chế độ nền đã tạm dừng. @param {boolean} isBackgroundSuspended */
+    _exitBackgroundSuspend(isBackgroundSuspended) {
+        if (!isBackgroundSuspended) return; // guard: không vào chế độ nền (vd đang chơi Game)
         appState.set('isBackgroundSuspended', false);
         console.log(`writer: "workflowAppVisibility.exitBackground", page: "isBackgroundSuspended", content: "false"`);
         workflowVisualizerRender.resumeFromBackground(); // event/workflow/visualizer-render.js
@@ -84,60 +85,71 @@ const workflowAppVisibility = {
         this._restorePlayerMedia();
     },
 
-    /** MỚI (06/10/2026, Giang) — trình duyệt TỰ nhả Wake Lock khi app ẩn; hiện lại mà media vẫn đang phát (Song phát nền,
-     * hoặc Video/Photo vừa được `_restorePlayerMedia()` phát tiếp) thì xin lại, không thì màn hình tự tắt dù bật
-     * keepScreenOn. Chạy SAU `_exitBackgroundSuspend()` để thấy đúng trạng thái đã phát tiếp. */
+    /** Trình duyệt TỰ nhả Wake Lock khi app ẩn; hiện lại mà media vẫn đang phát (Song phát nền, hoặc Video/Photo vừa được
+     * `_restorePlayerMedia()` phát tiếp) thì xin lại. Chạy SAU `_exitBackgroundSuspend()` để thấy đúng trạng thái đã phát tiếp. */
     _reacquireWakeLockIfPlaying() {
-        const isPhotoRunning = appState.get('isPhotoPlayerMode') && !appState.get('photoPlayerPaused');
-        if (!this._isAnyMediaPlaying() && !isPhotoRunning) return; // guard: không có gì đang phát
-        requestWakeLock(); // core/wakelock.js
+        if (!this._readPlaybackView().view.isAnyPlaying) return; // guard: không có gì đang phát
+        workflowWakeLock.request(); // event/workflow/wakelock.js
         console.log('[workflowAppVisibility] (app hiện lại) media đang phát -> xin lại Wake Lock');
-    },
-
-    /** Media đang THẬT SỰ phát (Song, hoặc video của Video Player mode). */
-    _isAnyMediaPlaying() {
-        if (appState.get('isVideoPlayerMode')) return !bgVideoElement.paused;
-        return !audioPlayer.paused;
     },
 
     /** 1 nhịp keep-alive (mỗi giây lúc app ẩn): đánh thức AudioContext nếu Song đang phát mà bị ngắt; ở chế độ nền thì
      * giữ Video/Photo Player mode đứng yên (bắt cả ca playlist tự Next sang Video/Photo giữa lúc ẩn). */
     _keepAliveTick() {
-        const isSongPlaying = !appState.get('isVideoPlayerMode') && !appState.get('isPhotoPlayerMode') && !audioPlayer.paused;
-        const state = resumeAudioContextIfInterrupted(appState.get('audioContext'), isSongPlaying); // core/audio-engine.js
-        if (state !== this._lastLoggedContextState) {
-            this._lastLoggedContextState = state;
-            console.log(`[workflowAppVisibility] (app ẩn) AudioContext state="${state}", Song ${isSongPlaying ? 'đang phát' : 'không phát'}${isSongPlaying && state !== 'running' ? ' -> resume()' : ''}`);
-        }
-        if (appState.get('isBackgroundSuspended')) this._enforcePlayerMediaPaused();
+        const { state, view } = this._readPlaybackView();
+        const contextState = resumeAudioContextIfInterrupted(state.audioContext, view.isSongPlaying); // core/audio-engine.js
+        this._logContextStateChange(contextState, view.isSongPlaying);
+        if (state.isBackgroundSuspended) this._enforcePlayerMediaPaused(view);
+    },
+
+    /** Chỉ log khi trạng thái AudioContext ĐỔI. */
+    _logContextStateChange(contextState, isSongPlaying) {
+        if (contextState === this._lastLoggedContextState) return; // guard
+        this._lastLoggedContextState = contextState;
+        console.log(formatKeepAliveContextLog(contextState, isSongPlaying)); // core/app-visibility.js
     },
 
     /** Chế độ nền: CHỈ Song được phát — Video Player mode đang phát -> pause video (sự kiện 'pause' nguyên bản tự lo
-     * icon/wake lock/listen clock/Motion); Photo Player mode đang chạy -> pause đồng hồ ảnh (dùng đúng nút Play/Pause
-     * của Photo). Ghi nhớ để `_restorePlayerMedia()` phát tiếp. */
-    _enforcePlayerMediaPaused() {
-        if (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) {
-            this._pausedVideoPlayer = true;
-            bgVideoElement.pause();
-            console.log('[workflowAppVisibility] (app ẩn) tạm dừng Video Player mode');
-        }
-        if (appState.get('isPhotoPlayerMode') && !appState.get('photoPlayerPaused')) {
-            this._pausedPhotoPlayer = true;
-            workflowPhotoPlayer.togglePlayPausePhoto(); // event/workflow/photo-player.js
-            console.log('[workflowAppVisibility] (app ẩn) tạm dừng Photo Player mode');
-        }
+     * icon/wake lock/listen clock/Motion); Photo Player mode đang chạy -> pause đồng hồ ảnh (đúng nút Play/Pause của Photo).
+     * Ghi nhớ để `_restorePlayerMedia()` phát tiếp. @param {object} view - computeBackgroundPlaybackView() */
+    _enforcePlayerMediaPaused(view) {
+        this._pauseVideoPlayer(view.shouldPauseVideo);
+        this._pausePhotoPlayer(view.shouldPausePhoto);
     },
 
-    /** Ngược lại `_enforcePlayerMediaPaused()` — chỉ phát tiếp cái CHÍNH workflow này đã dừng, và chỉ khi vẫn còn ở
-     * đúng mode đó + vẫn đang dừng (người dùng không thể thao tác lúc ẩn, nhưng vẫn guard cho chắc). */
+    _pauseVideoPlayer(shouldPause) {
+        if (!shouldPause) return; // guard
+        this._pausedVideoPlayer = true;
+        pauseMediaElement(bgVideoElement); // core/media-element-ui.js
+        console.log('[workflowAppVisibility] (app ẩn) tạm dừng Video Player mode');
+    },
+
+    _pausePhotoPlayer(shouldPause) {
+        if (!shouldPause) return; // guard
+        this._pausedPhotoPlayer = true;
+        workflowPhotoPlayer.togglePlayPausePhoto(); // event/workflow/photo-player.js
+        console.log('[workflowAppVisibility] (app ẩn) tạm dừng Photo Player mode');
+    },
+
+    /** Ngược lại `_enforcePlayerMediaPaused()` — chỉ phát tiếp cái CHÍNH workflow này đã dừng, và chỉ khi vẫn còn ở đúng mode
+     * đó + vẫn đang dừng. */
     _restorePlayerMedia() {
-        if (this._pausedVideoPlayer && appState.get('isVideoPlayerMode') && bgVideoElement.paused) {
-            bgVideoElement.play().catch((err) => console.warn('[workflowAppVisibility] phát tiếp video lỗi (bỏ qua):', err));
-        }
-        if (this._pausedPhotoPlayer && appState.get('isPhotoPlayerMode') && appState.get('photoPlayerPaused')) {
-            workflowPhotoPlayer.togglePlayPausePhoto(); // event/workflow/photo-player.js
-        }
+        const { view } = this._readPlaybackView();
+        this._resumeVideoPlayer(view.shouldRestoreVideo);
+        this._resumePhotoPlayer(view.shouldRestorePhoto);
         this._pausedVideoPlayer = false;
         this._pausedPhotoPlayer = false;
+    },
+
+    /** Phát tiếp qua `playAfterSeekGate()`: 'pause' lúc ẩn đã kích cổng xả hàng đợi (nạp lại nguồn) — cổng còn chạy thì để cổng
+     * play() sau khi seek xong. */
+    _resumeVideoPlayer(shouldResume) {
+        if (!shouldResume) return; // guard
+        workflowPlayerControls.playAfterSeekGate(bgVideoElement); // event/workflow/player-controls.js
+    },
+
+    _resumePhotoPlayer(shouldResume) {
+        if (!shouldResume) return; // guard
+        workflowPhotoPlayer.togglePlayPausePhoto(); // event/workflow/photo-player.js
     },
 };

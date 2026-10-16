@@ -11,8 +11,8 @@
  * - SEEK-HOLD ("ngón tay ảo", Giang chốt 07/10/2026): giữ yên ở nửa trái/phải -> tua lùi/tiến lặp lại, đi đúng luồng kéo
  *   thanh tiến trình. 3 thời gian tách biệt: SEEK_HOLD_ACTIVATE_MS (ngưỡng kích hoạt, cố định), gestureSeekStepMs (Time 1 —
  *   bước nhảy), gestureSeekHoldIntervalMs (Time 2 — nhịp lặp). Mỗi nhịp đặt thumb + gửi 'progressBar.seeking' (như 'input'
- *   khi kéo tay); thả tay / touchcancel / chạm biên gửi 'progressBar.seekCommit' đúng 1 lần (như 'change'). Mốc do phiên tự
- *   giữ, không đọc lại currentTime (Song vẫn phát lúc giữ tay; cổng seek làm currentTime tạm = 0). Photo không có seek-hold.
+ *   khi kéo tay); thả tay / touchcancel / chạm biên gửi 'progressBar.seekCommit' đúng 1 lần (như 'change'). Song/Video dừng
+ *   media ở nhịp đầu, thả tay cổng seek phát lại. Mốc do phiên tự giữ, không đọc lại currentTime. Photo không có seek-hold.
  *
  * NẠP SAU: core/visualizer-gesture.js, core/visualizer-control-center.js, core/dom-refs.js, service/task-manager.js,
  * core/hud.js (findAdjacentPlaybackSpeedPreset), event/workflow/hud.js, event/workflow/player-controls.js (lúc chạy).
@@ -188,6 +188,7 @@ const workflowVisualizerGesture = {
         this._seekHoldKey = currentKey;
         this._seekHoldActive = true;
         this._seekHoldTotalSec = 0;
+        console.log(`[seekHold] bật: ${isVideoPlayerMode ? 'video' : 'song'} từ ${this._seekHoldPositionSec.toFixed(2)}s / ${durationSec.toFixed(2)}s, chiều ${this._seekHoldDirection}`); // log điều phối (Debug console)
         this._runSeekTick();
         if (!this._seekHoldActive) return; // nhịp đầu đã chạm biên và tự nhả
         const holdIntervalMs = appConfigViz.getAll().gestureSeekHoldIntervalMs || 2000; // Time 2
@@ -216,6 +217,7 @@ const workflowVisualizerGesture = {
         const { currentKey, isVideoPlayerMode } = appState.get(['currentKey', 'isVideoPlayerMode']);
         const activeMediaEl = isVideoPlayerMode ? bgVideoElement : audioPlayer; // chọn giá trị
         const commitSec = currentKey !== this._seekHoldKey ? workflowPlayerControls.getSeekGatePosition(activeMediaEl) : this._seekHoldPositionSec; // chọn giá trị
+        console.log(`[seekHold] thả: commit ${commitSec.toFixed(2)}s (đã tua ${this._seekHoldTotalSec.toFixed(1)}s)`); // log điều phối (Debug console)
         eventBus.send({ router: 'playerControls', type: 'playerControls.progressBar.seekCommit', payload: { value: commitSec } });
     },
 };

@@ -368,7 +368,7 @@ const workflowVideoPlayer = {
         if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.restoreAfterPlayerMode(); // liên tuyến domain
 
         exitVideoPlayerModeState(); // core/video-player.js
-        releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js — dọn nốt 2 cơ chế đã bật lúc phát
+        workflowWakeLock.release(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js — dọn nốt 2 cơ chế đã bật lúc phát
     },
 
     /** Nạp 1 video vào `bgVideoElement` (DUY NHẤT — xem docstring đầu file) + phát ngay + cập nhật
@@ -458,7 +458,7 @@ const workflowVideoPlayer = {
             // Cover ở player bottom = thumb của video — TÁI DÙNG `this._thumbObjectUrl` (poster) thay vì tạo thêm URL.
             recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${t('videoPlayer.untitled')}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
 
-            requestWakeLock(); // core/player-controls.js — cùng khuôn goToNextTrack()/goToPrevTrack()/togglePlayPause() của Song
+            workflowWakeLock.request();
 
             if (previousKey && previousKey !== videoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
             workflowPlaylistRender.refreshSongNode(videoKey); // event/workflow/playlist-render.js — dòng video NÀY, cập nhật isPlaying/eq indicator, đọc bgVideoElement.paused — `.play()` vừa gọi trong swapBgVideoSource() đã đặt paused=false ngay (dù 'playing' chưa bắn; armed Game Mode thì skipAutoplay nên vẫn paused như trước), và handleVideoPlayState() sẽ refresh lại lúc sự kiện 'play' bắn
@@ -520,7 +520,7 @@ const workflowVideoPlayer = {
     /** Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=true` — toggle
      * `bgVideoElement` (DUY NHẤT — khác bản đầu từng toggle CẢ audioPlayer). */
     togglePlayPauseVideo() {
-        requestWakeLock(); // core/player-controls.js — cùng khuôn togglePlayPause() của Song
+        workflowWakeLock.request();
         // Phát qua playAfterSeekGate(): bấm phát lại ĐÚNG lúc cổng đang xả hàng đợi sau pause (nạp lại nguồn) thì để cổng
         // play() sau khi seek xong — play() thẳng lúc đó phát từ 0:00 + lọt tiếng đầu video.
         if (bgVideoElement.paused) workflowPlayerControls.playAfterSeekGate(bgVideoElement); // event/workflow/player-controls.js
@@ -539,7 +539,7 @@ const workflowVideoPlayer = {
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         // Vẽ lại dòng Playlist (EQ bars đang phát / chấm đang pause — refreshSongNode() đọc bgVideoElement.paused cho video).
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey'));
-        requestWakeLock(); workflowListenStats.startClock(); // event/workflow/listen-stats.js
+        workflowWakeLock.request(); workflowListenStats.startClock(); // event/workflow/listen-stats.js
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js — đồng hồ đổi hiệu ứng chạy theo Video
         workflowPlayerDisplaySettings.resumeVideoMotion(); // Point Move/React Beat chạy tiếp theo video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
     },
@@ -551,7 +551,7 @@ const workflowVideoPlayer = {
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.add('paused'); // cùng khuôn handleAudioPause() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
         if (appState.get('currentKey')) workflowPlaylistRender.refreshSongNode(appState.get('currentKey')); // xem handleVideoPlayState()
-        releaseWakeLock(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js
+        workflowWakeLock.release(); workflowListenStats.stopClock(); // event/workflow/listen-stats.js
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js
         workflowPlayerDisplaySettings.pauseVideoMotion(); // Point Move/React Beat đứng yên cùng video (no-op nếu Player không giữ Video surface), event/workflow/player-display-settings.js
         this._flushVideoQueueAfterPause(); // xả hàng đợi tiếng iOS ngay lúc pause (cùng hướng Song)
@@ -754,6 +754,11 @@ const workflowVideoPlayer = {
      * player-controls.js). 'pause' lúc 'ended' là THẬT nên cổng thả hold trước khi play -> 'play' THẬT tới UI. */
     restartForRepeatOne() {
         workflowPlayerControls.runGatedSeek(bgVideoElement, 0, true, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks()); // KHÔNG await
+    },
+
+    /** Về đầu qua cổng seek, KHÔNG tự phát (Game: Chơi lại / thoát sau khi hết video — xoá đuôi tiếng cũ của iOS). */
+    seekToStartGated() {
+        workflowPlayerControls.runGatedSeek(bgVideoElement, 0, false, VIDEO_SEEK_VERIFY_TOLERANCE_SEC, this.seekGateHooks()); // KHÔNG await
     },
 
     /** Xả hàng đợi tiếng iOS NGAY lúc pause (cùng hướng Song, `_flushSongQueueAfterPause()`): nạp lại + seek về chỗ dừng qua cổng

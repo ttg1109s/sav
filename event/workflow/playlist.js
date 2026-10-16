@@ -109,12 +109,6 @@ const RECORDED_SONG_INDEX_BY_SOURCE = {
     other: () => {},
 };
 
-/** switchSource(): Nguồn mới có folder Scope đang nhớ -> áp folder đó; không -> cả thư viện. */
-const SOURCE_SCOPE_APPLY_BY_HAS_FOLDER = {
-    true: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyFolderScope(folderId, mediaType, onProgress),
-    false: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress),
-};
-
 // Picker "Thêm vào thư mục" (Generic Drawer) — mở lần đầu vs thay nội dung Drawer đang mở.
 const FOLDER_PICKER_DRAWER_MOUNT_BY_FIRST_OPEN = { // event/workflow/generic-drawer-helpers.js
     true: (config) => workflowGenericDrawerHelpers.open(config),
@@ -1542,7 +1536,7 @@ const workflowPlaylist = {
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
             const folderForThisSource = appState.get('activePlayListFolder')[mediaType];
             const onProgress = (done, total) => { loadingText.textContent = tFormat(i18n.loadingKey, { done, total }); };
-            await SOURCE_SCOPE_APPLY_BY_HAS_FOLDER[!!folderForThisSource](folderForThisSource, mediaType, onProgress);
+            await workflowPlaylistScope.applyRememberedScope(folderForThisSource, mediaType, onProgress); // event/workflow/playlist-scope.js
             // Nguồn mới có media đang phát -> cuộn tới nó; không có -> về đầu.
             workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
         });

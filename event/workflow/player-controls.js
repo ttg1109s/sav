@@ -151,7 +151,7 @@ const workflowPlayerControls = {
     /** Lớp cha sân khấu hình trở lại cây render (gọi lặp vô hại). 2 task Visualizer KHÔNG chạy lại ở
      * đây — chờ `_revealEffectsWhenMediaReady()`. */
     _resumeVisualStage() {
-        setVisualStageOffstage(false); // core/player-controls.js
+        setVisualStageOffstage(false, false); // core/player-controls.js
     },
 
     /** Về Playlist: hold audioAnalysis + visualizerRender + ẩn lớp cha sân khấu (gồm #visualizer-ui, components/
@@ -161,7 +161,7 @@ const workflowPlayerControls = {
         if (appStack.classList.contains('playlist-hidden')) return; // guard — đã vào lại Visualizer trước khi tới hẹn
         if (!isStackedScreenLayout()) return; // guard — desktop, core/player-controls.js
         workflowVisualizerRender.holdForPlaylist(); // event/workflow/visualizer-render.js
-        setVisualStageOffstage(true); // core/player-controls.js
+        setVisualStageOffstage(true, appState.get('isVideoPlayerMode')); // core/player-controls.js — Video Player: giữ <video> trong cây render
     },
 
     /** Quay về Visualizer nếu đang có bài. */
@@ -212,7 +212,7 @@ const workflowPlayerControls = {
      * Visualizer đầu tiên. Chưa có task Visualizer nào lúc này (chỉ dựng khi phát lần đầu) nên không cần hold. */
     offstageVisualStageOnBoot() {
         if (!isStackedScreenLayout()) return; // guard — desktop, core/player-controls.js
-        setVisualStageOffstage(true); // core/player-controls.js
+        setVisualStageOffstage(true, false); // core/player-controls.js
     },
 
     /** Ứng 'playerControls.screenLayout.change' (event/listener/player-controls.js): bố cục đổi qua mốc 1024px lúc đang
@@ -450,32 +450,46 @@ const workflowPlayerControls = {
         workflowSubtitleDisplay.sync(audioPlayer.currentTime); // event/workflow/subtitle-display.js
     },
 
-    /** Ứng với 'playerControls.progressBar.seeking' khi Song — hiển thị theo vị trí đang kéo (chưa commit), phụ đề theo luôn.
-     * @param {string|number} value */
+    /** Ứng với 'playerControls.progressBar.seeking' khi Song (kéo tay hoặc cử chỉ seek-hold) — cùng cơ chế Video
+     * (workflowVideoPlayer.handleVideoSeeking()): nhịp ĐẦU của phiên kéo dừng bài + nhớ trạng thái phát, các nhịp sau chỉ hiển
+     * thị mốc kéo (thanh/nhãn/phụ đề). Bài đứng yên suốt lúc kéo nên 'timeupdate' không kéo thanh về giờ đang phát; thả tay thì
+     * cổng seek tự phát lại (handleSongSeekCommit()). @param {string|number} value */
     handleSongSeeking(value) {
-        handleProgressBarSeeking(value); // core/player-controls.js
+        this._beginSongSeekSession(appState.get('isSeeking'));
+        handleProgressBarSeeking(value); // core/player-controls.js — ghi isSeeking = true (cùng nhịp với pause: 'pause' tới sau, không xả hàng đợi)
         workflowSubtitleDisplay.preview(Number(value)); // event/workflow/subtitle-display.js — phụ đề + karaoke theo mốc kéo
     },
 
-    /** Ứng với 'playerControls.progressBar.seekCommit' khi `isVideoPlayerMode=false` (Song) — thả tay/chạm chọn
-     * điểm, commit vị trí + cổng seek (xem `runGatedSeek()`) — không gán `currentTime` trần (lọt âm thanh cũ). @param {string|number} value */
+    _songWasPlayingBeforeSeek: false, // bài đang phát lúc bắt đầu phiên kéo -> thả tay cổng seek phát lại
+
+    /** Nhịp đầu phiên kéo: nhớ đang phát/dừng rồi dừng bài ('pause' THẬT tới UI như Video). @param {boolean} isSeeking */
+    _beginSongSeekSession(isSeeking) {
+        if (isSeeking) return; // guard — đang trong phiên kéo
+        this._songWasPlayingBeforeSeek = !audioPlayer.paused;
+        pauseMediaElement(audioPlayer); // core/media-element-ui.js
+    },
+
+    /** Ứng với 'playerControls.progressBar.seekCommit' khi Song — thả tay/chạm chọn điểm: cổng seek (`runGatedSeek()`, không gán
+     * `currentTime` trần — lọt âm thanh cũ), phát lại nếu lúc bắt đầu kéo đang phát. @param {string|number} value */
     handleSongSeekCommit(value) {
+        const resumeAfter = this._songWasPlayingBeforeSeek;
+        this._songWasPlayingBeforeSeek = false;
         appState.set('isSeeking', false);
         console.log(`writer: "workflowPlayerControls.handleSongSeekCommit", page: "isSeeking", content: "false"`);
-        this.runGatedSeek(audioPlayer, Number(value), false); // KHÔNG await — 'seeked' cập nhật Media Session qua listener sẵn có
-        updateMediaPositionState(); // core/player-controls.js — vị trí mới ngay như bản cũ; 'seeked' cập nhật lại khi seek xong
+        this.runGatedSeek(audioPlayer, Number(value), resumeAfter); // KHÔNG await — 'seeked' cập nhật Media Session qua listener sẵn có
+        updateMediaPositionState(); // core/player-controls.js
     },
 
     /**
      * Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=false` (xem
      * VirtualMachineState ở event/router/player-controls.js):
-     *   1. `requestWakeLock()` — vô điều kiện (cả khi playlist rỗng).
+     *   1. `workflowWakeLock.request()` — vô điều kiện (cả khi playlist rỗng).
      *   2. Guard `playlistOrder.length === 0`.
      *   3. `currentKey === null` -> `workflowPlayer.playMedia()` bài đầu tiên (`displayOrder[0] || playlistOrder[0]`).
      *   4. Ngược lại -> `togglePlayPause(audioContext)` (core).
      */
     handlePlayPauseClick() {
-        requestWakeLock(); // core
+        workflowWakeLock.request();
         const { playlistOrder, currentKey, displayOrder, audioContext } = appState.get(['playlistOrder', 'currentKey', 'displayOrder', 'audioContext']);
         if (playlistOrder.length === 0) return;
         if (currentKey === null) {
@@ -498,7 +512,7 @@ const workflowPlayerControls = {
      * @param {boolean} [force=false]
      */
     goToNextTrack(force = false) {
-        requestWakeLock(); // core
+        workflowWakeLock.request();
         const { isVideoPlayerMode, isPhotoPlayerMode, repeatMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
             'isVideoPlayerMode', 'isPhotoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
@@ -543,7 +557,7 @@ const workflowPlayerControls = {
      * đầu là icon riêng -> `restartCurrentTrack()`.
      */
     goToPrevTrack() {
-        requestWakeLock(); // core
+        workflowWakeLock.request();
         const { isVideoPlayerMode, isPhotoPlayerMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
             'isVideoPlayerMode', 'isPhotoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
@@ -606,7 +620,7 @@ const workflowPlayerControls = {
     handleAudioPauseEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // pause() tạm của cổng seek, không đổi icon/đồng hồ/VBG
         handleAudioPause(); // core/player-controls.js
-        releaseWakeLock(); // core/wakelock.js
+        workflowWakeLock.release();
         workflowListenStats.stopClock(); // event/workflow/listen-stats.js
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js
         const currentKey = appState.get('currentKey');
@@ -623,9 +637,9 @@ const workflowPlayerControls = {
      * thường, không trễ. Pause bị loại trừ: xem shouldFlushSongQueueOnPause() (core/player-controls.js).
      */
     async _flushSongQueueAfterPause() {
-        const { currentKey, currentObjectURL, isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['currentKey', 'currentObjectURL', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const { currentKey, currentObjectURL, isVideoPlayerMode, isPhotoPlayerMode, isSeeking } = appState.get(['currentKey', 'currentObjectURL', 'isVideoPlayerMode', 'isPhotoPlayerMode', 'isSeeking']);
         const shouldFlush = shouldFlushSongQueueOnPause({ // core/player-controls.js
-            isPaused: audioPlayer.paused, isEnded: audioPlayer.ended, isVideoPlayerMode, isPhotoPlayerMode,
+            isPaused: audioPlayer.paused, isEnded: audioPlayer.ended, isVideoPlayerMode, isPhotoPlayerMode, isSeeking,
             currentKey, currentObjectURL, mediaSrc: audioPlayer.src,
         });
         if (!shouldFlush) return;

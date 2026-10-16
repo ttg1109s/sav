@@ -1,7 +1,7 @@
 /**
  * event/workflow/playlist-scope.js — Scope Playlist theo folder + nạp lại playlistCache theo Nguồn (Song/Video/Photo).
  *
- * Luồng chuẩn (boot, đổi Nguồn, tap/thoát folder, upload-refresh): gọi ĐÚNG 1 trong 2 —
+ * Luồng chuẩn (tap/thoát folder, upload-refresh; boot + đổi Nguồn qua `applyRememberedScope()`): gọi ĐÚNG 1 trong 2 —
  * `applyFolderScope(folderId, mediaType, onProgress?)` hoặc `applyAllSongsScope(mediaType, onProgress?)`. Bên trong:
  *   1. List — `listMediaRecords()`: có `folderId` -> chỉ đọc key của folder đó (progress "x/total" khớp số thật);
  *      không có -> cả thư viện. Đọc cả lô trong 1 transaction.
@@ -43,6 +43,12 @@ const PLAYLIST_CACHE_BUILD_BY_IS_SONG = {
 const MEDIA_RECORDS_BY_FOLDER_SCOPED = {
     true: (accessor, folderId, onProgress) => workflowPlaylistScope._listFolderMediaRecords(accessor, folderId, onProgress),
     false: (accessor, folderId, onProgress) => accessor.getAllRecords(onProgress),
+};
+
+// applyRememberedScope(): Nguồn có folder Scope đang nhớ -> áp folder đó; không -> cả thư viện.
+const PLAYLIST_SCOPE_APPLY_BY_HAS_FOLDER = {
+    true: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyFolderScope(folderId, mediaType, onProgress),
+    false: (folderId, mediaType, onProgress) => workflowPlaylistScope.applyAllSongsScope(mediaType, onProgress),
 };
 
 const workflowPlaylistScope = {
@@ -91,6 +97,12 @@ const workflowPlaylistScope = {
         appState.set('activePlayListFolder', next);
         console.log(`writer: "persistScopeChoice", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
         await setMeta('activePlayListFolder', next);
+    },
+
+    /** Áp Scope đang nhớ của 1 Nguồn (boot, đổi Nguồn): `folderId` null -> cả thư viện (vẫn lọc Exclude).
+     * @param {string|null} folderId @param {'song'|'video'|'photo'} mediaType @param {Function} [onProgress] */
+    applyRememberedScope(folderId, mediaType, onProgress) {
+        return PLAYLIST_SCOPE_APPLY_BY_HAS_FOLDER[!!folderId](folderId, mediaType, onProgress);
     },
 
     /**

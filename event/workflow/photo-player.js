@@ -109,7 +109,7 @@ const workflowPhotoPlayer = {
         const restorePromise = PHOTO_PLAYER_EXIT_VISUAL_BG_BY_RESTORE[restoreVisualBg](); // phần đồng bộ (dọn lớp, dừng surface) chạy ngay
         this._revokeThumbUrl();
         exitPhotoPlayerModeState(); // core/photo-player.js
-        releaseWakeLock(); // core/wakelock.js
+        workflowWakeLock.release();
         workflowListenStats.stopClock(); // event/workflow/listen-stats.js
 
         await restorePromise;
@@ -152,7 +152,7 @@ const workflowPhotoPlayer = {
         updatePhotoPlayerTimeLabels(formatTime(0), formatTime(durationSec)); // core/photo-player.js + core/playlist/state.js
         updatePhotoPlayerPlayPauseIcon(true);
 
-        requestWakeLock(); // core/wakelock.js
+        workflowWakeLock.request();
         workflowListenStats.startClock(); // event/workflow/listen-stats.js — Photo cũng đếm totalTime ("Watch time")
 
         if (previousKey && previousKey !== photoKey) workflowPlaylistRender.refreshSongNode(previousKey); // event/workflow/playlist-render.js

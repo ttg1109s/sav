@@ -357,7 +357,9 @@ const workflowRecorder = {
     /** Ngắt từ ngoài (pause tai nghe/màn hình khoá/cuộc gọi, mic bị thu hồi) — xử lý NHƯ X. Bước tuỳ chọn:
      * chỉ chạy khi đang ghi thật, nơi gọi gọi thẳng không điều kiện (event-bus-flow.md mục 7). */
     handleInterruption() {
-        if (appState.get('recordPhase') !== 'recording') return;
+        const { recordPhase, isSeeking } = appState.get(['recordPhase', 'isSeeking']);
+        if (recordPhase !== 'recording') return;
+        if (isSeeking) return; // guard — 'pause' do kéo thanh seek / cử chỉ seek-hold tự dừng media, không phải ngắt từ ngoài
         this._stopRecording();
     },
 

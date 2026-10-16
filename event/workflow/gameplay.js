@@ -65,7 +65,6 @@ const workflowGameplay = {
      * Game Panel (đúng hành động nút X, idempotent — phòng lối vào 'gameplay.mediaChanged'), chặn player control đáy màn
      * (gỡ ở exitToPlaylist()), đưa media về đầu. */
     start(mode) {
-        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayMode", content: "${mode}"`);
@@ -73,7 +72,7 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
 
         workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        workflowGameplayEngine.rewindActiveMedia(); // event/workflow/gameplay-engine.js
 
         setGameplayLayerMode(gameplayLayer, 'circle'); // core/gameplay/engine-ui.js — hiện canvas/tap-surface, ẩn stage Arrow
         showGameplayLayer(gameplayLayer); // core/gameplay/engine-ui.js
@@ -96,8 +95,7 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
         resetCircleBeatTrackerCounters(this._beatTracker, audioAnalysis.lastBeatTime()); // core/gameplay/circle-mode.js + service/audio-analysis.js
         this._nextSpawnIndex = 0;
-        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
-        playMediaElement(getActiveMediaElement(isVideoPlayerMode), '[workflowGameplay._beginPlaying]'); // core/media-element-ui.js + core/player-controls.js
+        workflowGameplayEngine.playActiveMedia(); // event/workflow/gameplay-engine.js
     },
 
     /** 'gameplay.tap.press' — chỉ tính khi đang 'playing' và media đang phát. @param {number} tapX @param {number} tapY - px
@@ -353,8 +351,7 @@ const workflowGameplay = {
 
     /** "Chơi lại" — media hiện tại về đầu rồi vào thẳng đếm ngược (phát thật ở _beginPlaying()). */
     replay() {
-        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        workflowGameplayEngine.rewindActiveMedia(); // event/workflow/gameplay-engine.js — vừa hết bài: qua cổng seek (iOS lọt đuôi tiếng cũ)
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
@@ -369,13 +366,12 @@ const workflowGameplay = {
 
     /** 'gameplay.exit.click' hoặc nút "Về Playlist" của modal — thoát hẳn Game Mode qua luồng Back to Playlist, media về đầu. */
     exitToPlaylist() {
-        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
 
-        resetGameplayMediaToStart(getActiveMediaElement(isVideoPlayerMode)); // core/gameplay/engine.js + core/player-controls.js
+        workflowGameplayEngine.rewindActiveMedia(); // event/workflow/gameplay-engine.js
         hideGameplayCountdown(gameplayCountdownScreen); // core/gameplay/engine-ui.js
         hideGameplayLayer(gameplayLayer); // core/gameplay/engine-ui.js
         setPlayerControlsBlocked(false); // core/player-controls.js — cặp với start()
