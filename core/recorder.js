@@ -1,9 +1,10 @@
 /**
- * core/recorder.js — Core THUẦN của chế độ Ghi âm. Mỗi hàm 1 việc, nhận tham số,
- * không appState.get(), không gọi core khác, không taskManager (Rule 1-3). Điều phối: event/workflow/recorder.js.
+ * core/recorder.js — Core chế độ Ghi âm: tính thuần + dựng/gỡ audio graph + chạy/dừng MediaRecorder nhận qua tham số.
+ * Không appState.get(), không gọi core khác, không taskManager. Điều phối: event/workflow/recorder.js.
  *
- * Mic luôn thu thô (echoCancellation/noiseSuppression/autoGainControl = false — Android Chrome bật EC thì chuyển sang chế độ cuộc gọi, đẩy tiếng ra loa thoại; Safari bật EC
- * thì hạ mạnh mức mic). 2 CHẾ ĐỘ THU (`mode`, Settings > System > Ghi âm):
+ * Mic luôn thu thô (echoCancellation/noiseSuppression/autoGainControl = false — Android Chrome bật EC thì chuyển sang
+ * chế độ cuộc gọi, đẩy tiếng ra loa thoại; Safari bật EC thì hạ mạnh mức mic).
+ * 2 CHẾ ĐỘ THU (`mode`, Settings > System > Ghi âm):
  *   - 'speaker'    (Loa ngoài): CHỈ mic — nhạc phát ra loa + giọng cùng vào mic (không trộn nhạc gốc: tránh nhạc vào bản
  *                  ghi 2 lần, không cần Sync vì cả 2 tới mic cùng lúc). buildRecorderMicOnlyGraph().
  *   - 'headphones' (Tai nghe): nhạc gốc + mic, nhạc trễ theo Sync để khớp giọng (graph dưới). buildRecorderMixGraph().
@@ -105,6 +106,19 @@ function normalizeRecorderQuality(value) {
     return Object.prototype.hasOwnProperty.call(RECORDER_QUALITY_BITRATE, value) ? value : RECORDER_QUALITY_DEFAULT;
 }
 
+/** MIME đầu tiên trong RECORDER_MIME_CANDIDATES mà MediaRecorder hỗ trợ (định dạng theo OS); không có -> '' (để trình
+ * duyệt chọn). @param {Function} mediaRecorderCtor - window.MediaRecorder @returns {string} */
+function resolveRecorderMimeType(mediaRecorderCtor) {
+    return RECORDER_MIME_CANDIDATES.find((candidate) => mediaRecorderCtor.isTypeSupported(candidate)) || '';
+}
+
+/** AudioContext chưa chạy (vừa tạo / bị treo) -> resume, đợi xong mới dựng graph. @param {AudioContext} audioContext
+ * @returns {Promise<void>} */
+function resumeRecorderAudioContext(audioContext) {
+    if (audioContext.state === 'running') return Promise.resolve();
+    return audioContext.resume();
+}
+
 /** Tuỳ chọn MediaRecorder: MIME (đã lọc hỗ trợ, rỗng = để trình duyệt chọn) + bitrate theo chất lượng.
  * @param {string} mimeType @param {string} quality @returns {MediaRecorderOptions} */
 function buildRecorderOptions(mimeType, quality) {
@@ -122,10 +136,11 @@ function clampRecorderLatencyMs(ms) {
 }
 
 /**
- * Graph ghi chế độ 'speaker': CHỈ mic vào bản ghi (nhạc tới mic qua loa). Không chạm graph phát nhạc.
+ * Graph ghi chế độ 'speaker': CHỈ mic vào bản ghi (nhạc tới mic qua loa). Không chạm graph phát nhạc. `levelBuf` = khung
+ * đo mức mic, tái dùng mỗi tick.
  * @param {AudioContext} audioContext @param {MediaStream} micStream @param {number} micAnalyserFftSize
  * @returns {{destination: MediaStreamAudioDestinationNode, musicTapNode: null, musicDelay: null,
- *   micSource: MediaStreamAudioSourceNode, micAnalyser: AnalyserNode}}
+ *   micSource: MediaStreamAudioSourceNode, micAnalyser: AnalyserNode, levelBuf: Float32Array}}
  */
 function buildRecorderMicOnlyGraph(audioContext, micStream, micAnalyserFftSize) {
     const destination = audioContext.createMediaStreamDestination();
@@ -134,23 +149,21 @@ function buildRecorderMicOnlyGraph(audioContext, micStream, micAnalyserFftSize) 
     const micAnalyser = audioContext.createAnalyser();
     micAnalyser.fftSize = micAnalyserFftSize;
     micSource.connect(micAnalyser);
-    return { destination, musicTapNode: null, musicDelay: null, micSource, micAnalyser };
+    return { destination, musicTapNode: null, musicDelay: null, micSource, micAnalyser, levelBuf: new Float32Array(micAnalyser.fftSize) };
 }
 
 /**
- * Dựng graph ghi chế độ 'headphones' (sơ đồ đầu file). KHÔNG đụng nhánh ra loa/phân tích hiện có — chỉ THÊM 1 kết nối từ `musicTapNode`.
- * @param {AudioContext} audioContext
- * @param {AudioNode} musicTapNode - masterGainNode
- * @param {MediaStream} micStream
- * @param {number} delaySec - bù trễ giọng (giây)
- * @param {number} micAnalyserFftSize
+ * Graph ghi chế độ 'headphones' (sơ đồ đầu file). KHÔNG đụng nhánh ra loa/phân tích hiện có — chỉ THÊM 1 kết nối từ
+ * `musicTapNode`. Sync (ms) đổi sang giây, kẹp theo trần DelayNode.
+ * @param {AudioContext} audioContext @param {AudioNode} musicTapNode - masterGainNode @param {MediaStream} micStream
+ * @param {number} latencyMs - bù trễ giọng @param {number} micAnalyserFftSize
  * @returns {{destination: MediaStreamAudioDestinationNode, musicTapNode: AudioNode, musicDelay: DelayNode,
- *   micSource: MediaStreamAudioSourceNode, micAnalyser: AnalyserNode}}
+ *   micSource: MediaStreamAudioSourceNode, micAnalyser: AnalyserNode, levelBuf: Float32Array}}
  */
-function buildRecorderMixGraph(audioContext, musicTapNode, micStream, delaySec, micAnalyserFftSize) {
+function buildRecorderMixGraph(audioContext, musicTapNode, micStream, latencyMs, micAnalyserFftSize) {
     const destination = audioContext.createMediaStreamDestination();
     const musicDelay = audioContext.createDelay(RECORDER_DELAY_NODE_MAX_SEC);
-    musicDelay.delayTime.value = Math.max(0, Math.min(RECORDER_DELAY_NODE_MAX_SEC, delaySec));
+    musicDelay.delayTime.value = Math.max(0, Math.min(RECORDER_DELAY_NODE_MAX_SEC, latencyMs / 1000));
     musicTapNode.connect(musicDelay);
     musicDelay.connect(destination);
 
@@ -160,7 +173,25 @@ function buildRecorderMixGraph(audioContext, musicTapNode, micStream, delaySec, 
     micAnalyser.fftSize = micAnalyserFftSize;
     micSource.connect(micAnalyser);
 
-    return { destination, musicTapNode, musicDelay, micSource, micAnalyser };
+    return { destination, musicTapNode, musicDelay, micSource, micAnalyser, levelBuf: new Float32Array(micAnalyser.fftSize) };
+}
+
+/** Bắt đầu thu, gom dữ liệu theo từng `timesliceMs` (dừng đột ngột vẫn còn gần đủ).
+ * @param {MediaRecorder} mediaRecorder @param {number} timesliceMs */
+function startRecorderCapture(mediaRecorder, timesliceMs) {
+    mediaRecorder.start(timesliceMs);
+}
+
+/** Dừng thu. stop() ném lỗi (hiếm) -> false, nơi gọi lấy luôn phần đã thu. @param {MediaRecorder} mediaRecorder
+ * @returns {boolean} */
+function stopRecorderCapture(mediaRecorder) {
+    try {
+        mediaRecorder.stop();
+        return true;
+    } catch (err) {
+        console.warn('[recorder] MediaRecorder.stop() lỗi:', err);
+        return false;
+    }
 }
 
 /**
@@ -181,35 +212,49 @@ function stopMediaStreamTracks(stream) {
     stream.getTracks().forEach((track) => track.stop());
 }
 
-/** Mức mic 0..1 từ 1 khung time-domain (RMS, nhân hệ số để giọng nói thường ~0.3-0.8). @param {Float32Array} buf @returns {number} */
-function computeRecorderMicLevel(buf) {
-    let sum = 0;
-    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-    const rms = Math.sqrt(sum / (buf.length || 1));
-    return Math.min(1, rms * 4);
+/** Số giây đã ghi. @param {number} startedAtMs @param {number} nowMs - cùng thang performance.now() @returns {number} */
+function computeRecorderElapsedSec(startedAtMs, nowMs) {
+    return (nowMs - startedAtMs) / 1000;
 }
 
-/** Clip warning: biên độ đỉnh |mẫu| của 1 khung time-domain (0..1+). @param {Float32Array} buf @returns {number} */
-function computeRecorderMicPeak(buf) {
+/**
+ * Vạch mức mic của overlay từ 1 khung time-domain, 1 lượt quét: mức 0..1 (RMS × 4 — giọng nói thường ~0.3-0.8) và Clip
+ * warning (đỉnh |mẫu| ≥ RECORDER_CLIP_THRESHOLD -> giữ đỏ tới now + RECORDER_CLIP_HOLD_MS).
+ * @param {Float32Array} buf @param {number} nowMs @param {number} clipUntilMs - mốc giữ đỏ hiện tại
+ * @returns {{level: number, clipUntilMs: number, isClipping: boolean}}
+ */
+function computeRecorderMeterView(buf, nowMs, clipUntilMs) {
+    let sum = 0;
     let peak = 0;
     for (let i = 0; i < buf.length; i++) {
-        const v = Math.abs(buf[i]);
-        if (v > peak) peak = v;
+        const v = buf[i];
+        sum += v * v;
+        peak = Math.max(peak, Math.abs(v));
     }
-    return peak;
+    const level = Math.min(1, Math.sqrt(sum / (buf.length || 1)) * 4);
+    const nextClipUntilMs = peak >= RECORDER_CLIP_THRESHOLD ? nowMs + RECORDER_CLIP_HOLD_MS : clipUntilMs;
+    return { level, clipUntilMs: nextClipUntilMs, isClipping: nowMs < nextClipUntilMs };
+}
+
+/** 1 nhịp Count-in: trừ 1 giây; hết (≤ 0) -> bắt đầu ghi. @param {number} remaining
+ * @returns {{remaining: number, isDone: boolean}} */
+function computeRecorderCountInStep(remaining) {
+    const next = remaining - 1;
+    return { remaining: next, isDone: next <= 0 };
 }
 
 // ===================== Latency calibration =====================
 
 /**
- * Graph đo trễ: N tiếng tick (sóng sin ngắn, có bao biên) lên lịch từ `startAt` -> (a) loa/tai nghe, (b) kênh 0 của bộ
- * gộp (tín hiệu GỐC); mic -> kênh 1. Bộ gộp -> ScriptProcessor (2 kênh vào; Workflow nhận mẫu qua core/dynamic-object-ui.js::listenAudioProcess()) ->
- * gain 0 -> destination (để trình duyệt chịu chạy processor). Hai kênh đi qua CÙNG 1 lượt render nên độ lệch tick giữa
- * 2 kênh = đúng độ lệch giữa nhánh nhạc gốc và mic trong graph ghi.
- * @param {AudioContext} audioContext @param {MediaStream} micStream @param {number} startAt - audioContext.currentTime + lead
+ * Graph đo trễ: N tiếng tick (sóng sin ngắn, có bao biên) lên lịch từ sau RECORDER_CALIB_LEAD_SEC -> (a) loa/tai nghe,
+ * (b) kênh 0 của bộ gộp (tín hiệu GỐC); mic -> kênh 1. Bộ gộp -> ScriptProcessor (2 kênh vào; Workflow nhận mẫu qua
+ * core/dynamic-object-ui.js::listenAudioProcess()) -> gain 0 -> destination (để trình duyệt chịu chạy processor). Hai
+ * kênh đi qua CÙNG 1 lượt render nên độ lệch tick giữa 2 kênh = đúng độ lệch giữa nhánh nhạc gốc và mic trong graph ghi.
+ * @param {AudioContext} audioContext @param {MediaStream} micStream
  * @returns {{processor: ScriptProcessorNode, nodes: AudioNode[], endAt: number}}
  */
-function buildLatencyCalibrationGraph(audioContext, micStream, startAt) {
+function buildLatencyCalibrationGraph(audioContext, micStream) {
+    const startAt = audioContext.currentTime + RECORDER_CALIB_LEAD_SEC;
     const merger = audioContext.createChannelMerger(2);
     const processor = audioContext.createScriptProcessor(RECORDER_CALIB_PROCESSOR_SIZE, 2, 2);
     const sink = audioContext.createGain();
@@ -252,6 +297,14 @@ function disposeLatencyCalibrationGraph(graph) {
  * @param {number} endAt - graph.endAt (giây, thang audioContext) @param {number} currentTime @returns {number} */
 function computeRecorderCalibrationWaitMs(endAt, currentTime) {
     return Math.max(0, (endAt - currentTime) * 1000);
+}
+
+/** Nối các khối mẫu đã thu (theo thứ tự) thành 1 mảng liền. @param {Float32Array[]} parts @returns {Float32Array} */
+function concatRecorderSamples(parts) {
+    const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+    let offset = 0;
+    parts.forEach((p) => { out.set(p, offset); offset += p.length; });
+    return out;
 }
 
 /**
@@ -306,13 +359,14 @@ function detectCalibrationLatencyMs(refChannel, micChannel, sampleRate) {
 
 /**
  * Đỉnh biên độ theo `bucketCount` cột cho mini waveform — lấy max |mẫu| của MỌI kênh trong từng cột, rồi chuẩn hoá
- * theo đỉnh lớn nhất (bản ghi nhỏ tiếng vẫn hiện rõ hình dạng). Không có kênh nào (giải mã thất bại) -> mảng 0.
- * @param {Float32Array[]} channels @param {number} bucketCount @returns {Float32Array} giá trị 0..1
+ * theo đỉnh lớn nhất (bản ghi nhỏ tiếng vẫn hiện rõ hình dạng). Không giải mã được (null) / rỗng -> mảng 0.
+ * @param {AudioBuffer|null} audioBuffer @param {number} bucketCount @returns {Float32Array} giá trị 0..1
  */
-function computeWaveformPeaks(channels, bucketCount) {
+function computeWaveformPeaks(audioBuffer, bucketCount) {
     const peaks = new Float32Array(bucketCount);
-    if (!channels.length || !channels[0].length) return peaks;
-    const length = channels[0].length;
+    if (!audioBuffer || !audioBuffer.numberOfChannels || !audioBuffer.length) return peaks;
+    const channels = Array.from({ length: audioBuffer.numberOfChannels }, (_, i) => audioBuffer.getChannelData(i));
+    const length = audioBuffer.length;
     const samplesPerBucket = Math.max(1, Math.floor(length / bucketCount));
     let globalMax = 0;
     for (let b = 0; b < bucketCount; b++) {
@@ -332,6 +386,17 @@ function computeWaveformPeaks(channels, bucketCount) {
     if (globalMax <= 0) return peaks;
     for (let b = 0; b < bucketCount; b++) peaks[b] = peaks[b] / globalMax;
     return peaks;
+}
+
+/** Tỉ lệ đã phát của bản nghe thử (0 khi chưa biết thời lượng). @param {number} currentTimeSec @param {number} durationSec
+ * @returns {number} */
+function computeRecorderPreviewProgress(currentTimeSec, durationSec) {
+    return durationSec > 0 ? currentTimeSec / durationSec : 0;
+}
+
+/** Chạm waveform -> giây cần tua (tỉ lệ kẹp 0..1). @param {number} ratio @param {number} durationSec @returns {number} */
+function computeRecorderPreviewSeekSec(ratio, durationSec) {
+    return Math.max(0, Math.min(1, ratio)) * durationSec;
 }
 
 /** Bỏ tham số (";codecs=...") + hạ chữ thường: 'audio/webm;codecs=opus' -> 'audio/webm'. @param {string} mime @returns {string} */

@@ -1,10 +1,9 @@
 /**
- * core/recorder-ui.js — Core-UI chế độ Ghi âm. Rule 5c: file có `wireRecorderReviewBody()` gắn sự kiện lên DOM ĐỘNG
- * (bodyHtml của modalChoice — tạo mới mỗi lần mở, không có sẵn lúc boot nên không wire được ở event/listener/) và
- * `wireRecorderMicEnded()` gắn lên track mic (tạo mỗi lần xin mic) -> hậu tố -ui. Các hàm còn lại chỉ đọc/ghi DOM nhận qua tham số, không tự quyết định nghiệp vụ.
- * Điều phối: event/workflow/recorder.js.
+ * core/recorder-ui.js — Core-UI chế độ Ghi âm: ghi DOM nhận qua tham số, tạo `<audio>` nghe thử, vẽ mini waveform, và
+ * wire DOM/đối tượng tạo động (modal nghe lại — bodyHtml của modalChoice; track mic — tạo mỗi lần xin mic; callback chỉ
+ * eventBus.send). Điều phối: event/workflow/recorder.js.
  *
- * NẠP SAU: event/bus.js chỉ cần lúc CLICK (không lúc nạp) — vị trí nạp tự do sau core/dom-refs.js.
+ * NẠP SAU: core/dom-refs.js. event/bus.js chỉ cần lúc chạm.
  */
 
 /** Màu mini waveform — phần đã phát / chưa phát (cố định, đọc rõ trên cả nền sáng lẫn tối của modal). */
@@ -24,6 +23,15 @@ function setRecorderTimerText(timerEl, text) { timerEl.textContent = text; }
 /** 5 vạch mức mic co giãn theo 1 biến CSS (assets/css/recorder.css tự tính độ cao từng vạch) — 1 lần ghi DOM/tick.
  * @param {HTMLElement} levelEl @param {number} level 0..1 */
 function setRecorderLevel(levelEl, level) { levelEl.style.setProperty('--rec-level', level.toFixed(3)); }
+
+/** `<audio>` nghe lại bản ghi — NGOÀI audio graph chính (visualizer không nhảy theo), phát lặp, tải trước.
+ * @returns {HTMLAudioElement} */
+function createRecorderPreviewAudio() {
+    const audioEl = new Audio();
+    audioEl.loop = true;
+    audioEl.preload = 'auto';
+    return audioEl;
+}
 
 /**
  * Wire modal nghe lại (Rule 5a — callback CHỈ eventBus.send, gom 1 khối). Tỉ lệ vị trí chạm trên waveform tính ngay
@@ -85,13 +93,14 @@ function drawRecorderWaveform(canvasEl, peaks, progressRatio, dpr) {
 }
 
 /**
- * Đồng bộ nút phát/dừng + nhãn giờ của modal nghe lại.
- * @param {HTMLElement} bodyEl @param {boolean} isPlaying @param {string} timeText
+ * Đồng bộ nút phát/dừng + nhãn giờ "vị trí / thời lượng" của modal nghe lại (ghi nhãn chỉ khi đổi).
+ * @param {HTMLElement} bodyEl @param {boolean} isPlaying @param {string} currentLabel @param {string} durationLabel
  */
-function setRecorderPreviewState(bodyEl, isPlaying, timeText) {
+function setRecorderPreviewState(bodyEl, isPlaying, currentLabel, durationLabel) {
     const playIcon = bodyEl.querySelector('#recorder-preview-icon-play');
     const pauseIcon = bodyEl.querySelector('#recorder-preview-icon-pause');
     const timeEl = bodyEl.querySelector('#recorder-preview-time');
+    const timeText = `${currentLabel} / ${durationLabel}`;
     if (playIcon) playIcon.classList.toggle('hidden', isPlaying);
     if (pauseIcon) pauseIcon.classList.toggle('hidden', !isPlaying);
     if (timeEl && timeEl.textContent !== timeText) timeEl.textContent = timeText;
