@@ -33,7 +33,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Muốn sửa... | Vào file... |
 |---|---|
 | Khởi động app (seed config, nạp DB, dựng playlist) | `event/workflow/app-boot.js` (cụm `appBoot`); dọn khi thoát `event/workflow/app-cleanup.js`; khôi phục `core/app-recovery.js` |
-| Ẩn/hiện tab, PWA quay lại, AudioContext bị treo | `event/listener/app-visibility.js` → `event/router/app-visibility.js` → `event/workflow/app-visibility.js`; theo dõi tab `event/tab.js`; wakelock `core/wakelock.js` (state `service/state/wakelock-tab.js`) |
+| Ẩn/hiện tab, PWA quay lại, AudioContext bị treo | `event/listener/app-visibility.js` → `event/router/app-visibility.js` → `event/workflow/app-visibility.js`; theo dõi tab `event/tab.js`; wakelock `event/listener/wakelock.js` → `event/router/wakelock.js` → `event/workflow/wakelock.js` (core `core/wakelock.js`, state `service/state/wakelock-tab.js`); điều kiện phát nền `core/app-visibility.js` |
 | Thanh điều hướng dưới, chồng view | `components/app-bottom-nav.js`, `components/app-view-stack.js`; logic cụm `appPanelNav` (`core/app-panel-nav.js`, `event/workflow/app-panel-nav.js`, state `service/state/app-panel-nav.js`) |
 | Nút mũi tên cuộn thanh công cụ Subtitle Editor | `core/slider-panel-scroll.js` |
 | Màn Settings chính, carousel | `components/settings/app-settings-main.js`, `core/app-settings-ui.js`, `core/settings-carousel-ui.js`; cụm `appSettings` |

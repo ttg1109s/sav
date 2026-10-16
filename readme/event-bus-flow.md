@@ -84,7 +84,6 @@ trong code là:
 | File | Gắn gì | Lý do |
 |---|---|---|
 | `event/tab.js` | `beforeunload` trên `window` | Lifecycle trình duyệt |
-| `core/wakelock.js` | `touchstart`/`click` `{ once: true }` trên `body` | Xin lại wakelock sau cử chỉ người dùng đầu tiên (yêu cầu của trình duyệt) |
 | `core/playlist/loader.js`, `core/playlist/render.js` | Sự kiện media một lần (dò `duration`) | Đọc metadata, không phải tương tác người dùng |
 | `core/modal-choice-ui.js` — `modalChoice()` | Click nút/overlay của mọi modal động | Hạ tầng dùng chung, xem 3 điều kiện ngay dưới |
 | `core/dynamic-object-ui.js` | Sự kiện của đối tượng TẠO ĐỘNG (danh sách nơi dùng ngay dưới) | Giang chốt phương án (y) 13/10/2026, xem mục ngay dưới |
@@ -185,7 +184,7 @@ Tính năng mới nào mở Generic Drawer phải tự đăng ký block cho `msg
 ## 3. Router — switch theo `msg.type`
 
 Mỗi cụm (`playlist`, `visualizerDisplay`, `recorder`...) có đúng 1 router, tự
-`eventBus.register(name, routerObject)` lúc nạp — 43 router hiện có (danh sách ở
+`eventBus.register(name, routerObject)` lúc nạp — 44 router hiện có (danh sách ở
 [where-to-edit.md](./where-to-edit.md)). `handle(msg)` switch theo `msg.type` (namespace `<router>.<action>.<event>`),
 mỗi case đi 1 trong 3 hướng ở mục 4. Router chỉ điều phối: không đọc `appState` để nuôi core, không gọi `service/`,
 không tự tính dữ liệu cho bước sau.

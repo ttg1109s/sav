@@ -413,6 +413,7 @@ của group.
 188. `core/subtitle/subtitle-karaoke-display.js`
 189. `core/subtitle/subtitle-karaoke-display-ui.js`
 190. `core/wakelock.js`
+190a. `core/app-visibility.js` — MỚI 16/10/2026 (phép tính thuần ẩn/hiện app — đợt 13)
 191. `core/color-utils.js`
 192. `core/canvas-scene-setup.js`
 193. `core/song-search.js`
@@ -628,6 +629,9 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 368. `event/workflow/theme.js`
 369. `event/router/theme.js` — cần: `event/bus.js` (eventBus)
 370. `event/listener/theme.js` — cần: `core/dom-refs.js` (appStack)
+370a. `event/workflow/wakelock.js` — MỚI 16/10/2026 (đợt 13)
+370b. `event/router/wakelock.js` — cần: `event/bus.js` (eventBus)
+370c. `event/listener/wakelock.js` — cần: `event/bus.js` (eventBus)
 371. `event/workflow/app-visibility.js`
 372. `event/router/app-visibility.js` — cần: `event/bus.js` (eventBus)
 373. `event/listener/app-visibility.js`
