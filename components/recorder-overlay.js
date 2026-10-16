@@ -1,21 +1,20 @@
 /**
- * Component: overlay Ghi âm (MỚI 01/10/2026, Giang yêu cầu "khi ghi chặn tất cả cử chỉ/control, giống như game") —
- * khung TĨNH, mount 1 LẦN lúc boot bên trong TPL_VISUALIZER_OVERLAY (components/visualizer-overlay.js nội suy
- * `${TPL_RECORDER_OVERLAY}` — PHẢI nạp file NÀY TRƯỚC file đó). Rule 5d: khung không đổi giữa các lần -> hằng chuỗi tĩnh.
+ * Component: overlay Ghi âm — khung TĨNH, mount 1 LẦN lúc boot bên trong TPL_VISUALIZER_OVERLAY
+ * (components/visualizer-overlay.js nội suy `${TPL_RECORDER_OVERLAY}` — PHẢI nạp file NÀY TRƯỚC file đó). Khi ghi, chặn
+ * mọi cử chỉ/điều khiển như Game.
  *
- * `#recorder-layer` — CÙNG khuôn `#gameplay-layer` (components/gameplay-overlay.js): nằm trong stacking context của
- * `#visualizer-ui`, z 66 (trên #gameplay-layer 65, trên phụ đề 60) — lớp phủ TRONG SUỐT, chiếm mọi chạm của
- * #visualizer-gesture-surface/top bar/Control Center; visualizer + phụ đề karaoke vẫn nhìn thấy bên dưới. Thanh player
- * dưới đáy (#player-container, ngoài stacking context này) chặn riêng bằng setPlayerControlsBlocked() như Game.
+ * `#recorder-layer` — cùng khuôn `#gameplay-layer` (components/gameplay-overlay.js): trong stacking context của
+ * `#visualizer-ui`, z 66 (trên #gameplay-layer 65, trên phụ đề 60) — lớp phủ TRONG SUỐT nuốt mọi chạm của
+ * #visualizer-gesture-surface/top bar/Control Center; visualizer + phụ đề karaoke vẫn thấy bên dưới. Thanh player dưới
+ * đáy (#player-container, ngoài stacking context này) chặn riêng bằng setPlayerControlsBlocked() như Game.
  *
- * `#btn-recorder-stop` (X) — ĐÚNG vị trí #btn-open-control-center (top-4 left-3 sm:left-6), cùng #btn-gameplay-exit.
- * `#recorder-indicator` — chấm đỏ nhấp nháy + "REC" + đồng hồ + 5 vạch mức mic; viền đỏ thở quanh màn hình
- * (`.recorder-edge-glow`). CSS: assets/css/recorder.css.
- * MỚI (07/10/2026) — `#recorder-countin`: số đếm ngược lớn giữa màn (Count-in, ẩn khi không đếm); lớp `.is-counting` trên
- * #recorder-layer làm mờ viên REC trong lúc đếm; lớp `.is-clipping` trên #recorder-indicator tô đỏ vạch mức mic (Clip warning).
+ * `#btn-recorder-stop` (X) — đúng vị trí #btn-open-control-center (top-4 left-3 sm:left-6), cùng #btn-gameplay-exit.
+ * `#recorder-indicator` — chấm đỏ nhấp nháy + "REC" + đồng hồ + 5 vạch mức mic (`.is-clipping` tô đỏ — Clip warning);
+ * viền đỏ thở quanh màn hình (`.recorder-edge-glow`). `#recorder-countin` — số đếm ngược lớn giữa màn (Count-in);
+ * `.is-counting` trên #recorder-layer làm mờ viên REC lúc đếm. CSS: assets/css/recorder.css.
  *
- * `renderRecorderReviewBody()` — bodyHtml của modal nghe lại (modalChoice, core/modal-choice-ui.js): canvas mini
- * waveform + nút phát/dừng + nhãn giờ. Tương tác wire ở core/recorder-ui.js::wireRecorderReviewBody().
+ * `renderRecorderReviewBody()` — bodyHtml của modal nghe lại (modalChoice): canvas mini waveform + nút phát/dừng + nhãn
+ * giờ. Tương tác wire ở core/recorder-ui.js::wireRecorderReviewBody().
  */
 const TPL_RECORDER_OVERLAY = `
             <div id="recorder-layer" class="hidden absolute inset-0 pointer-events-auto">
@@ -36,13 +35,12 @@ const TPL_RECORDER_OVERLAY = `
             </div>
 `;
 
-/** bodyHtml modal nghe lại — hàm render (Rule 5d) vì nội suy t() lúc mở. Không có dữ liệu người dùng nào trong chuỗi. */
+/** bodyHtml modal nghe lại — hàm render vì nội suy t() lúc mở; không có dữ liệu người dùng trong chuỗi. Kích thước khung
+ * đặt inline (không phụ thuộc recorder.css đã nạp chưa) + canvas position:absolute: kích thước nội tại của canvas không
+ * đẩy được layout — drawRecorderWaveform() đo theo KHUNG, không đo canvas. */
 function renderRecorderReviewBody() {
     return `
         <div class="flex flex-col gap-3">
-            <!-- SỬA (02/10/2026, Giang báo lỗi layout) — kích thước khung đặt INLINE (không phụ thuộc assets/css/recorder.css
-                 đã nạp hay chưa) + canvas position:absolute: kích thước nội tại của canvas KHÔNG BAO GIỜ đẩy được layout,
-                 drawRecorderWaveform() đo theo KHUNG chứ không đo chính canvas (xem core/recorder-ui.js). -->
             <div class="recorder-review-wave-wrap" style="position:relative;width:100%;height:72px;overflow:hidden;border-radius:0.75rem;">
                 <canvas id="recorder-review-wave" class="recorder-review-wave" style="position:absolute;left:0;top:0;width:100%;height:100%;display:block;"></canvas>
             </div>
