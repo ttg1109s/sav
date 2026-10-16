@@ -184,6 +184,12 @@ function wireAudioOutputGraph(eqOutputNode, masterGainNode, volumeGainNode, anal
             return state;
         }
 
+        /** Đóng AudioContext lúc trang unload (chưa có / đã đóng thì thôi). @param {AudioContext|null|undefined} audioContext */
+        function closeAudioContextIfOpen(audioContext) {
+            if (!audioContext || audioContext.state === 'closed') return;
+            audioContext.close();
+        }
+
         // (25/09/2026) 2 hàm cổng seek v2 (setAudioOutputConnected/readAnalyserRms) ĐÃ XOÁ — cổng v3 không còn ngắt loa/đo
         // analyser, xem event/workflow/player-controls.js::runGatedSeek().
 

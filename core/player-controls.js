@@ -141,9 +141,14 @@
         }
 
         /** Đưa lớp cha sân khấu hình Visualizer (`#visualizer-stage`, index.html — video/ảnh nền, lớp Motion, 2 canvas
-         * effect) ra khỏi cây render hoặc trả lại. Media vẫn phát tiếng (chỉ ẩn hình). @param {boolean} isOffstage */
-        function setVisualStageOffstage(isOffstage) {
-            document.getElementById('visualizer-stage').classList.toggle('visualizer-stage-offstage', isOffstage);
+         * effect) ra khỏi cây render hoặc trả lại. Media vẫn phát tiếng (chỉ ẩn hình). `keepVideo` (Video Player mode): chỉ ẩn
+         * bằng visibility, `#bg-video` vẫn hiện trong cây render — `<video>` bị display:none thì iOS tự pause nó (sau khi cổng
+         * seek đã nạp lại nguồn + play() không do người dùng bấm), kéo theo cổng xả hàng đợi lúc pause chạy oan.
+         * @param {boolean} isOffstage @param {boolean} keepVideo */
+        function setVisualStageOffstage(isOffstage, keepVideo) {
+            const stageEl = document.getElementById('visualizer-stage');
+            stageEl.classList.toggle('visualizer-stage-offstage', isOffstage && !keepVideo);
+            stageEl.classList.toggle('visualizer-stage-offstage-keep-video', isOffstage && keepVideo);
         }
 
         /** Video nền đang thật sự hiển thị (VBG-Video của Song: `#bg-video` gỡ 'hidden' + có nguồn). @returns {boolean} */
@@ -475,12 +480,13 @@
          * MỚI (29/09/2026, Giang chọn "xả hàng đợi lúc pause") — 'pause' vừa tới có phải lần DỪNG THẬT của đúng bài Song
          * đang nạp (sẽ resume lại chính bài này) không, để Workflow xả hàng đợi tiếng iOS ngay (nạp lại + seek về chỗ dừng).
          * Loại trừ: media vẫn đang phát (đã play lại trước khi sự kiện tới), hết bài ('pause' đi trước 'ended' — nạp lại lúc
-         * này sẽ xoá luôn sự kiện 'ended' đang chờ, hỏng Next/lặp bài), đang ở Video/Photo Player mode hoặc đã bỏ bài
+         * này sẽ xoá luôn sự kiện 'ended' đang chờ, hỏng Next/lặp bài), đang kéo thanh seek / cử chỉ seek-hold (dừng để kéo — cổng
+         * chạy lúc thả tay), đang ở Video/Photo Player mode hoặc đã bỏ bài
          * (currentKey null), nguồn đã đổi/thu hồi (đổi bài: playMedia() thu hồi blob URL + pause trước khi gán src mới).
          * Thuần — mọi giá trị do Workflow đọc sẵn. @returns {boolean}
          */
-        function shouldFlushSongQueueOnPause({ isPaused, isEnded, isVideoPlayerMode, isPhotoPlayerMode, currentKey, currentObjectURL, mediaSrc }) {
-            return isPaused && !isEnded && !isVideoPlayerMode && !isPhotoPlayerMode && currentKey !== null && !!currentObjectURL && mediaSrc === currentObjectURL;
+        function shouldFlushSongQueueOnPause({ isPaused, isEnded, isVideoPlayerMode, isPhotoPlayerMode, isSeeking, currentKey, currentObjectURL, mediaSrc }) {
+            return isPaused && !isEnded && !isVideoPlayerMode && !isPhotoPlayerMode && !isSeeking && currentKey !== null && !!currentObjectURL && mediaSrc === currentObjectURL;
         }
 
         // [SỬA — plan-playmedia-reorg.md, xử lý triệt để] `handleAudioEnded()` ĐÃ XOÁ khỏi đây —
