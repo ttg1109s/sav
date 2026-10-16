@@ -91,19 +91,6 @@ function sumCleanupCounts(counts) {
 }
 
 /**
- * Gỡ Service Worker tải file lớn đời cũ (sw.js đã xoá 07/10/2026) + cache `sav-download-cache-v1` còn sót trên máy đã cài.
- * Workflow đọc danh sách đăng ký rồi truyền vào (event/workflow/app-boot.js). Giang hẹn xoá hàm này ở ver 14 — gom vào
- * đợt dọn `app-boot.js` (plan-debt-domains-13-10-2026.md).
- * @param {ServiceWorkerRegistration[]} registrations
- * @returns {Promise<void>}
- */
-async function retireLegacyDownloadServiceWorker(registrations) {
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-    await caches.delete('sav-download-cache-v1');
-    console.log(`[file-manager/cleanup] Đã gỡ ${registrations.length} Service Worker đời cũ + cache tải file lớn.`);
-}
-
-/**
  * Xoá 4 khoá `meta` mồ côi của cơ chế nền cũ (đã ngừng ghi): `videoBg`, `visualBgImage` (bản sao Blob — có thể hàng trăm
  * MB), `activeBackgroundAlbum`, `slideshowConfig`. Gọi lúc boot (event/workflow/app-boot.js); chạy lại không sao.
  * @returns {Promise<void>}
