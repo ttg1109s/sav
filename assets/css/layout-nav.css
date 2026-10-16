@@ -36,10 +36,13 @@
    - #app-stack.playlist-offstage: Playlist ra khỏi cây render sau khi trượt sang Visualizer xong, trả lại NGAY trước
      bước cuộn tới bài đang phát lúc quay về.
    - #visualizer-stage.visualizer-stage-offstage: lớp cha sân khấu hình Visualizer (index.html) ra khỏi cây render lúc
-     đang ở Playlist — media VẪN phát tiếng, chỉ ẩn hình. */
+     đang ở Playlist — media VẪN phát tiếng, chỉ ẩn hình. Video Player mode dùng .visualizer-stage-offstage-keep-video. */
 @media (max-width: 1023px) {
     #app-stack.playlist-offstage #side-left-container { display: none; }
     #visualizer-stage.visualizer-stage-offstage { display: none; }
+    /* Video Player mode: <video> phải còn trong cây render (display:none -> iOS tự pause video) — chỉ ẩn bằng visibility. */
+    #visualizer-stage.visualizer-stage-offstage-keep-video { visibility: hidden; }
+    #visualizer-stage.visualizer-stage-offstage-keep-video #bg-video { visibility: visible; }
 }
 
 /* #side-left-container: cuộn ngang THẬT (overflow-x), 2 "trang" #playlist-view/#drawer-settings
