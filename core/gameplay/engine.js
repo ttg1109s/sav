@@ -167,11 +167,19 @@ function setGameDifficultyPreference(gameId, difficulty) {
 }
 
 // ── Điều khiển media lúc chơi (Workflow không tự .pause()/.play()/.currentTime=, event-bus-flow.md §7.1) ──────────
-// `mediaEl` = getActiveMediaElement() (core/player-controls.js): audio hoặc video. Phát lúc hết đếm ngược dùng
-// playMediaElement() (core/media-element-ui.js).
+// `mediaEl` = getActiveMediaElement() (core/player-controls.js): audio hoặc video. Điều phối: workflowGameplayEngine.
+// rewindActiveMedia() / playActiveMedia() (event/workflow/gameplay-engine.js).
 
 /** Đưa media về đầu — PAUSE trước rồi seek 0 (seek trước có thể giật 1 khung lúc còn phát). Vô hại khi đã dừng/đã ở 0. */
 function resetGameplayMediaToStart(mediaEl) {
     mediaEl.pause();
     mediaEl.currentTime = 0;
+}
+
+/** Về đầu phải qua cổng seek (nạp lại nguồn) khi media ĐÃ dừng mà chưa ở đầu (vừa hết bài, dừng giữa chừng): không có
+ * 'pause' nào để xả hàng đợi tiếng iOS, gán `currentTime = 0` trần thì lần phát kế lọt đuôi tiếng cũ. Đang phát -> 'pause'
+ * THẬT tự xả (workflowPlayerControls/workflowVideoPlayer); đang ở 0 (vừa nạp) -> không có gì để xả.
+ * @param {boolean} isPaused @param {number} currentTimeSec @returns {boolean} */
+function shouldGateGameplayRewind(isPaused, currentTimeSec) {
+    return isPaused && currentTimeSec > 0;
 }
