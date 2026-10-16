@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
 Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
-(sau đợt 12): **826 FAIL / 79 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+(sau đợt 13): **807 FAIL / 75 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -85,7 +85,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 10 ✓ | 2 | Game | `core/gameplay/{game-panel-ui,engine-ui,engine,circle-mode}.js`, `event/workflow/{gameplay,gameplay-engine,game-catalog}.js` | 33 | đã xong | R5d 12 · WF-get 6 · WF-media 3 |
 | 11 ✓ | 3 | Photo Player (+ bỏ Game cho Photo) | `core/photo-player.js`, `event/workflow/{photo-player,photo-duration}.js` | 25 | đã xong | R4 6 · WF-get 6 · R2 3 · R3a 3 |
 | 12 ✓ | 3 | Phụ đề hiển thị · Visualizer UI (+ 3 bug phụ đề) | `event/workflow/subtitle-display.js`, `core/subtitle/subtitle-karaoke-display-ui.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-control-center.js`, `core/visualizer-gesture.js`, `event/workflow/{visualizer-display,visualizer-gesture}.js` | 36 | đã xong | WF-get 8 · WF-tính 7 · R3a 6 |
-| 13 | 3 | Vòng đời app (wakelock, ẩn/hiện, boot) | `core/wakelock.js`, `event/workflow/{app-visibility,app-boot,app-cleanup}.js` | 19 | 807 | WF-get 7 · R2 3 · WF-media 2 |
+| 13 ✓ | 3 | Vòng đời app (wakelock, ẩn/hiện, boot) | `core/wakelock.js`, `event/workflow/{app-visibility,app-boot,app-cleanup}.js` | 19 | đã xong | WF-get 7 · R2 3 · WF-media 2 |
 | 14 | 3 | Ghi âm | `event/workflow/recorder.js` | 17 | 790 | WF-media 8 · WF-DOM 3 |
 | 15 | 3 | Sửa ảnh | `event/workflow/image-edit.js`, `core/photo-editor-engine.js` | 39 | 751 | WF-DOM 17 · WF-§7 8 · WF-canvas 4 |
 | 16 | 3 | Config | `core/config.js` | 32 | 719 | R3a 11 · R3b 16 · TM-core 2 |
@@ -100,7 +100,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 25a/25b | 5 | Trang Video Editor | `core/video-editor/{webcodecs-engine,filmstrip}.js`, `event/workflow/video-preview.js` | 71 | 52 | WF-get 21 · WF-DOM 14 · WF-tính 12 · WF-§7 10 |
 | 26a/26b | Cuối | Hạ tầng UI dùng chung | 26a: `core/dropdown-menu.js`, `core/loading-shield-util.js`, `event/workflow/generic-drawer-helpers.js`, `core/modal-choice-ui.js` · 26b: `core/slider-input-modal.js`, `core/time-picker-modal.js`, `core/point-move-timing-ui.js` | 52 (+3 rAF) | 0 | R5a 17 · R3a 13 · R5c 3 · Timer 2 |
 
-Còn 826 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
+Còn 807 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
 
 ### Ghi chú theo đợt
 
@@ -134,7 +134,7 @@ Còn 826 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12; +10 dòn
   arm, chờ Song/Video kế. #record-art dựng qua `renderRecordArtHtml()` + `core/record-art-ui.js` — player.js (19b),
   video-player.js (20) còn tự dựng chuỗi y hệt, chuyển sang khi tới đợt đó. Bug sửa kèm: tên ảnh có `"`/`<` phá #record-art;
   ảnh cuối hết (Repeat tắt) icon vẫn "đang phát". Chi tiết: sổ, mục 1.
-- **13** — `app-boot.js::boot()`: phần lớn là K1 (~13 dòng `typeof workflowX`); nhánh Scope folder / cả thư viện dùng lại `SOURCE_SCOPE_APPLY_BY_HAS_FOLDER` của `switchSource()` (đưa map lên `workflowPlaylistScope`, không viết map thứ 2). Kèm xoá `retireLegacyDownloadServiceWorker()` (core/file-manager/cleanup.js) + `workflowAppBoot._retireLegacyDownloadServiceWorker()` — Giang hẹn xoá ở ver 14; để tới đợt này vì phải đụng `boot()`.
+- **13 ✓** — Xong 16/10/2026 (kèm 3 bug: seek-hold Song, Video ra/vào Playlist kích cổng seek, Chơi lại Game dư tiếng): Wake Lock thành cụm `wakeLock` (Workflow/Router/Listener MỚI, core chỉ thi hành); điều kiện phát nền ở core thuần MỚI `core/app-visibility.js`; boot bỏ 14 guard `typeof`, Scope dùng chung `workflowPlaylistScope.applyRememberedScope()`; xoá `retireLegacyDownloadServiceWorker()`. Game về đầu qua `workflowGameplayEngine.rewindActiveMedia()` (cổng seek khi media đã dừng giữa chừng/hết bài). Kéo seek Song (tay + cử chỉ) giờ dừng bài lúc kéo như Video; Video Player về Playlist giữ `<video>` trong cây render (ẩn bằng `visibility`). Còn để ngỏ: bắt đầu Game lúc **Video** đang phát — 'pause' tới lúc `readyState` < 2 (vừa gán `currentTime = 0`) nên không xả hàng đợi; chưa ai báo, xử lý ở đợt 20 nếu cần. Chi tiết: sổ, mục 1.
 - **13, 14, 19, 20** — Có iOS (phát nền, Media Session, khoá màn hình, mic): checklist máy bắt buộc.
 - **16** — `core/config.js` đọc `localStorage`/DB trong core và hẹn giờ ghi backup → Workflow config mới hoặc
   `workflowSettingsMisc`; boot phải chạy với config cũ, hỏng, thiếu field.
@@ -173,7 +173,6 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 
 | Dòng nợ | Đợt |
 |---|---|
-| `event/workflow/app-boot.js` — `boot` (if-else chọn Scope, gộp `get`) | 13 |
 | `event/workflow/playlist-scope.js` — `applyFolderScope` (gộp `get`) | 18b |
 | `event/workflow/playlist.js` — `uploadPhotos` (if-else chọn Scope, gộp `get`) | 18c |
 | `event/workflow/video-player.js` — `refreshVideoPlaylistIfActive` | 20 |
@@ -181,7 +180,6 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 
 **Còn chờ:**
 - Giang test máy 2 patch (checklist trong mô tả từng patch).
-- Đợt 13: xoá `retireLegacyDownloadServiceWorker()` (Giang hẹn ở ver 14).
 
 ## 6. Tiến độ
 
@@ -201,6 +199,7 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 | 10 ✓ — Game | Xong 14/10/2026 (`sav-14-debt-wave10-patch.zip`, áp SAU patch đợt 9), chờ test máy — 920 → 887 |
 | 11 ✓ — Photo Player (+ bỏ Game cho Photo) | Xong 14/10/2026 (`sav-14-debt-wave11-patch.zip`, áp SAU patch đợt 10), chờ test máy — 887 → 862 |
 | 12 ✓ — Phụ đề hiển thị · Visualizer UI (+ 3 bug phụ đề) | Xong 14/10/2026 (`sav-14-debt-wave12-patch.zip`, áp SAU patch đợt 11), chờ test máy — 862 → 826 |
-| Còn lại 13–26 | Chưa làm |
+| 13 ✓ — Vòng đời app (+ 3 bug) | Xong 16/10/2026 (`sav-14-debt-wave13-patch.zip`, áp SAU patch đợt 12), chờ test máy — 826 → 807 |
+| Còn lại 14–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
