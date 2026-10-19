@@ -113,6 +113,25 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.layerMenuDelete': 'Delete',
     // Tiêu đề modalChoice() "Sửa nội dung" (layer Text).
     'fileManager.photo.image.layerEditContentTitle': 'Edit text content',
+    // Layer Image (tool chèn ảnh từ thư viện), danh sách Layer (icon Layer trên header), biến đổi layer.
+    'fileManager.photo.image.editToolImage': 'Image',
+    'fileManager.photo.image.layersTitle': 'Layers',
+    'fileManager.photo.image.layersEmpty': 'No layers yet — add Text, Shape or Image from the Edit tools.',
+    'fileManager.photo.image.layerKindImage': 'Image',
+    'fileManager.photo.image.layerKindRect': 'Rectangle',
+    'fileManager.photo.image.layerKindCircle': 'Ellipse',
+    'fileManager.photo.image.layerKindLine': 'Line',
+    'fileManager.photo.image.layerKindArrow': 'Arrow',
+    'fileManager.photo.image.layerKindPolygon': 'Polygon',
+    'fileManager.photo.image.layerShow': 'Show / hide',
+    'fileManager.photo.image.layerOpacity': 'Opacity',
+    'fileManager.photo.image.layerDragHint': 'Drag to move',
+    'fileManager.photo.image.layerMenuTransform': 'Transform',
+    'fileManager.photo.image.transformFlipX': 'Flip horizontally',
+    'fileManager.photo.image.transformFlipY': 'Flip vertically',
+    'fileManager.photo.image.transformRotate90': 'Rotate 90°',
+    'fileManager.photo.image.transformReset': 'Reset transform',
+    'fileManager.photo.image.insertImageTitle': 'Insert an image',
     // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
     // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 3 key dưới đây (dùng bởi
     // uploadVideos()/picker "Use background video" — xem event/workflow/file-manager-video.js) —
