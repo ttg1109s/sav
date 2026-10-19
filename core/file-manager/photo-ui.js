@@ -1,7 +1,8 @@
 /**
  * core/file-manager/photo-ui.js — DOM modal xem/sửa ảnh full-screen (markup: components/image-preview-modal.js) và
  * config + wiring lưới công cụ Edit trong Generic Drawer. Xem/zoom/pan/sửa dùng chung 1 mặt: Panzoom gắn trên
- * `mediaWrap`, canvas vẽ đè lên `<img>` xem tạm khi decode xong (event/workflow/image-edit.js).
+ * `mediaWrap`, canvas vẽ đè lên `<img>` xem tạm khi decode xong (event/workflow/image-edit.js). Ghi DOM lúc sửa ảnh:
+ * core/image-edit-ui.js.
  *
  * NẠP SAU: service/z-index.js (Z_INDEX). Lúc chạy: instantiateComponent() (service/component-dynamic.js), genericDrawerHeader/
  * genericDrawerBody (core/dom-refs.js).
@@ -56,6 +57,7 @@ function openImagePreviewModal(html, url, filename) {
         layerCanvas: q('#image-edit-layer-canvas'),
         interactCanvas: q('#image-edit-interact-canvas'),
         toolsBtn: q('[data-image-preview-tools]'),
+        layersBtn: q('[data-image-preview-layers]'),
         header: q('[data-image-preview-header]'),
         adjustPopup: q('#image-edit-adjust-popup'),
         adjustLabelEl: q('#image-edit-adjust-label'),
@@ -69,6 +71,9 @@ function openImagePreviewModal(html, url, filename) {
         cropRatioPopup: q('#image-edit-crop-ratio-popup'),
         shapeTypePopup: q('#image-edit-shape-type-popup'),
         floatingText: q('#image-edit-floating-text'),
+        floatingTextarea: q('#image-edit-floating-textarea'),
+        floatingTextGrip: q('[data-floating-text-grip]'),
+        transformPopup: q('#image-edit-transform-popup'),
         drawControlsPopup: q('#image-edit-draw-popup'),
         drawBrushBtn: q('#image-edit-draw-brush'),
         drawEraserBtn: q('#image-edit-draw-eraser'),
@@ -99,6 +104,7 @@ function openImagePreviewModal(html, url, filename) {
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
     saveBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.save.click', payload: { anchorEl: saveBtn } }));
     handle.toolsBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.tools.click', payload: {} }));
+    handle.layersBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.layers.click', payload: {} }));
     handle.contextCancelBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.subTool.cancel.click', payload: {} }));
     handle.contextApplyBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.subTool.apply.click', payload: {} }));
     handle.adjustDoneBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.adjust.done.click', payload: {} }));
@@ -114,12 +120,21 @@ function openImagePreviewModal(html, url, filename) {
         if (!btn) return;
         eventBus.send({ router: 'imageEdit', type: 'imageEdit.shapeType.select.click', payload: { shapeType: btn.dataset.shapeType } });
     });
+    handle.transformPopup.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-transform-action]');
+        if (!btn) return;
+        eventBus.send({ router: 'imageEdit', type: 'imageEdit.transform.action.click', payload: { action: btn.dataset.transformAction } });
+    });
     interactCanvas.addEventListener('pointerdown', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerDown', payload: computeInteractPos(e.clientX, e.clientY) }));
     interactCanvas.addEventListener('pointermove', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerMove', payload: computeInteractPos(e.clientX, e.clientY) }));
     interactCanvas.addEventListener('pointerup', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerUp', payload: {} }));
     interactCanvas.addEventListener('pointerleave', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerUp', payload: {} })); // trượt ra ngoài lúc đang kéo = nhả tay
-    // Kéo tiếp (pointermove/up trên document) gắn 1 lần ở event/listener/image-edit.js.
-    handle.floatingText.addEventListener('pointerdown', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.pointerDown', payload: {} }));
+    // Kéo khung chữ nổi bằng tay nắm: Workflow giữ con trỏ trên tay nắm (setPointerCapture) nên move/up tới đúng đây.
+    handle.floatingTextGrip.addEventListener('pointerdown', (e) => { e.preventDefault(); eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.grip.pointerDown', payload: { pointerId: e.pointerId, x: e.clientX, y: e.clientY } }); });
+    handle.floatingTextGrip.addEventListener('pointermove', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.grip.pointerMove', payload: { x: e.clientX, y: e.clientY } }));
+    handle.floatingTextGrip.addEventListener('pointerup', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.grip.pointerUp', payload: {} }));
+    handle.floatingTextGrip.addEventListener('pointercancel', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.grip.pointerUp', payload: {} }));
+    handle.floatingTextarea.addEventListener('input', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.input', payload: {} }));
     handle.adjustSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.adjust.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
 
     return handle;
@@ -127,11 +142,12 @@ function openImagePreviewModal(html, url, filename) {
 
 // ===================== Lưới công cụ Edit (Generic Drawer) =====================
 
-/** Workflow (event/workflow/image-edit.js::openEditToolGrid()) mở qua `workflowGenericDrawerHelpers.open()` rồi gọi
- * `wirePhotoEditToolGridDrawerUi()`. @param {string} headerHtml - buildDrawerHeaderHtml() (components/generic-drawer.js)
- * @param {string} bodyHtml @returns {object} config Generic Drawer lưới tool Edit mode */
-function buildPhotoEditToolGridDrawerConfig(headerHtml, bodyHtml) {
+/** Config Generic Drawer của trình sửa ảnh (lưới công cụ, danh sách Layer) — mở TRÊN modal xem ảnh.
+ * @param {string} headerHtml @param {string} bodyHtml @param {string} scrollKey - nhớ vị trí cuộn khi vẽ lại tại chỗ
+ * @returns {object} config cho workflowGenericDrawerHelpers.open()/update() */
+function buildImageEditDrawerConfig(headerHtml, bodyHtml, scrollKey) {
     return {
+        scrollKey,
         height: 'auto', maxHeight: '70vh',
         zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130)
         headerHtml,

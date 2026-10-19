@@ -133,3 +133,12 @@ function computeCoverOrContain(naturalW, naturalH, viewW, viewH) {
     if (!naturalW || !naturalH) return null;
     return ((naturalW >= naturalH) === (viewW >= viewH)) ? 'cover' : 'contain';
 }
+
+/** Tên file cho "Lưu mới" sau khi sửa ảnh — PHẢI khác tên gốc (trùng tên = cùng key, sẽ ghi đè): '<tên>_edited_<ms><đuôi>'.
+ * @param {string} originalFilename @param {number} nowMs @returns {string} */
+function buildEditedImageFilename(originalFilename, nowMs) {
+    const dotIndex = originalFilename.lastIndexOf('.');
+    const base = dotIndex > 0 ? originalFilename.slice(0, dotIndex) : originalFilename;
+    const ext = dotIndex > 0 ? originalFilename.slice(dotIndex) : '.jpg';
+    return `${base}_edited_${nowMs}${ext}`;
+}
