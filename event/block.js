@@ -59,6 +59,13 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
     ],
 ]);
 
+// Danh sách Layer của trình sửa ảnh (icon Layer trên header modal ảnh) mở Generic Drawer — cùng lý do ngay trên.
+eventBus.registerBlock('imageEdit.layers.click', [
+    [
+        { field: 'isGenericDrawerOpen', operator: '===', value: true },
+    ],
+]);
+
 // XOÁ (06/09/2026, Giang chốt lại — "tầng running của VBG đã tự chặn nếu mode không đúng, thao
 // tác Chọn nguồn chỉ đổi state CẤU HÌNH, không đụng gì tới đang phát") — 3 block cho
 // 'visualBg.pickVideo.click'/'pickPhoto.click'/'pickFolder.click' (2 nhóm isVideoPlayerMode/
