@@ -64,8 +64,7 @@ const LANG_PATCH_COMMON = {
     // promptDownloadReady() (core/id3-export.js), DÙNG CHUNG cho mọi luồng export/tải xuống.
     'common.export.readyTitle': 'Ready to download',
     'common.export.readyBody': 'File size: {size}.',
-    // MỚI (10/09/2026, Giang yêu cầu) — chỉ dùng khi blob có sẵn _zipDurationMs (mọi luồng zip, xem
-    // core/storage-manager.js::_compressZipEntries()) — export lẻ 1 file dùng bản readyBody ở trên.
+    // Khi file có `_zipDurationMs` (mọi luồng zip — workflowZipDownload._compressEntries()); export lẻ 1 file dùng readyBody.
     'common.export.readyBodyWithDuration': 'File size: {size}. Processing time: {duration}.',
     'common.export.readyBtnDownload': 'Download',
     // MỚI (06/10/2026, Giang yêu cầu chia zip >500MB thành nhiều phần) — modal danh sách phần zip
@@ -79,9 +78,7 @@ const LANG_PATCH_COMMON = {
     'common.export.partDownloadAgain': 'Download again',
     'common.export.partsBtnDone': 'Done',
 
-    // MỚI (10/09/2026, Giang yêu cầu "loại bỏ toàn bộ JSZip") — ném ra khi `isStreamingZipAvailable()`
-    // (core/streaming-zip.js) false, tức trình duyệt không hỗ trợ OPFS — KHÔNG còn JSZip để rơi về
-    // nữa, xem `_compressZipEntries()` (core/storage-manager.js).
+    // Trình duyệt không có OPFS (isStreamingZipAvailable(), core/streaming-zip.js) — workflowZipDownload._compressEntries().
     'common.storage.zipNotSupported': "Your browser doesn't support the file system features needed to create zip files. Please update your browser.",
     'common.storage.zippingProgress': 'Packing zip file ({percent}%)...',
     'common.storage.zippingPartProgress': 'Packing zip file {part}/{total} ({percent}%)...', // MỚI 06/10/2026 — khi chia nhiều phần
@@ -103,8 +100,7 @@ const LANG_PATCH_COMMON = {
     // hỏng riêng của Document, dùng bởi core/storage-manager.js::isDocumentRecordCorrupted() đã
     // xoá) bỏ hẳn cùng tính năng, không còn nơi nào đọc key này.
     'common.storage.scanReasonKeptFromError': 'Playback error — chose to "Keep" for later',
-    // MỚI (18/09/2026, video thiếu thumb — vẫn phát được, chỉ THIẾU ảnh xem trước) — xem
-    // isVideoRecordCorrupted() core/storage-manager.js.
+    // Video thiếu thumb — vẫn phát được, chỉ thiếu ảnh xem trước (judgeVideoProbe(), core/storage-manager.js).
     'common.storage.scanReasonMissingThumbCover': 'Missing cover thumbnail',
     'common.storage.scanReasonMissingThumbFull': 'Missing full-res thumbnail',
     // MỚI (19/09/2026) — thumb full-res CÓ trong record nhưng ĐEN / không decode được (chụp lỗi lúc upload
