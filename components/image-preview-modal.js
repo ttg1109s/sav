@@ -3,8 +3,8 @@
  * openImagePreviewModal()). Ảnh nguồn (`src`/`alt`) do core gán vào slot `.photo-preview-image`.
  *
  * Cấu trúc: `mediaWrap` (Panzoom gắn ở đây) bọc `<img>` xem tạm + 4 canvas xếp chồng (base = pixel gốc sau thao tác
- * vĩnh viễn, render = kết quả Điều chỉnh, layer = Text/Shape, interact = khung crop/nét nháp/handle); các popup công cụ
- * ẩn sẵn; header nổi (X | Lưu, Edit).
+ * vĩnh viễn, render = kết quả Điều chỉnh, layer = Text/Shape/Image, interact = khung crop/nét nháp/khung biến đổi); các
+ * popup công cụ ẩn sẵn; khung chữ nổi (tay nắm kéo + ô nhập nhiều dòng); header nổi (X | Layer, Lưu, Edit).
  *
  * NẠP SAU: core/ui-theme/icon-svg-ui.js (iconSvg). Lúc chạy: t() (lang/lang.js).
  */
@@ -24,6 +24,13 @@ const IMAGE_EDIT_CROP_RATIOS = [
     { key: '3:4', label: '3:4' },
     { key: '16:9', label: '16:9' },
     { key: '9:16', label: '9:16' },
+];
+
+const IMAGE_EDIT_TRANSFORM_ACTIONS = [
+    { key: 'flipX', icon: 'flip-horizontal', titleKey: 'fileManager.photo.image.transformFlipX' },
+    { key: 'flipY', icon: 'flip-vertical', titleKey: 'fileManager.photo.image.transformFlipY' },
+    { key: 'rotate90', icon: 'rotate', titleKey: 'fileManager.photo.image.transformRotate90' },
+    { key: 'reset', icon: 'reset-transform', titleKey: 'fileManager.photo.image.transformReset' },
 ];
 
 const IMAGE_PREVIEW_ROUND_BTN_CLASS = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
@@ -57,7 +64,7 @@ function renderImagePreviewModalHtml() {
         <div class="flex justify-between items-center mb-3 text-sm">
             <span id="image-edit-adjust-label" class="text-white/90 font-medium"></span>
             <div class="flex items-center gap-2">
-                <span id="image-edit-adjust-value" class="text-primary font-mono bg-white/10 px-2 py-0.5 rounded"></span>
+                <span id="image-edit-adjust-value" class="text-sky-400 font-mono bg-white/10 px-2 py-0.5 rounded"></span>
                 <button id="image-edit-adjust-done" type="button" class="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0">
                     ${iconSvg('check', 'h-4 w-4')}
                 </button>
@@ -66,13 +73,13 @@ function renderImagePreviewModalHtml() {
         <input type="range" id="image-edit-adjust-slider" min="-100" max="100" value="0" class="w-full">
     </div>`;
 
-    // Thanh Huỷ / tiêu đề / Áp dụng — thay header lúc ở Crop/Vẽ/Text.
+    // Thanh Huỷ / tiêu đề / Áp dụng — thay header lúc ở Crop/Vẽ/Text/Shape/Biến đổi.
     const contextBarHtml = `<div id="image-edit-context-bar" class="hidden photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3">
         <button id="image-edit-context-cancel" type="button" class="${IMAGE_PREVIEW_ROUND_BTN_CLASS}">
             ${iconSvg('x', 'h-5 w-5')}
         </button>
         <span id="image-edit-context-title" class="text-white text-sm font-semibold tracking-wide"></span>
-        <button id="image-edit-context-apply" type="button" class="w-9 h-9 flex items-center justify-center rounded-full bg-primary hover:bg-blue-500 transition-colors text-white shrink-0">
+        <button id="image-edit-context-apply" type="button" class="w-9 h-9 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0">
             ${iconSvg('check', 'h-5 w-5')}
         </button>
     </div>`;
@@ -84,16 +91,28 @@ function renderImagePreviewModalHtml() {
     `).join('')
         + '</div>';
 
-    // Khung gõ chữ nổi (tool Text), kéo tay di chuyển được.
-    const floatingTextHtml = '<div id="image-edit-floating-text" contenteditable="true" spellcheck="false" '
-        + 'class="hidden absolute z-20 touch-none bg-black/40 border border-dashed border-white text-white font-bold text-3xl px-4 py-2 min-w-[60px] text-center whitespace-pre-wrap break-words rounded-lg shadow-lg" '
-        + `style="cursor: move;">${escapeHtml(t('fileManager.photo.image.editTextPlaceholder'))}</div>`;
+    // Khung gõ chữ nổi (tool Text): kéo bằng tay nắm, gõ trong ô nhập nhiều dòng (Enter xuống dòng).
+    const floatingTextHtml = '<div id="image-edit-floating-text" class="hidden absolute z-20 flex items-start gap-1 bg-black/40 border border-dashed border-white rounded-lg shadow-lg px-2 py-2">'
+        + `<button type="button" data-floating-text-grip class="image-edit-floating-grip" title="${escapeHtml(t('fileManager.photo.image.layerDragHint'))}">${iconSvg('drag-handle', 'h-5 w-5')}</button>`
+        + '<textarea id="image-edit-floating-textarea" class="image-edit-floating-textarea" rows="1" spellcheck="false"></textarea>'
+        + '</div>';
+
+    // Biến đổi layer (kéo khung trên ảnh) — lật ngang/dọc, xoay 90°, đặt lại.
+    const transformPopupHtml = `<div id="image-edit-transform-popup" class="hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8">
+        <div class="flex justify-center gap-3">
+            ${IMAGE_EDIT_TRANSFORM_ACTIONS.map((a) => `
+                <button type="button" data-transform-action="${a.key}" class="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white" title="${escapeHtml(t(a.titleKey))}">
+                    ${iconSvg(a.icon, 'h-6 w-6')}
+                </button>
+            `).join('')}
+        </div>
+    </div>`;
 
     // Điều khiển Vẽ: Cọ/Tẩy + màu + cỡ nét.
     const drawPopupHtml = `<div id="image-edit-draw-popup" class="hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8">
         <div class="flex justify-between items-center w-full mb-3">
             <div class="flex gap-4">
-                <button id="image-edit-draw-brush" type="button" class="text-primary text-sm font-medium">${t('fileManager.photo.image.editDrawBrush')}</button>
+                <button id="image-edit-draw-brush" type="button" class="text-sky-400 text-sm font-medium">${t('fileManager.photo.image.editDrawBrush')}</button>
                 <button id="image-edit-draw-eraser" type="button" class="text-white/60 text-sm font-medium">${t('fileManager.photo.image.editDrawEraser')}</button>
             </div>
             <input type="color" id="image-edit-draw-color" value="#0A84FF" class="w-7 h-7 rounded-full p-0 border-0 bg-transparent overflow-hidden">
@@ -101,16 +120,17 @@ function renderImagePreviewModalHtml() {
         <input type="range" id="image-edit-draw-size" min="1" max="100" value="10" class="w-full">
     </div>`;
 
-    // Header nổi: X (trái) | Lưu (mở menu Ghi đè/Lưu mới), Edit (mở lưới công cụ) (phải).
+    // Header nổi: X (trái) | Layer (danh sách layer), Lưu (menu Ghi đè/Lưu mới), Edit (lưới công cụ) (phải).
     const headerHtml = '<div data-image-preview-header class="photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3 gap-2">'
         + `<button data-image-preview-close class="${IMAGE_PREVIEW_ROUND_BTN_CLASS}">${iconSvg('x', 'h-5 w-5')}</button>`
         + '<div class="flex items-center gap-2">'
+        + `<button data-image-preview-layers class="${IMAGE_PREVIEW_ROUND_BTN_CLASS}" title="${escapeHtml(t('fileManager.photo.image.layersTitle'))}">${iconSvg('layers', 'h-5 w-5')}</button>`
         + `<button data-image-preview-save class="${IMAGE_PREVIEW_ROUND_BTN_CLASS}" title="${escapeHtml(t('fileManager.photo.image.saveMenuTitle'))}">${iconSvg('save-image', 'h-5 w-5')}</button>`
         + `<button data-image-preview-tools class="${IMAGE_PREVIEW_ROUND_BTN_CLASS}" title="${escapeHtml(t('fileManager.photo.image.editGridTitle'))}">${iconSvg('pencil-alt', 'h-5 w-5')}</button>`
         + '</div></div>';
 
     return '<div id="image-preview-overlay" class="fixed inset-0 bg-black overflow-hidden">'
         + mediaWrapHtml + shapeTypePopupHtml + adjustPopupHtml + contextBarHtml + cropRatioPopupHtml + floatingTextHtml
-        + drawPopupHtml + headerHtml
+        + drawPopupHtml + transformPopupHtml + headerHtml
         + '</div>';
 }
