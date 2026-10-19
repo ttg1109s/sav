@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
 Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
-(sau đợt 14): **791 FAIL / 75 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+(sau đợt 15): **752 FAIL / 73 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -87,7 +87,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 12 ✓ | 3 | Phụ đề hiển thị · Visualizer UI (+ 3 bug phụ đề) | `event/workflow/subtitle-display.js`, `core/subtitle/subtitle-karaoke-display-ui.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-control-center.js`, `core/visualizer-gesture.js`, `event/workflow/{visualizer-display,visualizer-gesture}.js` | 36 | đã xong | WF-get 8 · WF-tính 7 · R3a 6 |
 | 13 ✓ | 3 | Vòng đời app (wakelock, ẩn/hiện, boot) | `core/wakelock.js`, `event/workflow/{app-visibility,app-boot,app-cleanup}.js` | 19 | đã xong | WF-get 7 · R2 3 · WF-media 2 |
 | 14 ✓ | 3 | Ghi âm | `event/workflow/recorder.js` | 17 | đã xong | WF-media 8 · WF-DOM 3 |
-| 15 | 3 | Sửa ảnh | `event/workflow/image-edit.js`, `core/photo-editor-engine.js` | 39 | 752 | WF-DOM 17 · WF-§7 8 · WF-canvas 4 |
+| 15 ✓ | 3 | Sửa ảnh | `event/workflow/image-edit.js`, `core/photo-editor-engine.js` | 39 | đã xong | WF-DOM 17 · WF-§7 8 · WF-canvas 4 |
 | 16 | 3 | Config | `core/config.js` | 32 | 720 | R3a 11 · R3b 16 · TM-core 2 |
 | 17a/17b | 3 | Storage + Zip | 17a: `core/storage-manager.js`, `event/workflow/file-manager-storage.js` · 17b: `core/streaming-zip.js`, `event/workflow/zip-download.js`, `core/video-editor/opfs-temp.js` | 60 | 660 | R3a 19 · R5a 10 · Timer 8 · R3b 6 |
 | 18a/b/c | 4 | Playlist | 18a core: `core/playlist/{actions,main,loader,render,selection}.js`, `core/{song-search,upload-validation}.js` · 18b: `event/workflow/{playlist-render,playlist-order,playlist-scope}.js` · 18c: `event/workflow/playlist.js` (upload / xoá-xuất / còn lại) | 96 (+1 rAF) | 564 | WF-get 27 · R3a 19 · WF-DOM 15 · R2 7 · R3b 7 |
@@ -100,10 +100,11 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 25a/25b | 5 | Trang Video Editor | `core/video-editor/{webcodecs-engine,filmstrip}.js`, `event/workflow/video-preview.js` | 71 | 53 | WF-get 21 · WF-DOM 14 · WF-tính 12 · WF-§7 10 |
 | 26a/26b | Cuối | Hạ tầng UI dùng chung | 26a: `core/dropdown-menu.js`, `core/loading-shield-util.js`, `event/workflow/generic-drawer-helpers.js`, `core/modal-choice-ui.js`, `event/workflow/number-countup.js` · 26b: `core/slider-input-modal.js`, `core/time-picker-modal.js`, `core/point-move-timing-ui.js` | 53 (+3 rAF) | 0 | R5a 17 · R3a 13 · R5c 3 · Timer 2 |
 
-Còn 791 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3; đợt 26 +1 dòng `number-countup.js` mode `'interval'` phát hiện ở đợt 14). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
+Còn 752 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3; đợt 26 +1 dòng `number-countup.js` mode `'interval'` phát hiện ở đợt 14). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
 
 ### Ghi chú theo đợt
 
+- **15 ✓** — Xong 19/10/2026, kèm tính năng Giang yêu cầu: danh sách Layer (icon trên header modal ảnh — ẩn/hiện, xoá, độ mờ, kéo-thả sắp xếp), công cụ Biến đổi layer (kéo trực tiếp: di chuyển/co/xoay + lật ngang/dọc, xoay 90°, đặt lại), công cụ Image chèn ảnh thư viện làm layer, ô gõ chữ textarea. Bug: Sharpen gần như không thấy (-> unsharp mask), Google Font không áp vào chữ trên ảnh, xuống dòng bị mất, Áp dụng Vẽ sau khi chọn Tẩy làm thủng ảnh, Huỷ đặt Shape vẫn giữ Shape. Kéo khung Crop dùng `computeCropDragStep()` (core/media-transform.js) — `video-preview.js::_moveOrResizeCropSession` (đợt 25) chuyển sang hàm này khi tới đợt đó. Chi tiết: sổ, mục 1.
 - **14 ✓** — Xong 16/10/2026: Workflow Ghi âm chỉ còn chuẩn bị + điều phối — media qua core/media-element-ui.js, `<audio>` nghe thử tạo/giải phóng qua core -ui, mọi phép tính (mức mic + Clip, đồng hồ, Count-in, MIME, tiến độ/tua nghe lại, nối mẫu đo trễ) ở core/recorder.js; `start()`/`save()` rẽ bằng map theo kết quả; 2 task lặp đổi mode `'timeout'`. Không đổi hành vi (harness 10 kịch bản khớp bản trước). Phát hiện `number-countup.js` cùng lỗi mode `'interval'` — ghi sổ, đợt 26. Chi tiết: sổ, mục 1.
 - **0** — Không đổi code; đối chiếu chuỗi token trước/sau để chứng minh chỉ đổi comment (khuôn đợt dọn comment 12/10).
 - **Mọi đợt (comment)** — Comment trong code còn trỏ tới 2 plan đã xoá (`plan-media-db-split.md` — ~40 chỗ trong ~20 file, thay bằng
@@ -202,6 +203,7 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 | 12 ✓ — Phụ đề hiển thị · Visualizer UI (+ 3 bug phụ đề) | Xong 14/10/2026 (`sav-14-debt-wave12-patch.zip`, áp SAU patch đợt 11), chờ test máy — 862 → 826 |
 | 13 ✓ — Vòng đời app (+ 3 bug) | Xong 16/10/2026 (`sav-14-debt-wave13-patch.zip`, áp SAU patch đợt 12), chờ test máy — 826 → 807 |
 | 14 ✓ — Ghi âm | Xong 16/10/2026 (`sav-14-debt-wave14-patch.zip`, áp SAU patch đợt 13), chờ test máy — 807 → 791 (+1 dòng mới ghi vào đợt 26) |
-| Còn lại 15–26 | Chưa làm |
+| 15 ✓ — Sửa ảnh (+ Layer, Biến đổi, chèn ảnh, 5 bug) | Xong 19/10/2026 (`sav-14-debt-wave15-patch.zip`, áp SAU patch đợt 14), chờ test máy — 791 → 752 |
+| Còn lại 16–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
