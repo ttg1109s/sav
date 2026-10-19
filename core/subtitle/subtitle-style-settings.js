@@ -1,6 +1,6 @@
 /**
  * core/subtitle/subtitle-style-settings.js — Core ghi cài đặt phụ đề, áp style khung #subtitle-frame, tính + đổ giá trị panel
- * Settings > Subtitles. Mỗi hàm 1 việc, không đọc appState/config, không gọi core khác, không saveConfig() (Workflow lo lưu +
+ * Settings > Subtitles. Mỗi hàm 1 việc, không đọc appState/config, không gọi core khác, không tự lưu (Workflow lo lưu +
  * điều phối: event/workflow/subtitle-style-settings.js, event/workflow/subtitle-display.js).
  */
 
