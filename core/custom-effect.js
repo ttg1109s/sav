@@ -360,7 +360,7 @@ function isCustomEffectPerStyleField(type, field) {
     return !!CUSTOM_EFFECT_STYLE[type] && (CUSTOM_EFFECT_PER_STYLE_FIELDS[type] || []).includes(field);
 }
 
-/** Ghi 1 field chung của group vào customEffect[type] (tạo bucket nếu thiếu). Workflow tự saveConfig() sau. */
+/** Ghi 1 field chung của group vào customEffect[type] (tạo bucket nếu thiếu). Workflow tự lưu sau. */
 function setCustomEffectGroupField(type, field, value) {
     appConfigViz.mutateAll(cfg => {
         if (!cfg.customEffect[type]) cfg.customEffect[type] = { ...DEFAULT_CUSTOM_EFFECT[type] };

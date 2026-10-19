@@ -48,6 +48,16 @@ function createDetachedVideoElement() {
     return videoEl;
 }
 
+/** Thẻ `<video>` tạm chỉ để kiểm tra blob có nạp được metadata không (quét file lỗi): tắt tiếng, phát inline (iOS không
+ * coi là media có tiếng), chỉ tải metadata. */
+function createMetadataProbeVideoElement() {
+    const videoEl = document.createElement('video');
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.preload = 'metadata';
+    return videoEl;
+}
+
 /** Gán nguồn rồi đợi 'loadedmetadata' (đăng ký TRƯỚC khi gán src).
  * @param {HTMLMediaElement} mediaEl @param {string} url @returns {{promise: Promise<Event>, cancel: () => void}} */
 function loadMediaElementMetadata(mediaEl, url) {

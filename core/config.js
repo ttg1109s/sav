@@ -1,89 +1,63 @@
 /**
- * core/config.js — Giữ 3 bản DEFAULT_VIZ_CONFIG/DEFAULT_VISUAL_BG_CONFIG/DEFAULT_READER_CONFIG +
- * đăng ký domain AppConfig (service/state.js). Toàn bộ hàm nghiệp vụ thuần xoay quanh config:
- * seedConfig()/restoreDefaultVizConfig()/saveConfig()/loadConfig() + 2 hàm backup.
+ * core/config.js — Default + domain AppConfig (service/state.js) của mọi cấu hình lưu bền, cùng các hàm thuần quanh
+ * vizConfig: parse/merge/di trú bản đã lưu, bản backup, ghi localStorage, fallback nền media, suy style đang chọn.
+ * Đọc localStorage/IndexedDB, hẹn giờ backup và các bước áp lúc boot: event/workflow/config.js (`workflowConfig`).
  *
- * FILE NÀY KHÔNG GIỮ GIÁ TRỊ RUNTIME — mọi giá trị SỐNG trong `appConfig` (service/state.js).
- * Z_INDEX/MODES/APP_CONFIG/EQ_* sống ở đúng package service/state/*.js tương ứng.
+ * File không giữ giá trị runtime — mọi giá trị sống trong `appConfig`. Z_INDEX/MODES/EQ_*... ở service/state/*.js.
  *
- * (12/08/2026) Bỏ hẳn field phẳng dùng-chung-nhiều-effect + chế độ hiệu năng
- * (quality/PERFORMANCE_PROFILES) — xem `DEFAULT_CUSTOM_EFFECT` ngay dưới, mỗi effect tự mang bộ
- * config riêng.
- *
- * PHẢI nạp SAU: service/state.js (cần class AppConfig).
+ * NẠP SAU: service/state.js (AppConfig), service/state/visualizer-runtime.js (EFFECT_GROUPS/GROUP_STYLE_FIELD/MODES),
+ * service/state/auto-switch.js (AUTO_SWITCH_VISUAL_MIN/MAX_SECONDS).
  */
 
-        /**
-         * Custom Effect (12/08/2026, tái thiết kế — bỏ hẳn tư duy panel-chung + chế độ hiệu năng).
-         * 1 object DUY NHẤT, key = tên `type` (khớp MODES) — mỗi effect tự mang bộ config RIÊNG.
-         * 4 field màu (mode/solidColor/dynA/dynB) LUÔN có ở MỌI effect (đọc bởi getComputedColor(),
-         * core/audio-analysis.js). 2 field blur (blurEnabled/blurIntensity) CHỈ có ở effect thật sự
-         * đọc chúng trong hàm vẽ — xem CUSTOM_EFFECT_NO_BLUR (core/custom-effect.js) cho danh sách
-         * loại trừ. Mở qua GIỮ 1.5s #btn-cycle-mode (Generic Drawer, event/workflow/custom-effect.js).
-         */
-        /** 14 kiểu nổ pháo hoa — nguồn chân lý DUY NHẤT cho tên kiểu, dùng bởi
-         * DEFAULT_CUSTOM_EFFECT.lighting.enabledStyles (dưới, style con "fireworks"), components/
-         * custom-effect-drawer.js (checkbox list) và core/visualizer/types/lighting.js (bảng hàm
-         * explode*, key phải khớp y hệt). Nạp trước DEFAULT_CUSTOM_EFFECT vì cả 2 cùng file. */
+        /** 14 kiểu nổ pháo hoa — nguồn duy nhất cho tên kiểu: DEFAULT_CUSTOM_EFFECT.lighting.enabledStyles,
+         * components/custom-effect-drawer.js (checkbox) và core/visualizer/types/lighting.js (bảng hàm explode*, key khớp y hệt). */
         const FIREWORKS_STYLE_KEYS = [
             'cluster', 'kamuro', 'horsetail', 'spiral', 'doublering', 'ghost',
             'chrysanthemum', 'willow', 'heart', 'ring', 'crossette', 'palm', 'crackle', 'strobe',
         ];
 
+        /**
+         * Custom Effect: key = group (khớp cfg.type: bar/lighting/rain/shape/vortex/connector), mỗi group mang bộ config riêng.
+         * 4 field màu (mode/solidColor/dynA/dynB) có ở mọi group (getComputedColor(), core/audio-analysis.js); blur chỉ ở group
+         * thật sự đọc nó (CUSTOM_EFFECT_NO_BLUR, core/custom-effect.js). Style con đang chọn lưu ở field riêng của group
+         * (GROUP_STYLE_FIELD); field nhiều style cùng dùng lưu riêng theo style trong `byStyle[style]` — giá trị dưới đây là
+         * mặc định (CUSTOM_EFFECT_PER_STYLE_FIELDS + resolveEffectConfig(), core/custom-effect.js).
+         */
         const DEFAULT_CUSTOM_EFFECT = {
-            // [SỬA — 05/09/2026, yêu cầu Giang, "group hoá" effect picker] Key giờ = GROUP (khớp
-            // cfg.type MỚI: bar/lighting/rain/vortex/shape — 5 khoá, không phải 12 style con
-            // phẳng như MODES, xem service/state/visualizer-runtime.js). Style con hiện tại của
-            // MỖI group lưu ở field riêng (barStyle/lightingStyle/rainStyle/vortexStyle/
-            // shapeStyle, khớp GROUP_STYLE_FIELD). [SỬA — 25/09/2026, Giang báo maxH mirror/cascade
-            // dùng chung -> sai] Field mà NHIỀU style con cùng dùng (màu/blur, maxH, chớp, glow...)
-            // KHÔNG còn dùng chung 1 giá trị cho cả group — giá trị dưới đây chỉ là mặc định/giá trị cũ,
-            // chỉnh ở style nào lưu riêng style đó (`byStyle[style]`), xem CUSTOM_EFFECT_PER_STYLE_FIELDS
-            // + resolveEffectConfig()/setCustomEffectGroupField()/setCustomEffectStyleField() (core/custom-effect.js).
             bar: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
                 barFillRatio: 0.6, barCornerRadius: 3,
-                // MỚI (25/09/2026, Giang — cải tiến mirror, core/visualizer/groups/bar/mirror.js): thân bướm = bội
-                // số gap thường (1-6), nâng treble trên 1kHz (dB/quãng tám), làm mượt kề (0 = tắt). (mirrorPeaks — vạch đỉnh
-                // "Peak caps" — XOÁ 07/10/2026, Giang; loadConfig() dọn khỏi cấu hình đã lưu.)
+                // Mirror (core/visualizer/groups/bar/mirror.js): thân bướm = bội số gap (1-6), nâng treble trên 1kHz (dB/quãng
+                // tám), làm mượt kề (0 = tắt).
                 mirrorCenterGap: 2, mirrorTilt: 3, mirrorSmoothSpread: 0,
                 cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
-                // Style "black hole" (CHUYỂN NHÓM 05/09/2026 — trước đây bucket 'black hole' riêng)
-                // — dùng CHUNG minH/maxH ở trên (cùng field, cùng ý nghĩa "chiều cao cột tần số").
-                // SỬA (28/09/2026, Giang) — Black Hole: barWidth kẹp 5-10px (29/09: tối đa 15 -> 10; 10px = ô mỗi cột, số cột tính theo chu vi hố đen
-                // để cột rộng nhất chỉ CHẠM mép nhau, xem core/visualizer/groups/bar/black-hole.js); barTopRadius bo 2 góc đỉnh 0-5px.
+                // Black Hole dùng chung minH/maxH; barWidth kẹp 5-10px (cột rộng nhất vừa chạm nhau, core/visualizer/groups/bar/
+                // black-hole.js); barTopRadius bo 2 góc đỉnh 0-5px.
                 barWidth: 8, barTopRadius: 2, starCount: 200,
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
-                flareThreshold: 0.65, // (flashFadeSpeed — ĐÃ BỎ 29/09/2026 cùng hiệu ứng chớp sao)
-                hawkingEnabled: true, // MỚI 29/09/2026 — tia bức xạ Hawking khi beat mạnh
-                // MỚI (25/09/2026, Giang) — style "dot": trục thời gian chuyển từ connector brain (core/
-                // visualizer/groups/bar/dot.js). maxH ở trên dùng cho kiểu tác động 'height'.
+                flareThreshold: 0.65,
+                hawkingEnabled: true, // tia bức xạ Hawking khi beat mạnh
+                // Dot (core/visualizer/groups/bar/dot.js); maxH ở trên dùng cho kiểu tác động 'height'.
                 dotCount: 40, dotShape: 'line', dotImpactMode: 'radius', dotLineVibrate: true,
-                // (25/09/2026, lượt 2) rắn bò + bẻ góc 2 nhánh kiểu 'height' ('none'|'gt'|'lt'|'slash'|'backslash', góc độ)
-                dotMoving: false, dotBend: 'none', dotBendAngle: 35, dotMoveType: 'snake', // (lượt 4) 'snake' | 'dna'
-                dotSwell: 100, // MỚI (25/09/2026) — độ phình dot kiểu 'radius', % (50-300)
+                // Rắn bò + bẻ góc 2 nhánh kiểu 'height' ('none'|'gt'|'lt'|'slash'|'backslash', góc độ).
+                dotMoving: false, dotBend: 'none', dotBendAngle: 35, dotMoveType: 'snake', // 'snake' | 'dna'
+                dotSwell: 100, // độ phình dot kiểu 'radius', % (50-300)
             },
             lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 lightingStyle: 'thunder',
-                // Chớp toàn màn hình — CÙNG 3 field cho cả 2 style bên dưới (giá trị lưu RIÊNG từng style từ 25/09/2026), CÙNG 3 field với group rain
-                // (CUSTOM_EFFECT_FLASH_FIELDS, core/custom-effect.js) — MỚI 19/09/2026.
+                // Chớp toàn màn hình — cùng 3 field với group rain (CUSTOM_EFFECT_FLASH_FIELDS, core/custom-effect.js), lưu riêng theo style.
                 flashEnabled: true, flashThreshold: 0.35, flashMaxOpacity: 0.8,
                 // Style "thunder" (tia sét)
                 boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
                 boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
-                // Style "fireworks" (pháo hoa) — enabledStyles/customTexts không qua cơ chế
-                // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js. maxConcurrentRockets
-                // = trần số rocket đang bay CÙNG LÚC (mục 2, phản hồi Giang).
+                // Style "fireworks" — enabledStyles/customTexts không qua dropdown style (core/custom-effect.js);
+                // maxConcurrentRockets = trần số rocket bay cùng lúc.
                 particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
                 maxConcurrentRockets: 12,
-                // [SỬA — 15/09/2026, yêu cầu Giang] finaleIntervalBeats (nhịp ép định kỳ dù nhạc
-                // không đổi) ĐÃ BỎ HẲN — Finale giờ CHỈ trigger theo detectMusicTransition() (core/
-                // audio-analysis.js), bật/tắt hẳn cơ chế qua finaleEnabled. sectionWindowBeats/
-                // fluxThreshold vẫn là tham số THẬT của detectMusicTransition() — energyWindowBeats
-                // (cửa sổ ngắn) không còn là field, hardcode 2 thẳng trong
-                // _fwUpdateFinaleTrigger() (event/workflow/visualizer-render.js).
+                // Finale chỉ kích hoạt theo detectMusicTransition() (core/audio-analysis.js): sectionWindowBeats/fluxThreshold là
+                // tham số của nó; cửa sổ ngắn cố định 2 nhịp (_fwUpdateFinaleTrigger(), event/workflow/visualizer-render.js).
                 finaleEnabled: true,
                 sectionWindowBeats: 12, fluxThreshold: 0.5,
                 enabledStyles: [...FIREWORKS_STYLE_KEYS],
@@ -92,41 +66,27 @@
             rain: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 rainStyle: 'glass',
-                // Chớp toàn màn hình — CÙNG 3 field cho Glass + Street (giá trị lưu RIÊNG từng style từ 25/09/2026), CÙNG 3 field với group lighting. MỚI 19/09/2026
-                // (flashEnabled thay `glassFlash` cũ; threshold 0.4 + trần 0.4 = giá trị cứng cũ của Rain).
+                // Chớp toàn màn hình — cùng 3 field với group lighting, lưu riêng theo style.
                 flashEnabled: true, flashThreshold: 0.4, flashMaxOpacity: 0.4,
                 glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
                 glassDropDensity: 250, glassStreakFrequency: 20,
                 streetDensity: 220, streetBuildingScale: 1.0,
-                // Đèn THÊM VÀO 3 cột gốc cố định (tối đa 8) — xem generateStreetScene(),
-                // core/canvas-scene-setup.js. Mỗi đèn: xPercent/heightPx/flareScale riêng.
+                // Đèn thêm vào 3 cột gốc (tối đa 8) — generateStreetScene(), core/canvas-scene-setup.js; mỗi đèn
+                // xPercent/heightPx/flareScale riêng.
                 customLamps: [],
             },
-            shape: { // ĐỔI TÊN (05/09/2026) — trước đây khoá 'rubik' (group giờ tên "shape", vẫn
-                      // chỉ 1 style con 'rubik' — xem EFFECT_GROUPS, service/state/visualizer-
-                      // runtime.js).
+            shape: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 shapeStyle: 'rubik',
                 cubeSizeRatio: 0.08, pitchSensitivity: 0.9, rotationEnergyThreshold: 0.35, layerTurnSpeed: 0.08,
-                // MỚI (26/09/2026, Giang) — style 'clock' (core/visualizer/groups/shape/clock.js): kích thước (tỉ lệ
-                // cạnh ngắn), tốc độ bánh răng (rad/s: nền + theo năng lượng), độ nhạy vòng vạch phổ, nguồn giờ
-                // của kim ('realtime' | 'track' | 'past' | 'future' — 2 cái sau chạy theo nốt, thêm 26/09/2026 lượt 2).
-                // SỬA (26/09/2026, lượt 2, Giang) — bỏ clockSecondTick (kim giây luôn chạy trơn); thêm clockCaseVisible
-                // (toggle ẩn vỏ), clockPendulum (toggle con lắc). Blur: CHỈ style clock đọc (rubik glow cố định) —
-                // xem CUSTOM_EFFECT_BLUR_STYLES (core/custom-effect.js); lưu riêng theo style như khối màu.
-                clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5, // clockTickGain BỎ 28/09/2026 (vạch không còn theo phổ)
-                // Lượt 5 (Giang): BỎ clockHandsSource — kim chỉ còn cơ chế Past & Future (không dropdown).
-                clockCaseVisible: true, clockTicksVisible: true, // clockTicksVisible: lượt 3
-                // Lượt 4 (Giang): thêm toggle kính, lật, vòng quanh đồng hồ (lượt 5: 6 vòng quỹ đạo).
-                clockGlassVisible: true, // lượt 9 — bỏ clockFlip (xem MIGRATE bên dưới)
-                // Lượt 6 (Giang): con lắc + vòng quỹ đạo KHÔNG tồn tại đồng thời -> 1 dropdown clockAccessory
-                // ('none' | 'pendulum' | 'rings', thay 2 toggle clockPendulum/clockRingsVisible). Con lắc thêm
-                // clockPendulumTrail (bóng mờ của dây) + clockPendulumLength (% chiều dài tối đa vừa màn hình, 20-100).
-                // SỬA (28/09/2026, Giang) — BỎ vòng Time scan (+ clockRingWidth/Radius/BgOpacity) và dropdown clockAccessory:
-                // chỉ còn toggle con lắc clockPendulumEnabled (MIGRATE bên dưới).
+                // Clock (core/visualizer/groups/shape/clock.js): kích thước (tỉ lệ cạnh ngắn), tốc độ bánh răng (rad/s: nền +
+                // theo năng lượng). Blur chỉ style clock đọc (CUSTOM_EFFECT_BLUR_STYLES, core/custom-effect.js).
+                clockSizeRatio: 0.8, clockGearSpeedBase: 0.4, clockGearSpeedEnergyMult: 2.5,
+                clockCaseVisible: true, clockTicksVisible: true,
+                clockGlassVisible: true,
+                // Con lắc: bật/tắt, bóng mờ của dây, chiều dài (% tối đa vừa màn hình, 20-100).
                 clockPendulumEnabled: true, clockPendulumTrail: true, clockPendulumLength: 70,
-                // MỚI (28/09/2026, Giang) — nền mặt số: bật -> mặc định bìa bài đang phát; chọn ảnh thư viện (clockBgImageKey)
-                // thay bìa, nút bỏ ảnh quay lại bìa; độ đục 0-1.
+                // Nền mặt số: bật -> bìa bài đang phát; clockBgImageKey = ảnh thư viện thay bìa (null = bìa); độ đục 0-1.
                 clockBgEnabled: false, clockBgImageKey: null, clockBgOpacity: 0.6,
                 blurEnabled: true, blurIntensity: 60,
             },
@@ -134,12 +94,8 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 vortexStyle: 'rings', tunnelRingCount: 60,
                 warpSpeedBase: 10, warpSpeedEnergyMult: 40,
-                // Hướng rẽ ống theo nốt nhạc, kích hoạt khi "nhạc vừa biến động" — thay hẳn cơ chế
-                // xác suất-mỗi-frame cũ (curveChangeChance). Xem detectMusicTransition()
-                // (core/audio-analysis.js) + _tickVortexCurve() (event/workflow/visualizer-render.js).
-                // [SỬA — 15/09/2026, yêu cầu Giang] redirectEnabled — tắt thì ống đi thẳng mãi,
-                // không bao giờ tự rẽ theo nhạc nữa. energyWindowBeats (cửa sổ ngắn) không còn là
-                // field, hardcode 2 thẳng trong _tickVortexCurve().
+                // Ống rẽ hướng khi nhạc vừa biến động (detectMusicTransition(), core/audio-analysis.js + _tickVortexCurve(),
+                // event/workflow/visualizer-render.js); tắt redirectEnabled = ống đi thẳng mãi.
                 redirectEnabled: true,
                 sectionWindowBeats: 12, fluxThreshold: 0.5,
                 barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,
@@ -147,22 +103,18 @@
             },
             connector: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
-                connectorStyle: 'circuit', // [06/10/2026, Giang] style 'synapse' XOÁ — connector chỉ còn circuit
-                glowEnabled: true, glowIntensity: 55, // SỬA 07/10/2026 — Glow = bloom: 55% × 4 = 2.2 (= Bloom strength mặc định cũ)
+                connectorStyle: 'circuit', // style duy nhất
+                glowEnabled: true, glowIntensity: 55, // % — 55% × 4 = bloom 2.2
                 fireThreshold: 0.55,
                 lateralInhibitStrength: 70, // mức đè ngưỡng láng giềng khi 1 chip bắn, xem core/custom-effect.js
-                // (XOÁ 06/10/2026 cùng style synapse: neuronCount, synapseSpeedBase, synapseSpeedEnergyMult — loadConfig() dọn khỏi
-                // cấu hình đã lưu.)
                 nodeCount: 32, maxConcurrentSignals: 60, trailLength: 20, // nodeCount = số chip = tổng chân mỗi chip
                 circuitSpeedBase: 80, circuitSpeedEnergyMult: 60,
-                // (bloomStrengthBase XOÁ 07/10/2026 — gộp vào glowIntensity; bloomStrengthEnergyMult XOÁ cùng ngày, Giang. Xem loadConfig().)
                 cameraShiftEnabled: true, sectionWindowBeats: 12, fluxThreshold: 0.5,
-                // MỚI (06/10/2026, Giang) — thiết kế lại circuit: số chân phóng tối đa mỗi lần bắn, độ sáng đường mạch, 3 chế độ
-                // camera ('orbit' | 'follow' | 'fixed') + vị trí/góc camera cố định (X/Y dời, Z khoảng cách, xoay ngang/dọc theo độ).
+                // Circuit: số chân phóng tối đa mỗi lần bắn, độ sáng đường mạch, camera 'orbit' | 'follow' | 'fixed' + vị trí/góc
+                // camera cố định (X/Y dời, Z khoảng cách, xoay ngang/dọc theo độ).
                 maxPinsPerFire: 3, traceOpacity: 0.35,
                 cameraMode: 'orbit',
                 camPosX: 0, camPosY: 0, camPosZ: 150, camRotY: 35, camRotX: 20,
-                // (Style 'brain' + 18 field brain*/burstEnabled — ĐÃ XOÁ 01/10/2026 theo Giang.)
             },
         };
 
@@ -170,68 +122,36 @@
         const DEFAULT_VIZ_CONFIG = {
             type: 'bar',
             customEffect: DEFAULT_CUSTOM_EFFECT,
-            bgImage: '', bgBlur: 0, // `bgBlur`: SỬA 23/09/2026 — KHÔNG còn được đọc (Giang: Morphin vốn đã mờ, bỏ blur ảnh nền) — giữ field để data cũ vẫn hợp lệ
-            // MỚI 23/09/2026 (Giang: "tinh chỉnh độ mờ cho playlist main app") — kính màn Playlist chính (header + danh sách)
-            // khi nền Morphin là Background media: `appGlassBlur` = độ nhoè backdrop (px, 10-40), `appGlassTint` =
-            // độ đục nền trắng của kính (%, 5-40). Min SỬA 23/09/2026 theo Giang. Mặc định = đúng thông số `.uitk-glass-surface` (36px / 10%) -> chưa chỉnh thì y như cũ.
+            bgImage: '', bgBlur: 0, // bgBlur không còn được đọc — giữ field cho data cũ hợp lệ
+            // Kính màn Playlist khi nền Morphin là Background media: độ nhoè backdrop (px, 10-40), độ đục nền trắng (%, 5-40).
             appGlassBlur: 36, appGlassTint: 10,
-            // 'light' | 'dark' | 'none' (Morphin KHÔNG nền — chỉ appBaseBg) | 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) |
-            // 'background' (ảnh HOẶC video nền từ THƯ VIỆN — xem `bgMediaKind`/`bgMediaKey` dưới) — chọn qua event/router/theme.js,
-            // chốt tại event/workflow/theme.js::commitThemeMode(). Mặc định 'dark'.
-            // SỬA 21/09/2026 (Giang yêu cầu UI 3 card Solid/Gradient/Background media + sửa lỗi dropdown nền "chọn mục khác đều bị fallback về
-            // cái hiện tại"): 'solid' TRƯỚC ĐÂY là mode 'gradient' với 2 màu Từ/Đến giống nhau, rồi UI "đoán" lại loại nền từ đó — gradient
-            // có 2 màu tình cờ bằng nhau bị đoán thành solid nên dropdown luôn nhảy về Solid, không chọn được Gradient. NAY solid là mode
-            // riêng có màu riêng `bgSolidColor` (không dùng chung 2 màu gradient — đổi qua lại 2 card không ghi đè màu của nhau).
-            // SỬA 23/09/2026 (Giang: "bỏ toàn bộ background solid -> thay bằng none (tức không dùng background)") — mode 'solid' + field `bgSolidColor` ĐÃ XOÁ;
-            // card đầu giờ là 'none'. Data cũ: 'solid' -> 'none' (migrate trong loadConfig(), cùng chỗ dọn field cũ).
+            // 'light' | 'dark' | 'none' (Morphin không nền) | 'gradient' (gradientFrom/To) | 'background' (ảnh/video thư viện,
+            // bgMediaKind/bgMediaKey) — chốt tại event/workflow/theme.js::commitThemeMode().
             themeMode: 'dark',
             gradientFrom: '#6366f1', gradientTo: '#ec4899',
-            // MỚI 23/09/2026 (Giang báo "Morphin -> Background -> chọn media -> chọn kiểu khác -> đổi theme khác -> chọn lại Morphin -> bị fallback về
-            // Background media") — kiểu nền CHỌN GẦN NHẤT khi đang ở Morphin ('none' | 'gradient' | 'background'; '' = chưa từng chọn). Đổi sang Light/Dark
-            // ghi đè themeMode thành 'light'/'dark' nên phải nhớ riêng field này; vào lại Morphin dùng đúng nó (trước đây cứ còn media là ép 'background').
+            // Kiểu nền chọn gần nhất khi ở Morphin ('none' | 'gradient' | 'background'; '' = chưa chọn) — vào lại Morphin dùng nó.
             morphinLastMode: '',
-            // Nền media (mode 'background'): THAM CHIẾU item thư viện chứ KHÔNG copy blob (bản cũ copy ảnh vào meta.bgImage) —
-            // `bgMediaKind` 'photo' (store ảnh, getImageRecord) | 'video' (store video, getVideoRecord) | '' (chưa chọn), `bgMediaKey` = key item.
-            // Item bị xoá/mất -> lúc boot tự về `bgFallbackMode` (xem loadPlaylistBgMediaAsset()).
-            // `bgFallbackMode` = nền None/Gradient chọn GẦN NHẤT trước khi vào media ('none' | 'gradient') — workflowTheme cập nhật mỗi lần chốt 1 trong 2 mode đó.
+            // Nền media: tham chiếu item thư viện — bgMediaKind 'photo' | 'video' | '', bgMediaKey = key item. Item mất -> lúc boot
+            // về bgFallbackMode (nền 'none' | 'gradient' chọn gần nhất trước khi vào media; computeAppBgMediaFallback()).
             bgMediaKind: '', bgMediaKey: '', bgFallbackMode: 'gradient',
-            // RUNTIME (blob: URL sống 1 session, KHÔNG persist, boot reset về ''): `bgImage` = URL ảnh nền (photo) — giữ tên cũ vì nhiều nơi đọc;
-            // `bgVideo` = URL file video nền; `bgMediaThumb` = URL thumb full-res của video (poster + preview card + lấy mẫu màu status bar/preloader).
+            // Runtime (blob: URL sống 1 phiên, không lưu, boot reset về ''): bgImage = ảnh nền, bgVideo = video nền, bgMediaThumb =
+            // thumb full-res của video (poster, preview card, lấy màu status bar/preloader).
             bgVideo: '', bgMediaThumb: '',
-            // eqMode/manualEq (chế độ 'manual' + mảng gains riêng) ĐÃ BỎ HẲN — THAY bằng hệ thống
-            // preset EQ lưu DB (core/eq-presets.js), preset ĐANG CHỌN chỉ còn 1 id đơn giản. Sửa
-            // preset nào (kể cả "sửa thủ công") giờ ĐI QUA Edit EQ (Generic Drawer) áp dụng cho
-            // ĐÚNG preset đó, không còn khái niệm "chế độ manual" riêng.
+            // eqPresetId = preset EQ đang chọn (core/eq-presets.js).
             volume: 100, eqPresetId: 'flat',
-            // Tốc độ phát chung (Song/Video Player) — 0.5/1/1.2/1.5/2. Global, không reset theo bài.
-            // VBG không đọc field này trừ khi videoSyncPlaybackSpeed=true (DEFAULT_VISUAL_BG_CONFIG).
+            // Tốc độ phát chung Song/Video Player (0.5/1/1.2/1.5/2); VBG chỉ theo khi videoSyncPlaybackSpeed.
             playbackSpeed: 1,
-            // XOÁ (v13 Batch A — "Visual Background unification"): videoBgEnabled/videoBgUrl/
-            // visualBgImageEnabled/visualBgImage ĐÃ DỜI HẲN sang domain config RIÊNG `visualBg`
-            // (DEFAULT_VISUAL_BG_CONFIG bên dưới) — 3 tính năng nền màn Visualizer (video nền/ảnh
-            // nền tĩnh/slideshow album) gộp thành 1. KHÔNG giữ lại field cũ song song.
             visualEnabled: true,
-            // MỚI (02/09/2026, Giang yêu cầu "không lưu game mode on/off nhưng phải lưu độ khó đã
-            // chọn cho từng game"). PERSISTENT — object map `{ [gameId]: 'easy'|'medium'|'hard' }`,
-            // xem core/gameplay/catalog.js cho danh sách gameId hợp lệ. Game chưa từng chọn độ khó
-            // (key vắng mặt) coi như 'hard' — KHỚP default của field phiên `gameplayDifficulty`
-            // (service/state/gameplay-runtime.js). KHÁC field đó ở chỗ: đây lưu ĐỘC LẬP cho TỪNG
-            // game và PERSISTENT qua reload; `gameplayDifficulty` (AppState) chỉ là bản sao "đang áp
-            // dụng" cho phiên/game hiện đang armed, đồng bộ từ map này ngay lúc armed (xem
-            // event/workflow/game-catalog.js::armGame()).
+            // Độ khó đã chọn theo từng game { [gameId]: 'easy'|'medium'|'hard' } (core/gameplay/catalog.js); vắng = 'hard'.
+            // Chép sang appState.gameplayDifficulty lúc armed (event/workflow/game-catalog.js::armGame()).
             gameplayDifficultyByGame: {},
             keepScreenOn: true,
-            // Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10) — xem core/auto-switch-visual.js.
-            //   - autoSwitchVisualMode: 'sequential' (tuần tự/cố định theo MODES) | 'random'.
-            //   - autoSwitchVisualTimeMode: 'fixed' (c1) | 'random' (c2) | 'duration' (c3).
-            //   - 3 field SỐ GIÂY RIÊNG cho từng mode — KHÔNG dùng chung 1 field (bị ghi đè mất
-            //     giá trị của mode khác mỗi khi đổi qua lại).
-            // VIẾT LẠI (26/09/2026, Giang "cải tiến lại Auto-Switch Effect"):
+            // Auto-Switch Effect (core/auto-switch-visual.js):
             //   - autoSwitchVisualListBy: 'group' | 'style' — danh sách đang dùng.
-            //   - autoSwitchVisualGroupList [{key, enabled, style: 'random'|<style>}] / autoSwitchVisualStyleList
-            //     [{key, enabled}] — THỨ TỰ = thứ tự kéo thả; rỗng = chuẩn hoá lúc loadConfig theo EFFECT_GROUPS/MODES.
+            //   - autoSwitchVisualGroupList [{key, enabled, style: 'random'|<style>}] / autoSwitchVisualStyleList [{key, enabled}] —
+            //     thứ tự = thứ tự kéo thả; rỗng = chuẩn hoá lúc boot theo EFFECT_GROUPS/MODES.
             //   - autoSwitchVisualMode: 'sequential' (theo thứ tự danh sách) | 'random' (trong các mục đã tick).
-            //   - autoSwitchVisualTimeMode: 'fixed' | 'perMedia' (mỗi song/video/photo mới). 'duration' cũ ĐÃ BỎ.
+            //   - autoSwitchVisualTimeMode: 'fixed' | 'perMedia' (mỗi song/video/photo mới).
             //   - autoSwitchVisualFixedKind: 'const' (SecondsFixed) | 'random' (SecondsRandomMin..SecondsRandom).
             //   - Giây kẹp [10, 3600] (AUTO_SWITCH_VISUAL_MIN/MAX_SECONDS, service/state/auto-switch.js).
             autoSwitchVisualEnabled: false,
@@ -269,83 +189,33 @@
             subtitleKaraokeOutlineBlur: 6,         // px (độ nhoè quầng)
             subtitleKaraokePointer: false,
             subtitleKaraokePointerShape: 'default', // 'default' | 'pointer' | 'text' | 'crosshair' (vẽ lại kiểu CSS cursor)
-            // 3 toggle RIÊNG hiện/ẩn UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
-            // Settings -> Hiển thị Visualizer. NHẤT QUÁN với statsPanelVisible: đặt tên KHẲNG ĐỊNH
-            // ("hiện"), mặc định BẬT (true) — KHÔNG đặt tên phủ định "hideX" mặc định tắt (đã sửa,
-            // phản hồi Giang — "tên là hide Xxx rồi On/Off, không nhất quán với Stats"). Xem
-            // core/visualizer-ui-visibility.js.
+            // 3 toggle hiện/ẩn UI chrome màn Visualizer (core/visualizer-ui-visibility.js).
             bottomPlayerVisible: true, playlistButtonVisible: true, controlCenterButtonVisible: true,
-            // Cử chỉ (event/workflow/visualizer-gesture.js). 4 hướng vuốt + 2 tap: mỗi cái 1 hành
-            // động do người dùng chọn ('next'/'prev'/'playPause'/'openPlaylist'/'none') — chọn
-            // 'none' là tắt cử chỉ đó, KHÔNG còn cờ boolean bật/tắt riêng. Cạnh trên/dưới KHÔNG đổi
-            // (mở Control Center / gán 1 nút Control Center — ngoài phạm vi action picker này).
+            // Cử chỉ (event/workflow/visualizer-gesture.js): mỗi hướng vuốt/tap 1 hành động ('next'/'prev'/'playPause'/
+            // 'openPlaylist'/'none' = tắt, hoặc 'actionSlot1/2/3').
             gestureActionSwipeUp: 'next', gestureActionSwipeDown: 'prev',
             gestureActionSwipeLeft: 'prev', gestureActionSwipeRight: 'next',
             gestureActionTapSingle: 'playPause', gestureActionTapDouble: 'openPlaylist',
             gestureEdgeTopEnabled: true,
-            // Tap 3 lần (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn — phản hồi Giang) — SỬA
-            // (12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác"): TRƯỚC
-            // ĐÂY field này lưu 1 key nút Control Center (khớp GESTURE_TRIPLE_TAP_TARGET_ELS) —
-            // giờ CÙNG miền giá trị với gestureActionTapSingle/Double (1 trong 5 GESTURE_ACTIONS
-            // 'next'/'prev'/'playPause'/'openPlaylist'/'none' HOẶC 1 Action slot 'actionSlot1/2/3'
-            // — event/workflow/visualizer-gesture.js). Muốn bấm thẳng 1 nút Control Center thì gán
-            // nút đó cho 1 Action slot (gestureActionSlot1/2/3 bên dưới) rồi chọn slot đó ở đây.
-            // Tap 3 lần — KHÔNG còn toggle bật/tắt riêng (phản hồi Giang) — chọn 'none' trong
-            // dropdown tự nghĩa là tắt, CÙNG khuôn action picker (next/prev/.../'none'). Mặc định
-            // 'none'.
+            // Tap 3 lần — cùng miền giá trị với tap 1/2; mặc định 'none'.
             gestureTripleTapTarget: 'none',
-            // MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "Slot" CỐ ĐỊNH (KHÔNG cho
-            // thêm/bớt, giới hạn cứng = 3), mỗi Slot gán 1 nút Control Center (key khớp
-            // GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js) — rồi 7 dropdown
-            // vuốt/tap/tap-3-lần phía trên (KHÔNG gồm seek/vuốt cạnh trên) có thêm 3 lựa chọn
-            // 'actionSlot1/2/3' NGOÀI 5 lựa chọn mặc định next/prev/playPause/openPlaylist/none —
-            // cho phép vuốt/tap/tap-3-lần TRỎ TỚI bất kỳ nút Control Center nào (không chỉ 4 hành
-            // động media cơ bản). Mặc định 'none' cả 3 (chưa gán gì).
+            // 3 Action slot cố định, mỗi slot gán 1 nút Control Center (key khớp GESTURE_TRIPLE_TAP_TARGET_ELS) — vuốt/tap chọn
+            // 'actionSlotN' để bấm nút đó. 'none' = chưa gán.
             gestureActionSlot1: 'none', gestureActionSlot2: 'none', gestureActionSlot3: 'none',
-            // Seek-hold: giữ tay 3s ở nửa trái/phải màn hình -> tua lùi/tiến lặp lại theo bước
-            // gestureSeekStepMs (mili giây), tới khi thả tay hoặc chạm biên 0/(thời lượng - 1s).
-            // Seek-hold: giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại. 3 THỜI GIAN
-            // TÁCH BIỆT HOÀN TOÀN (phản hồi Giang):
-            //   - Ngưỡng KÍCH HOẠT (2s): CỐ ĐỊNH, KHÔNG phải setting — xem SEEK_HOLD_ACTIVATE_MS,
-            //     event/workflow/visualizer-gesture.js.
-            //   - gestureSeekStepMs (Time 1): ĐƠN VỊ NHẢY mỗi lần seek — tua bao nhiêu.
-            //   - gestureSeekHoldIntervalMs (Time 2): SAU KHI đã vào seek mode, giữ tiếp đủ Time 2
-            //     thì mới kích hoạt 1 lệnh seek theo Time 1 — lặp lại liên tục (giữ Time 2 -> seek
-            //     Time 1 -> giữ Time 2 -> seek Time 1...).
+            // Seek-hold: giữ tay nửa trái/phải màn hình (ngưỡng kích hoạt cố định SEEK_HOLD_ACTIVATE_MS) -> cứ mỗi
+            // gestureSeekHoldIntervalMs lại tua gestureSeekStepMs, tới khi thả tay hoặc chạm biên.
             gestureSeekHoldEnabled: true, gestureSeekStepMs: 2000, gestureSeekHoldIntervalMs: 2000,
         };
 
-        // XOÁ (v13 Batch C) — `DEFAULT_SLIDESHOW_CONFIG` + domain `slideshow` ĐÃ GỘP HẲN vào
-        // `DEFAULT_VISUAL_BG_CONFIG.slideshow` ngay bên dưới. 2 field `mode`/`photoPerSong` KHÔNG
-        // được mang theo: chúng đã bị thay bởi `nextOrder`/`listPlaybackMode` ở PANEL CHA (Visual
-        // Background) — dùng chung cho cả nhánh "theo từng bài" lẫn "trình chiếu", thay vì mỗi
-        // nhánh một field riêng như trước.
-
         /**
-         * v14 — Visual Background hợp nhất về ĐÚNG 1 đường source (Giang chốt, thay bản v13 4-field
-         * song song enabled/mediaType/sourceMode/single*Key/list*Id).
-         *
-         * `source.list` là bản COPY key (imageKey/videoKey) tại THỜI ĐIỂM chọn — tách hẳn khỏi
-         * album/folder gốc, chỉ đổi khi bấm "Làm tươi". 3 trạng thái tự suy ra từ SỐ LƯỢNG phần tử
-         * còn sống trong list (không có field `enabled` riêng nữa):
-         *   0 item  -> ẩn hẳn media, chỉ còn nền màu
-         *   1 item  -> phát tĩnh, không cycle (dù origin là group)
-         *   >1 item -> cycle theo `listPlaybackMode`/`nextOrder`
-         * `source.list` có thể chứa `null` (key đã bị xoá, chờ dọn — xem advanceVisualBgList() core/
-         * visual-bg.js).
-         *
-         * Màu (colorMode/solidColor/gradient*) tách hẳn khỏi source ảnh/video — mục riêng, LUÔN có
-         * hiệu lực làm lớp dưới cùng, không phụ thuộc `type`/source rỗng hay không.
-         *
-         * KHÔNG MIGRATE dữ liệu v13 (đổi cấu trúc field hoàn toàn) — mở lại app sẽ thấy chưa chọn
-         * nguồn, chọn lại từ đầu. PERSIST: `meta.visualBgConfig`, đọc lại lúc boot qua
-         * `workflowVisualBg.loadPersistedSettingsOnBoot()`.
+         * Visual Background — đúng 1 nguồn `source`: `list` là bản copy key (imageKey/videoKey) lúc chọn, chỉ đổi khi bấm
+         * "Làm tươi". Số item còn sống quyết định: 0 -> chỉ nền màu, 1 -> phát tĩnh, >1 -> cycle theo listPlaybackMode/
+         * nextOrder. `list` có thể chứa `null` (key đã xoá, chờ dọn — advanceVisualBgList(), core/visual-bg.js).
+         * Nền màu (colorMode/solidColor/gradient*) độc lập với source, luôn là lớp dưới cùng.
+         * Lưu `meta.visualBgConfig`, đọc lại lúc boot qua workflowVisualBg.loadPersistedSettingsOnBoot().
          */
         const DEFAULT_VISUAL_BG_CONFIG = {
-            // MỚI (29/09/2026, Giang) — toggle TỔNG của Visual Background (đầu panel VBG). Giang chốt: tắt CHỈ dỡ
-            // media ảnh/video (không nạp, không task, không Motion) — lớp màu solid/gradient (+ Movement) VẪN sơn;
-            // bật lại = nạp lại từ đầu (không nhớ vị trí). Giữ NGUYÊN source/pending/mọi cài đặt khác khi tắt.
-            // Restore default -> true. Xem workflowVisualBg.toggleEnabled() (event/workflow/visual-bg-common.js).
+            // Toggle tổng: tắt chỉ dỡ media ảnh/video, lớp màu (+ Movement) vẫn sơn; bật lại nạp từ đầu (workflowVisualBg.toggleEnabled()).
             enabled: true,
             type: 'photo',                  // 'photo' | 'video' — đổi type = gỡ hẳn source cũ (khác kiểu key)
 
@@ -353,25 +223,13 @@
                 originKind: null,           // null | 'single' | 'group' — CHỈ để nút "Làm tươi" biết đọc lại từ đâu
                 originId: null,             // imageKey/videoKey/albumId/folderId của origin
                 list: [],                   // bản copy key thật đang phát/hiện
-                // MỚI (08/08/2026, phản hồi Giang) — map videoKey -> { enabled, volumePercent }. CHỈ
-                // có ý nghĩa khi `type==='video'` (áp dụng CẢ single lẫn list, Giang chốt) — video
-                // đang phát nền có audio riêng (KHÔNG qua equalizer/audioEngine, phát native dưới
-                // audio chính) khi `enabled=true`. Giữ NGUYÊN khi đổi source (self-heal lười, key
-                // không còn dùng chỉ nằm im vô hại, không tự dọn — cùng triết lý null-sweep chỗ khác).
-                // XOÁ HẲN khi `type` đổi hoặc `clearSource()` (source bị reset toàn bộ, key video
-                // khác kiểu vô nghĩa). Xem core/visual-bg.js::getVisualBgVideoAudioSetting()/
-                // setVisualBgVideoAudioSetting(), event/workflow/visual-bg.js (panel "Âm thanh Video").
+                // videoKey -> { enabled, volumePercent }: tiếng của video nền (phát native, không qua EQ), chỉ khi type 'video'.
+                // Xoá khi đổi type/clearSource() — getVisualBgVideoAudioSetting()/setVisualBgVideoAudioSetting(), core/visual-bg.js.
                 videoAudio: {},
             },
 
-            // MỚI (09/08/2026, phản hồi Giang — "đổi nguồn giữa lúc đang cycle làm giật/mất khung
-            // đang phát") — nguồn MỚI chọn/Làm tươi TRONG LÚC đang có media active (photo/video)
-            // không ghi đè `source` ngay — xếp hàng ở đây, đợi đúng "lượt kế tiếp" (video hết/đổi
-            // bài hát, hoặc tick slideshow kế) mới thật sự thay `source`, xem
-            // `workflowVisualBg._checkAndApplyPendingSource()`. `originKind===null` = không có gì
-            // đang chờ. Chọn nguồn mới trong lúc pending cũ CHƯA kịp áp -> ĐÈ LUÔN (Giang chốt, chỉ
-            // giữ 1 pending duy nhất). List RỖNG (không có gì đang chạy) thì bỏ qua cơ chế này, áp
-            // thẳng như trước — không có gì để "chờ" cả.
+            // Nguồn mới chọn/Làm tươi lúc đang có media active: xếp hàng ở đây, áp ở lượt kế tiếp (video hết/đổi bài/tick
+            // slideshow — workflowVisualBg._checkAndApplyPendingSource()); chỉ giữ 1 pending, chọn tiếp thì đè. originKind null = trống.
             pending: {
                 originKind: null,           // null | 'single' | 'group'
                 originId: null,
@@ -381,21 +239,11 @@
             listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow' — chỉ có ý nghĩa khi list.length > 1
             nextOrder: 'random',            // 'random' | 'sequential' | 'playlist' — thứ tự dựng list lúc chọn/Làm tươi + bước cycle
 
-            // MỚI (29/08/2026, phản hồi Giang — dời "Seconds per photo" từ slideshow sang panel VBG,
-            // dùng CHUNG cho cả video lẫn ảnh) — 2 field này thay hẳn `slideshow.intervalSeconds` cũ
-            // (đã xoá khỏi object `slideshow` bên dưới). Ý nghĩa của `durationMode` LỆCH nhau theo
-            // `type`, xem docstring `_computeAdvanceMs()` (event/workflow/visual-bg-photo-motion.js) +
-            // `_maybeScheduleVideoFixTime()` (event/workflow/visual-bg.js):
-            //   'duration' (mặc định) — dùng ĐỘ DÀI TỰ NHIÊN của CHÍNH item đang hiện: video = phát
-            //             hết thật (sự kiện `ended`, KHÔNG hẹn giờ nào); ảnh = field `duration` RIÊNG
-            //             của ảnh đó (core/file-manager/image.js — Photo đã tích hợp `duration` như
-            //             Song/Video từ trước, KHÔNG phải mọi ảnh đều giống nhau).
-            //   'fixtime' — CƯỠNG CHẾ mọi item hiện đúng `durationSeconds` giây (DÙNG CHUNG 1 số cho
-            //             MỌI ảnh/video, bỏ qua độ dài/field `duration` riêng của từng item) — video
-            //             CHỈ bị cắt ngắn nếu THẬT SỰ dài hơn `durationSeconds` (video đã ngắn hơn/
-            //             bằng thì cứ để phát hết tự nhiên, không hẹn giờ thừa).
+            // Thời lượng mỗi item (video lẫn ảnh): 'duration' = độ dài tự nhiên (video phát hết; ảnh theo field `duration` riêng),
+            // 'fixtime' = mọi item đúng durationSeconds (video chỉ bị cắt nếu dài hơn) — _computeAdvanceMs() (event/workflow/
+            // visual-bg-photo-motion.js), _maybeScheduleVideoFixTime() (event/workflow/visual-bg.js).
             durationMode: 'duration',        // 'duration' | 'fixtime'
-            durationSeconds: 5,              // 0.5-60s (picker, granularity 0.1s) — CHỈ có ý nghĩa khi durationMode='fixtime' (video) hoặc LUÔN áp cho ảnh (2 nhánh trên)
+            durationSeconds: 5,              // 0.5-60s, bước 0.1s — dùng khi durationMode 'fixtime'
 
             // ---- Nền MÀU — độc lập, luôn active ----
             colorMode: 'solid',             // 'solid' | 'gradient'
@@ -405,22 +253,9 @@
                 { color: '#000000', position: 0 },
                 { color: '#1e3a8a', position: 100 },
             ],
-            // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" cho gradient) — CHỈ có ý nghĩa khi
-            // colorMode==='gradient'. 2 chế độ TÁCH BIỆT (chỉ 1 chạy tại 1 thời điểm, theo `mode`):
-            //   'time'  — góc xoay CHẠY ĐỀU theo thời gian, hết đúng 1 vòng 360° sau
-            //             `rotateDurationMs` rồi lặp lại — KHÔNG phụ thuộc audio.
-            //   'audio' — góc xoay DAO ĐỘNG giữa audioRotateFrom/To, ĐỘ LỆCH vị trí % của các
-            //             stop (co/giãn đối xứng quanh tâm 50%, xem computeGradientStopSpread(),
-            //             core/visual-bg.js) DAO ĐỘNG giữa audioStopSpreadFrom/To — CẢ 2 cùng lúc
-            //             bám theo `smoothedEnergy` (0-1, core/audio-analysis.js — ĐÃ ĐƯỢC LÀM MƯỢT
-            //             sẵn, tránh giật hình theo từng khung hình thô, phù hợp driving 1 hiệu ứng
-            //             nền LIÊN TỤC hơn hẳn beatScale thô — xem phân tích chọn thông số ở
-            //             event/workflow/visual-bg.js::_tickGradientMovement()).
-            // "Tráo màu" — ĐỘC LẬP với mode xoay ở trên, chạy song song nếu bật: cứ mỗi
-            // `colorSwapIntervalMs` lại tráo NGẪU NHIÊN thứ tự màu giữa các stop (giữ nguyên vị trí
-            // %, chỉ đổi CHỖ màu — shuffleGradientStopColors(), core/visual-bg.js), chuyển cảnh mượt
-            // trong `colorSwapTransitionMs` (interpolateColor(), core/color-utils.js — ĐÃ CÓ SẴN,
-            // dùng lại).
+            // Movement (chỉ khi colorMode 'gradient'): 'time' = xoay đều 1 vòng mỗi rotateDurationMs; 'audio' = góc xoay và độ
+            // giãn stop (computeGradientStopSpread(), core/visual-bg.js) dao động theo smoothedEnergy. "Tráo màu" chạy song song:
+            // mỗi colorSwapIntervalMs tráo ngẫu nhiên màu giữa các stop (shuffleGradientStopColors()), chuyển trong colorSwapTransitionMs.
             gradientMovement: {
                 enabled: false,
                 mode: 'time',                       // 'time' | 'audio'
@@ -432,27 +267,12 @@
                 colorSwapTransitionMs: 1000,        // 500-3000 (picker 500ms-3s)
             },
 
-            // XOÁ (29/08/2026, phản hồi Giang — "Settings > Slideshow" đổi thành danh sách preset
-            // đặt tên được) — object `slideshow` nhúng thẳng bỏ hẳn, thay bằng 1 tham chiếu duy nhất
-            // tới danh sách preset SỐNG RIÊNG (`appState.motionPresets`/`meta.motionPresets`) —
-            // xem core/motion-presets.js, event/workflow/motion-presets.js. `null` = CHƯA gắn
-            // preset nào — Photo hiện KHÔNG transition/Ken Burns gì cả (chuyển cứng giữa các ảnh).
-            // SỬA (29/08/2026, phản hồi Giang — "tránh nhầm giữa tên mục Settings với chế độ
-            // Playback 'Slideshow' của VBG") — field đổi tên `slideshowPresetId` -> `motionPresetId`,
-            // cùng đợt đổi tên toàn bộ hệ preset này thành "Motion" (KHÔNG đụng
-            // `listPlaybackMode`/giá trị 'slideshow' của nó — 2 khái niệm khác nhau).
+            // Preset Motion gắn cho ảnh (core/motion-presets.js); null = không transition/Ken Burns.
             motionPresetId: null,
-            // Chỉ có ý nghĩa khi type==='video' — bgVideoElement có theo tốc độ phát chung
-            // (playbackSpeed, DEFAULT_VIZ_CONFIG) hay giữ cố định 1x. Mặc định false.
+            // Video nền theo tốc độ phát chung (playbackSpeed) hay giữ 1x — chỉ khi type 'video'.
             videoSyncPlaybackSpeed: false,
-            // MỚI (30/09/2026, Giang — "dropdown resolution cho media VBG giống Player") — cách media VBG (ảnh/video)
-            // lấp khung màn Visualizer: CÙNG bộ giá trị + ngữ nghĩa với Player (PLAYER_RESOLUTION_MODES, core/player-
-            // display-settings.js): 'fill' (MẶC ĐỊNH — phóng từ giữa lấp đầy, giữ tỉ lệ, cắt phần dư; trùng hành vi cũ
-            // `cover` của CSS tĩnh) | 'stretch' (kéo giãn, KHÔNG giữ tỉ lệ) | 'trueMax' (giữ kích thước gốc, chỉ co nếu
-            // vượt khung). SỬA (30/09/2026, Giang) — giá trị RIÊNG cho Video và Photo của VBG (CÙNG tên field với
-            // domain 'playerDisplay', ghép qua resolvePlayerResolutionField(kind)) — dropdown ở card Media hiện/ghi field
-            // của `type` đang chọn. ĐỘC LẬP hoàn toàn với Resolution của Player.
-            // Xem workflowVisualBg.changeResolutionMode() (event/workflow/visual-bg-common.js).
+            // Cách media VBG lấp khung, riêng Video/Photo: 'fill' (lấp đầy giữ tỉ lệ, cắt dư) | 'stretch' | 'trueMax' — cùng giá trị
+            // với Player (PLAYER_RESOLUTION_MODES, core/player-display-settings.js) nhưng độc lập (workflowVisualBg.changeResolutionMode()).
             videoResolutionMode: 'fill',
             photoResolutionMode: 'fill',
         };
@@ -466,19 +286,8 @@
         };
 
         /**
-         * MỚI (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — domain config RIÊNG
-         * cho 3 lựa chọn ở Settings → Playlist (Nguồn/Kiểu xem/Sắp xếp, components/settings/
-         * playlist-view.js) — trước đây 3 field này CHỈ sống trong AppState runtime
-         * (activeMediaSource/isGridView/displaySortMode — service/state/playlist.js,
-         * service/state/app-misc.js), KHÔNG hề được lưu bền, mất hết sau F5/mở lại app.
-         * CHỦ Ý KHÔNG gồm 3 field "Giải phóng bộ nhớ" (mediaScope/downloadEnabled/deleteEnabled,
-         * event/router/file-manager-song.js) — router đó ĐÃ CHỦ ĐỘNG reset 3 field này về mặc định
-         * an toàn mỗi lần mở lại panel (comment gốc: "tránh quên đã bật sẵn 2 toggle nguy hiểm từ
-         * lần mở trước") — đây là quyết định AN TOÀN đã có chủ đích cho 1 hành động PHÁ HUỶ DỮ LIỆU
-         * (xoá/tải rồi xoá), lưu bền lại sẽ VÔ HIỆU HOÁ đúng lớp bảo vệ đó. Persist qua IndexedDB
-         * trực tiếp (`meta.playlistConfig`), KHÔNG qua localStorage debounce như domain 'viz' — tần
-         * suất đổi 3 field này thấp (thao tác Settings thủ công), cùng khuôn domain 'visualBg'
-         * (event/workflow/visual-bg.js::loadPersistedSettingsOnBoot()).
+         * Settings > Playlist (Nguồn/Kiểu xem/Sắp xếp), lưu `meta.playlistConfig`. Cố ý không gồm 3 field "Giải phóng bộ nhớ"
+         * (thao tác phá dữ liệu — reset về mặc định an toàn mỗi lần mở panel).
          */
         const DEFAULT_PLAYLIST_CONFIG = {
             activeMediaSource: 'song',
@@ -486,69 +295,23 @@
             isGridView: false,
         };
 
-        /**
-         * Domain config RIÊNG cho Shuffle/Repeat/Stats-panel-visible (`#btn-shuffle`/`#btn-repeat`,
-         * components/visualizer-overlay.js — checkbox Stats dời sang Settings, xem
-         * core/visualizer-ui-visibility.js) — trước đây `isShuffle`/`repeatMode`/`isStatsPanelVisible`
-         * CHỈ sống trong AppState runtime, KHÔNG lưu bền, mất hết sau F5. Domain RIÊNG (không gộp
-         * vào `playlist`) vì đây là nhóm preference của TRÌNH PHÁT, khác "duyệt/sắp xếp Playlist".
-         */
+        /** Shuffle/Repeat/hiện Stats panel của trình phát. */
         const DEFAULT_PLAYER_CONFIG = {
             isShuffle: false,
             repeatMode: 0,
             isStatsPanelVisible: true,
         };
 
-        /**
-         * Domain config RIÊNG cho hệ UI Theme (MỚI 09/09/2026, Giang yêu cầu "theme light/dark/
-         * morphin, tự động áp dụng toàn app") — KHÔNG liên quan gì tới `viz.themeMode` ('light'|
-         * 'dark'|'background'|'gradient', event/workflow/theme.js) — field ĐÓ chỉ đổi ẢNH/MÀU NỀN
-         * PHÍA SAU Playlist/Visualizer (bgImage/gradient), CHƯA hề áp dụng lại màu app thật (xem
-         * chính docstring `DEFAULT_VIZ_CONFIG.themeMode` ngay trên). `activeUiTheme` ở đây là theme
-         * MÀU SẮC CHUNG toàn app (panel/card/text/nút bấm...) — xem core/ui-theme/*.js.
-         * Domain RIÊNG (không gộp vào `viz`) vì 2 khái niệm "theme" này ĐỘC LẬP hoàn toàn, không
-         * loại trừ nhau (vd: Playlist Background đang 'gradient' KHÔNG ngăn UI Theme là 'dark').
-         */
+        /** Theme màu toàn app (core/ui-theme/*.js) — độc lập với viz.themeMode (chỉ là nền phía sau Playlist/Visualizer). */
         const DEFAULT_UI_THEME_CONFIG = {
             activeUiTheme: 'light', // 'light' | 'dark' | 'morphin' — xem UI_THEME_REGISTRY, core/ui-theme/registry.js
         };
 
         /**
-         * Domain config RIÊNG cho "Player" (Settings > Visualizer Screen > Player — Resolution +
-         * Motion của Video/Photo LÚC PHÁT chính, KHÁC HẲN domain 'player' ở trên [Shuffle/Repeat/
-         * Stats-panel] — trùng tên nghe dễ nhầm nhưng 2 khái niệm khác nhau, xem docstring
-         * DEFAULT_PLAYER_CONFIG] và KHÁC `appConfigVisualBg` [nền trang trí đứng sau Visualizer lúc
-         * Song phát] — đây là chính Video/Photo đang được PHÁT LÀM NỘI DUNG CHÍNH, xem core/player-
-         * display-settings.js cho danh sách 3 "vai trò" Motion + 4 mode Resolution).
-         *
-         * MỚI (giai đoạn 1, Giang yêu cầu "code backend đăng ký + hiển thị list, CHƯA code cơ chế
-         * hoạt động") — domain này lưu LỰA CHỌN của người dùng (mode Resolution + preset nào gắn cho
-         * từng vai trò Motion). SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi
-         * tiêu thụ) — consumer 'player'/MOTION_APPLY_CONSUMERS ĐÃ XOÁ: CẢ 6 field *PresetId dưới đây
-         * chọn trong TOÀN BỘ preset Motion qua màn Chọn (event/workflow/player-display-settings.js
-         * ::openMotionSlotPicker()).
-         *
-         * `videoResolutionMode`/`photoResolutionMode` — 'fill' (MẶC ĐỊNH — SỬA 29/09/2026, Giang: thay
-         * 'cover' + 'fit' đã bỏ; phóng từ GIỮA lấp đầy toàn bộ ngang/dọc màn Visualizer, giữ tỉ lệ,
-         * zoom-cắt phần dư; giá trị cũ quy về 'fill' lúc boot) | 'stretch' (kéo giãn lấp đầy khung, KHÔNG giữ tỉ lệ) |
-         * 'trueMax' (giữ nguyên kích thước gốc, CHỈ co lại — không phóng to — nếu vượt khung, xem
-         * core/player-display-settings.js::PLAYER_RESOLUTION_MODES). ĐÃ có cơ chế hoạt động thật
-         * (core/player-display-apply.js) — RIÊNG Video, `bgVideoElement`/`visualBgImageElement`
-         * được coi là 2 layer A/B NGANG HÀNG (mô hình giống VBG) — CÙNG giá trị mode áp cho CẢ 2
-         * mỗi lần swap, tránh lệch kích thước giữa 2 layer (Giang chỉ ra).
-         *
-         * 6 field `*PresetId` — `{kind}TransitionNextPresetId`/`{kind}TransitionPrevPresetId` (CHỈ
-         * đọc field `transition*` của preset được gắn — CHƯA có cơ chế hoạt động) ở CẢ 2 kind;
-         * `photoPointMovePresetId` (CHỈ đọc `pointMoves`/`pointMoveEnabled`/... — CHƯA có cơ chế
-         * hoạt động, Photo riêng); `videoShowingPresetId` (SỬA — Giang chốt GỘP Point Move + React
-         * Beat của Video thành 1 field DUY NHẤT, KHÔNG còn `videoPointMovePresetId`/
-         * `videoReactBeatPresetId` riêng nữa — preset gắn ở đây vừa lái Point Move [CHƯA có cơ chế
-         * hoạt động] VỪA lái React Beat [ĐÃ có, đọc `reactBeatAudio`, xem event/workflow/motion-
-         * beat-react-runner.js — module DÙNG CHUNG] cùng lúc). Photo KHÔNG có field tương đương
-         * `videoShowingPresetId` (không có React Beat để gộp cùng — Photo Player mode phát im lặng,
-         * xem docstring core/photo-player.js) — xem core/player-display-settings.js
-         * ::PLAYER_MOTION_SLOTS (field `kinds`) cho bảng tra slot -> tên field đầy đủ theo TỪNG
-         * kind. `null` = chưa gắn preset nào cho vai trò đó.
+         * Settings > Visualizer Screen > Player — Video/Photo đang phát làm nội dung chính (khác domain 'player' Shuffle/Repeat
+         * và VBG). `*ResolutionMode`: 'fill' | 'stretch' | 'trueMax' (PLAYER_RESOLUTION_MODES, core/player-display-settings.js;
+         * áp ở core/player-display-apply.js, cùng mode cho 2 layer A/B của Video). `*PresetId`: preset Motion gắn cho từng vai trò
+         * (PLAYER_MOTION_SLOTS) — videoShowingPresetId lái cả Point Move lẫn React Beat của Video; null = chưa gắn.
          */
         const DEFAULT_PLAYER_DISPLAY_CONFIG = {
             videoResolutionMode: 'fill',
@@ -559,25 +322,15 @@
             photoTransitionNextPresetId: null,
             photoTransitionPrevPresetId: null,
             photoPointMovePresetId: null,
-            // MỚI (29/09/2026, Giang) — mức zoom/pan của Zoom mode (kính lúp Control Center), MỖI kind 1 bộ riêng,
-            // lưu bền qua boot. x, y = TỈ LỆ của khung (translate, transform-origin 0 0), KHÔNG phải px — xem
-            // core/player-zoom.js. {scale:1,x:0,y:0} = gốc (không zoom).
+            // Zoom mode (kính lúp Control Center), mỗi kind 1 bộ, lưu bền: x, y = tỉ lệ khung (core/player-zoom.js); {1,0,0} = gốc.
             videoZoom: { scale: 1, x: 0, y: 0 },
             photoZoom: { scale: 1, x: 0, y: 0 },
         };
 
         /**
-         * MỚI (23/09/2026, Giang yêu cầu) — domain 'pagination' (Settings > System > Pagination), persist
-         * qua `meta.paginationConfig` (event/workflow/pagination.js). SỬA cùng ngày (Giang: "những nơi áp
-         * dụng được liệt kê checkbox vuông tại setting, khi true thì nơi đó áp dụng, mỗi checkbox có ô nhập
-         * item/page + style riêng") — KHÔNG còn cài đặt chung, MỖI NƠI 1 bộ riêng trong `places`:
-         *   - `enabled` — false (mặc định) = nơi đó giữ nguyên hành vi cũ, không phân trang.
-         *   - `pageSize` — số item/trang, ô NHẬP SỐ 1..200 (PAGINATION_PAGE_SIZE_MIN/MAX, core/pagination.js),
-         *     mặc định 20 (Giang chốt).
-         *   - `style` — 'arrow' | 'list' | 'full' | 'loadMore' (PAGINATION_STYLES), mặc định 'full'.
-         * Key của `places` PHẢI khớp PAGINATION_PLACES (core/pagination.js) — thêm nơi mới = thêm ở CẢ 2.
-         * Danh sách Playlist CHÍNH (main UI) CỐ Ý KHÔNG có ở đây (Giang chốt loại bỏ) — preset Filter thì CÓ.
-         * Nơi mới thêm sau khi người dùng đã lưu -> tự nhận mặc định (loadPersistedPaginationOnBoot() gộp theo từng nơi).
+         * Settings > System > Pagination, lưu `meta.paginationConfig` (event/workflow/pagination.js). Mỗi nơi 1 bộ trong `places`:
+         * `enabled` (false = không phân trang), `pageSize` 1..200, `style` 'arrow' | 'list' | 'full' | 'loadMore'. Key khớp
+         * PAGINATION_PLACES (core/pagination.js); nơi mới thêm tự nhận mặc định lúc boot.
          */
         const DEFAULT_PAGINATION_PLACE = { enabled: false, pageSize: 20, style: 'full' };
         const DEFAULT_PAGINATION_CONFIG = {
@@ -592,12 +345,9 @@
         };
 
         /**
-         * MỚI (01/10/2026, Giang chốt) — domain 'recorder' (Settings > System > Ghi âm — dời từ Visualizer Screen > Player 05/10/2026), persist qua
-         * `meta.recorderConfig` (event/workflow/recorder.js).
-         * SỬA (07/10/2026, Giang — cải tiến Ghi âm): `echoCancellation` BỎ (mic luôn thu thô). `mode` — 'speaker' (CHỈ mic:
-         * nhạc từ loa + giọng) | 'headphones' (nhạc gốc + mic). `latencyMs` — Sync (trước là "Bù trễ giọng", chỉ chế độ
-         * headphones): trễ NHÁNH NHẠC đi vào bản ghi, kẹp 0..500 bước 10 (core/recorder.js::clampRecorderLatencyMs()).
-         * `countInSec` — Count-in 0/3/5 giây. `quality` — Recording quality 'standard'|'high'|'max' (bitrate, core/recorder.js).
+         * Settings > System > Ghi âm, lưu `meta.recorderConfig` (event/workflow/recorder.js). `mode` 'speaker' (chỉ mic) |
+         * 'headphones' (nhạc gốc + mic); `latencyMs` trễ nhánh nhạc 0..500 (clampRecorderLatencyMs()); `countInSec` 0/3/5;
+         * `quality` 'standard' | 'high' | 'max' (core/recorder.js).
          */
         const DEFAULT_RECORDER_CONFIG = {
             mode: 'speaker',
@@ -607,13 +357,8 @@
         };
 
         /**
-         * MỚI (05/10/2026, Giang yêu cầu đưa perf-probe về core + event bus) — domain 'perfHud' (Settings > Troubleshooting >
-         * Performance HUD), persist qua `meta.perfHudConfig` (event/workflow/perf-hud.js) — thay 3 key localStorage
-         * `sav_perfProbe*` của service/perf-probe.js cũ (đã xoá). Restore default settings xoá key này.
-         *   - `enabled` — hiện HUD + chạy vòng đo.
-         *   - `style` — 'strip' (dải) | 'detail' (thẻ chi tiết) — PERF_HUD_STYLES (core/perf-hud.js).
-         *   - `orientation` — 'horizontal' | 'vertical', chỉ áp cho kiểu strip.
-         *   - `position` — {left, top} (px) lần kéo cuối; null = vị trí mặc định (PERF_HUD_DEFAULT_POSITION).
+         * Settings > Troubleshooting > Performance HUD, lưu `meta.perfHudConfig` (event/workflow/perf-hud.js). `style` 'strip' |
+         * 'detail' (PERF_HUD_STYLES, core/perf-hud.js); `orientation` chỉ cho strip; `position` {left, top} lần kéo cuối, null = mặc định.
          */
         const DEFAULT_PERF_HUD_CONFIG = {
             enabled: false,
@@ -661,7 +406,7 @@
 
         AppConfig.defineDomain('visualBg', {
             schema: {
-                enabled: 'boolean', // MỚI 29/09/2026 — toggle tổng, xem DEFAULT_VISUAL_BG_CONFIG.enabled
+                enabled: 'boolean', // toggle tổng
                 type: 'string',
                 source: 'object', // { originKind: nullable-string, originId: nullable-string, list: array }
                 pending: 'object', // { originKind: nullable-string, originId: nullable-string, list: array } — xem DEFAULT_VISUAL_BG_CONFIG.pending
@@ -669,15 +414,10 @@
                 colorMode: 'string', solidColor: 'string', gradientAngleDeg: 'number',
                 gradientStops: 'object',
                 gradientMovement: 'object',
-                // SỬA (29/08/2026) — schema lạc hậu: field `slideshow` (object) đã bỏ hẳn từ lúc
-                // Motion tách thành hệ preset độc lập, thay bằng 3 field dưới đây — CHƯA từng cập
-                // nhật vào schema này (không gây lỗi thật vì `getAll()`/`mutateAll()` bỏ qua hẳn
-                // schema, chỉ đọc/ghi thẳng object — nhưng để lạc hậu vẫn sai/gây hiểu nhầm nếu sau
-                // này có chỗ chuyển sang dùng `access('visualBg').get()/.set()` — 2 hàm CÓ check).
                 durationMode: 'string', durationSeconds: 'number',
                 motionPresetId: 'nullable-string',
                 videoSyncPlaybackSpeed: 'boolean',
-                videoResolutionMode: 'string', photoResolutionMode: 'string', // MỚI 30/09/2026 — xem DEFAULT_VISUAL_BG_CONFIG
+                videoResolutionMode: 'string', photoResolutionMode: 'string',
             },
             defaults: DEFAULT_VISUAL_BG_CONFIG,
         });
@@ -720,12 +460,8 @@
                 photoTransitionNextPresetId: 'nullable-string',
                 photoTransitionPrevPresetId: 'nullable-string',
                 photoPointMovePresetId: 'nullable-string',
-                videoZoom: 'object', // MỚI 29/09/2026 — {scale,x,y} hệ tỉ lệ, xem DEFAULT_PLAYER_DISPLAY_CONFIG
+                videoZoom: 'object', // {scale, x, y} hệ tỉ lệ
                 photoZoom: 'object',
-                // Video KHÔNG còn 'videoPointMovePresetId'/'videoReactBeatPresetId' riêng — ĐÃ GỘP
-                // thành 'videoShowingPresetId' (Giang chốt). Photo KHÔNG có field tương đương —
-                // không có React Beat để gộp cùng (Photo Player mode phát im lặng, Giang chỉ ra),
-                // xem core/player-display-settings.js::PLAYER_MOTION_SLOTS (field `kinds`).
             },
             defaults: DEFAULT_PLAYER_DISPLAY_CONFIG,
         });
@@ -757,29 +493,20 @@
             defaults: DEFAULT_PERF_HUD_CONFIG,
         });
 
-        /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
-         * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
-         * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
-         * lần mỗi lần boot dù KHÔNG có đọc/ghi nào thật sự xảy ra trong khoảng hở đó). Gọi TRƯỚC 3
-         * dòng tạo accessor ngay dưới đây, nên `appConfigViz`/`appConfigSlideshow`/`appConfigReader`
-         * luôn được tạo SAU KHI domain tương ứng đã seed — accessor không còn "rỗng" ngày nào nữa.
-         * VẪN chạy TRƯỚC `loadConfig()` (gọi từ event/workflow/app-boot.js, còn xa mới nạp/chạy tới
-         * — xem index.html) nên thứ tự "seed trước, merge localStorage đè lên sau" không đổi. */
-        function seedConfig() {
-            appConfig.seed('viz');
-            appConfig.seed('visualBg');
-            appConfig.seed('reader');
-            appConfig.seed('playlist');
-            appConfig.seed('player');
-            appConfig.seed('uiTheme');
-            appConfig.seed('playerDisplay');
-            appConfig.seed('pagination'); // MỚI 23/09/2026
-            appConfig.seed('recorder'); // MỚI 01/10/2026 — Ghi âm
-            appConfig.seed('perfHud'); // MỚI 05/10/2026 — Performance HUD
-        }
-        seedConfig();
+        // Seed mọi domain ngay lúc nạp file (trước khi tạo accessor bên dưới — access() domain chưa seed sẽ cảnh báo) và trước
+        // `workflowConfig.loadOnBoot()` (event/workflow/config.js) merge cấu hình đã lưu đè lên.
+        appConfig.seed('viz');
+        appConfig.seed('visualBg');
+        appConfig.seed('reader');
+        appConfig.seed('playlist');
+        appConfig.seed('player');
+        appConfig.seed('uiTheme');
+        appConfig.seed('playerDisplay');
+        appConfig.seed('pagination');
+        appConfig.seed('recorder');
+        appConfig.seed('perfHud');
 
-        /** Accessor tiện dụng, dùng khắp core/event cho 7 domain config — xem AppConfig.access(). */
+        /** Accessor dùng khắp core/event cho từng domain — xem AppConfig.access(). */
         const appConfigViz = appConfig.access('viz');
         const appConfigVisualBg = appConfig.access('visualBg');
         const appConfigReader = appConfig.access('reader');
@@ -787,345 +514,239 @@
         const appConfigPlayer = appConfig.access('player');
         const appConfigUiTheme = appConfig.access('uiTheme');
         const appConfigPlayerDisplay = appConfig.access('playerDisplay');
-        const appConfigPagination = appConfig.access('pagination'); // MỚI 23/09/2026 — Settings > System > Pagination
-        const appConfigRecorder = appConfig.access('recorder'); // MỚI 01/10/2026 — Settings > System > Ghi âm (dời từ Player 05/10/2026)
-        const appConfigPerfHud = appConfig.access('perfHud'); // MỚI 05/10/2026 — Settings > Troubleshooting > Performance HUD
+        const appConfigPagination = appConfig.access('pagination'); // Settings > System > Pagination
+        const appConfigRecorder = appConfig.access('recorder'); // Settings > System > Ghi âm
+        const appConfigPerfHud = appConfig.access('perfHud'); // Settings > Troubleshooting > Performance HUD
 
-        /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
-         * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */
+        /** Khoá localStorage của vizConfig (bản V20 cũ chỉ còn đọc lúc boot). */
+        const VIZ_CONFIG_STORAGE_KEY = 'visualMasterConfigV21';
+        const VIZ_CONFIG_LEGACY_STORAGE_KEY = 'visualMasterConfigV20';
+
+        /** timeMode cũ của Auto-Switch -> giá trị mới (field không có = giữ nguyên). */
+        const AUTO_SWITCH_LEGACY_TIME_MODE = {
+            random: { timeMode: 'fixed', fixedKind: 'random' },
+            duration: { timeMode: 'perMedia' },
+        };
+
+        /** Reset vizConfig về default (Workflow tự lưu + reload sau). */
         function restoreDefaultVizConfig() {
             appConfigViz.restoreDefaults();
         }
 
-        /** MỚI (12/08/2026, Giang chỉ ra 2a "Reset app default" THỰC RA là yêu cầu reset — không
-         * phải loại trừ, mình hiểu ngược ở bản trước) — Reset visualBgConfig (Visual Background)
-         * về default, CÙNG khuôn restoreDefaultVizConfig() ngay trên, khác domain. Gọi từ
-         * event/workflow/settings-misc.js::confirmRestoreDefaults() — Workflow đó tự lo
-         * persist(meta.visualBgConfig)/reload() sau (KHÔNG còn gộp saveConfig()+reload() ngay
-         * trong core/app-recovery.js như executeRestoreDefaults() cũ — giờ phải đợi ghi ĐỦ 2
-         * domain bất đồng bộ trước khi reload, không còn là 1 process Core làm gọn được nữa). */
+        /** Reset visualBgConfig về default (event/workflow/settings-misc.js::confirmRestoreDefaults() tự lưu + reload sau). */
         function restoreDefaultVisualBgConfig() {
             appConfigVisualBg.restoreDefaults();
         }
 
-        /**
-         * LƯU CONFIG (v7) — 2 lớp: (1) localStorage — nguồn ghi chính, đồng bộ, tức thì; (2)
-         * IndexedDB (meta.configBackup) — bản sao lưu, ghi debounce (2s yên tĩnh). KHÔNG backup
-         * bgImage/videoBgUrl (blob: URL chỉ sống trong 1 session).
-         */
-        function saveConfig() {
-            localStorage.setItem('visualMasterConfigV21', JSON.stringify(appConfigViz.getAll()));
-            scheduleConfigBackup();
+        /** Ghi vizConfig vào localStorage — nguồn lưu chính, đồng bộ (bản backup IndexedDB do Workflow hẹn giờ ghi).
+         * @param {object} cfg - appConfigViz.getAll() */
+        function writeVizConfigToStorage(cfg) {
+            localStorage.setItem(VIZ_CONFIG_STORAGE_KEY, JSON.stringify(cfg));
         }
 
-        function scheduleConfigBackup() {
-            taskManager.once(flushConfigBackup, 2000, 'configBackupFlush');
-        }
-        function flushConfigBackup() {
-            taskManager.kill('configBackupFlush');
-            const { bgImage, bgVideo, bgMediaThumb, ...persistable } = appConfigViz.getAll(); // loại trừ blob: URL runtime
-            setMeta('configBackup', persistable).catch(e => console.warn('[config] Lưu configBackup (IndexedDB) lỗi:', e));
+        /** Bản backup IndexedDB (meta.configBackup) — bỏ 3 blob: URL chỉ sống trong 1 phiên. @param {object} cfg @returns {object} */
+        function buildVizConfigBackup(cfg) {
+            const { bgImage, bgVideo, bgMediaThumb, ...persistable } = cfg;
+            return persistable;
         }
 
-        /**
-         * MỚI (21/09/2026, Giang yêu cầu nền media = ảnh HOẶC video, THAM CHIẾU item thư viện) — đọc 1 item thư viện làm nền App và tạo
-         * blob: URL runtime. Dùng CHUNG bởi boot (`loadPlaylistBgMediaAsset()` ngay dưới) và `workflowTheme` (lúc người dùng chọn item mới).
-         * `photo` -> `imageUrl` = ảnh gốc; `video` -> `videoUrl` = file video + `thumbUrl` = khung hình đầu FULL-RES (`thumbFullBlob`,
-         * record cũ thiếu thì `thumbBlob` vuông). Item không tồn tại / thiếu blob (bị xoá, hỏng) -> null.
-         * @param {'photo'|'video'} kind
-         * @param {string} key
-         * @returns {Promise<null|{imageUrl:string, videoUrl:string, thumbUrl:string}>}
-         */
-        async function resolveAppBgMedia(kind, key) {
-            if (!key) return null;
-            if (kind === 'photo') {
-                const record = await getImageRecord(key); // service/db.js
-                if (!record || !record.blob) return null;
-                return { imageUrl: URL.createObjectURL(record.blob), videoUrl: '', thumbUrl: '' };
+        /** Chuỗi JSON đã lưu -> object; rỗng/hỏng -> {} (giữ default). @param {string|null} raw @returns {object} */
+        function parseSavedVizConfig(raw) {
+            if (!raw) return {};
+            try {
+                const obj = JSON.parse(raw);
+                return obj && typeof obj === 'object' ? obj : {};
+            } catch (e) {
+                return {};
             }
-            if (kind === 'video') {
-                const record = await getVideoRecord(key); // service/db.js
-                if (!record || !record.blob) return null;
-                const thumbBlob = record.thumbFullBlob || record.thumbBlob;
-                return { imageUrl: '', videoUrl: URL.createObjectURL(record.blob), thumbUrl: thumbBlob ? URL.createObjectURL(thumbBlob) : '' };
-            }
-            return null;
+        }
+
+        /** Cấu hình đã lưu đè lên cấu hình hiện tại (default vừa seed) — field thiếu giữ default. @param {object} current
+         * @param {object} saved @returns {object} */
+        function mergeSavedVizConfig(current, saved) {
+            return { ...current, ...saved };
         }
 
         /**
-         * Đọc lại NỀN MEDIA PLAYLIST/APP lúc boot: resolve item thư viện theo `bgMediaKey` -> gán 3 URL runtime. Item ĐÃ XOÁ/MẤT (hoặc config cũ
-         * ở mode 'background' mà chưa có `bgMediaKey` — bản cũ copy blob vào `meta.bgImage`, không còn tham chiếu được) -> KHÔNG để app kẹt nền
-         * trống: quay về `bgFallbackMode` (nền Solid/Gradient chọn trước khi vào media) + xoá tham chiếu hỏng.
-         * ĐỔI TÊN 21/09/2026 (trước là `loadPlaylistBgImageAsset()` — chỉ ảnh, đọc bản copy `meta.bgImage`). Caller: loadConfig() ngay dưới —
-         * chạy TRƯỚC `loadPersistedUiThemeOnBoot()` nên `syncStatusBarColor()`/mirror preloader (event/workflow/ui-theme.js) thấy ngay mode đã fallback.
+         * Di trú + chuẩn hoá vizConfig vừa nạp (sửa thẳng `cfg` — dùng làm mutator của appConfigViz.mutateAll()). Mỗi bước
+         * chỉ chạy khi gặp dữ liệu cũ tương ứng, chạy lại trên dữ liệu đã sạch là vô hại. Chuẩn hoá danh sách group/style của
+         * Auto-Switch theo registry do Workflow gọi riêng ngay sau (normalizeAutoSwitch*List(), core/auto-switch-visual.js).
+         * @param {object} cfg
          */
-        async function loadPlaylistBgMediaAsset() {
-            delMeta('bgImage').catch(() => {}); // DỌN 21/09/2026 — bản copy ảnh nền của cơ chế CŨ (meta.bgImage) không còn ai đọc, xoá để trả dung lượng (an toàn gọi lại mỗi boot; bỏ dòng này sau vài bản)
-            const before = appConfigViz.getAll();
-            const media = before.bgMediaKey ? await resolveAppBgMedia(before.bgMediaKind, before.bgMediaKey) : null;
-            appConfigViz.mutateAll(cfg => {
-                if (media) {
-                    cfg.bgImage = media.imageUrl; cfg.bgVideo = media.videoUrl; cfg.bgMediaThumb = media.thumbUrl;
-                    return;
+        function migrateVizConfig(cfg) {
+            // eqMode/manualEq cũ -> eqPresetId (5 preset gốc giữ id; 'manual' về Default).
+            if (!cfg.eqPresetId) cfg.eqPresetId = (cfg.eqMode && cfg.eqMode !== 'manual') ? cfg.eqMode : 'flat';
+            delete cfg.eqMode; delete cfg.manualEq;
+            // Visualizer đã bỏ -> 'bar'.
+            if (cfg.type === 'synthesia' || cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
+
+            // 'black hole' (type riêng cũ) -> style của group 'bar'; 'rubik' -> group 'shape'. Chạy TRƯỚC bước merge
+            // DEFAULT_CUSTOM_EFFECT dưới (default không còn 2 khoá này — không di trú trước thì tinh chỉnh cũ bị bỏ quên).
+            if (cfg.customEffect) {
+                if (cfg.customEffect['black hole']) {
+                    const wasActive = cfg.type === 'black hole';
+                    cfg.customEffect.bar = { ...cfg.customEffect['black hole'], ...cfg.customEffect.bar };
+                    if (wasActive) cfg.customEffect.bar.barStyle = 'black hole';
+                    delete cfg.customEffect['black hole'];
                 }
-                cfg.bgImage = ''; cfg.bgVideo = ''; cfg.bgMediaThumb = '';
-                if (cfg.bgMediaKey) { cfg.bgMediaKey = ''; cfg.bgMediaKind = ''; } // item bị xoá/mất
-                if (cfg.themeMode === 'background') {
-                    cfg.themeMode = cfg.bgFallbackMode === 'none' ? 'none' : 'gradient'; // SỬA 23/09/2026 — 'solid' đã bỏ, thay bằng 'none'
-                    console.log(`writer: "loadPlaylistBgMediaAsset", page: "config", content: "nền media mất/chưa có -> fallback '${cfg.themeMode}'"`);
+                if (cfg.customEffect['rubik']) {
+                    cfg.customEffect.shape = { ...cfg.customEffect['rubik'], shapeStyle: 'rubik' };
+                    delete cfg.customEffect['rubik'];
                 }
+            }
+            if (cfg.type === 'black hole') cfg.type = 'bar';
+            else if (cfg.type === 'rubik') cfg.type = 'shape';
+
+            // customEffect: đủ mọi effect từ default + field đã lưu; save rất cũ còn field phẳng ở gốc cfg -> chuyển vào đúng effect.
+            const legacyType = Object.keys(DEFAULT_CUSTOM_EFFECT).includes(cfg.type) ? cfg.type : null;
+            const next = {};
+            for (const key in DEFAULT_CUSTOM_EFFECT) next[key] = { ...DEFAULT_CUSTOM_EFFECT[key], ...(cfg.customEffect && cfg.customEffect[key]) };
+            if (!cfg.customEffect && legacyType && next[legacyType]) {
+                const t = next[legacyType];
+                if (cfg.mode) t.mode = cfg.mode;
+                if (cfg.solidColor) t.solidColor = cfg.solidColor;
+                if (cfg.dynA) t.dynA = cfg.dynA;
+                if (cfg.dynB) t.dynB = cfg.dynB;
+                if (cfg.blurEnabled != null) t.blurEnabled = cfg.blurEnabled;
+                if (cfg.barStyle) t.barStyle = cfg.barStyle;
+                if (cfg.vortexStyle) t.vortexStyle = cfg.vortexStyle;
+                if (cfg.rainStyle) t.rainStyle = cfg.rainStyle;
+                if (cfg.glassFlash != null) t.glassFlash = cfg.glassFlash;
+                if (cfg.minH != null) t.minH = cfg.minH;
+                if (cfg.maxH != null) t.maxH = cfg.maxH;
+                if (cfg.barWidth != null) t.barWidth = cfg.barWidth;
+                if (cfg.mirrorBarCount != null) t.mirrorBarCount = cfg.mirrorBarCount;
+                if (cfg.rainGlassCityVisible != null) t.glassCityVisible = cfg.rainGlassCityVisible;
+                if (cfg.rainGlassMoonVisible != null) t.glassMoonVisible = cfg.rainGlassMoonVisible;
+            }
+            // rain.glassFlash -> flashEnabled (chỉ khi save cũ chưa có flashEnabled); luôn xoá glassFlash.
+            const savedRain = cfg.customEffect && cfg.customEffect.rain;
+            if (next.rain && next.rain.glassFlash != null) {
+                if (!savedRain || savedRain.flashEnabled == null) next.rain.flashEnabled = !!next.rain.glassFlash;
+                delete next.rain.glassFlash;
+            }
+            // Clock: 2 toggle clockPendulum/clockRingsVisible -> clockAccessory (bước trung gian) -> clockPendulumEnabled;
+            // xoá khoá thừa của các bản đã bỏ (nguồn kim, lật thân, vòng Time scan, độ nhạy vạch phổ).
+            const savedShape = cfg.customEffect && cfg.customEffect.shape;
+            if (next.shape && savedShape && savedShape.clockAccessory == null && (savedShape.clockPendulum != null || savedShape.clockRingsVisible != null)) {
+                next.shape.clockAccessory = savedShape.clockPendulum === true ? 'pendulum' : savedShape.clockRingsVisible === false ? 'none' : 'rings';
+            }
+            if (next.shape) { delete next.shape.clockPendulum; delete next.shape.clockRingsVisible; }
+            if (next.shape) delete next.shape.clockHandsSource;
+            if (next.shape) delete next.shape.clockFlip;
+            if (next.shape && savedShape && savedShape.clockPendulumEnabled == null && savedShape.clockAccessory != null) {
+                next.shape.clockPendulumEnabled = savedShape.clockAccessory === 'pendulum';
+            }
+            // Black Hole: độ rộng cột kẹp 5-10px.
+            if (next.bar && next.bar.barWidth != null) next.bar.barWidth = Math.max(5, Math.min(10, Number(next.bar.barWidth) || 8));
+            if (next.shape) ['clockAccessory', 'clockRingWidth', 'clockRingRadius', 'clockRingBgOpacity', 'clockTickGain'].forEach((k) => { delete next.shape[k]; });
+            cfg.customEffect = next;
+            delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
+            delete cfg.barStyle; delete cfg.vortexStyle; delete cfg.rainStyle; delete cfg.glassFlash;
+            delete cfg.minH; delete cfg.maxH; delete cfg.barWidth; delete cfg.mirrorBarCount;
+            delete cfg.rainGlassCityOpacity; delete cfg.rainGlassCityVisible; delete cfg.rainGlassMoonVisible; delete cfg.rainGlassWindowVisible;
+            delete cfg.quality;
+
+            // Nền: 'solid' đã bỏ -> 'none'; data chưa có morphinLastMode mà đang ở 1 kiểu nền Morphin -> nhớ kiểu đó.
+            if (cfg.themeMode === 'solid') cfg.themeMode = 'none';
+            if (cfg.bgFallbackMode === 'solid') cfg.bgFallbackMode = 'none';
+            if (cfg.morphinLastMode === 'solid') cfg.morphinLastMode = 'none';
+            delete cfg.bgSolidColor;
+            if (!cfg.morphinLastMode && ['none', 'gradient', 'background'].includes(cfg.themeMode)) cfg.morphinLastMode = cfg.themeMode;
+            delete cfg.bgImageEnabled;
+            if (cfg.themeMode == null) cfg.themeMode = 'dark';
+            if (!cfg.gradientFrom) cfg.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;
+            if (!cfg.gradientTo) cfg.gradientTo = DEFAULT_VIZ_CONFIG.gradientTo;
+            if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
+            if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
+            if (cfg.visualEnabled == null) cfg.visualEnabled = true;
+            if (cfg.gameplayDifficultyByGame == null || typeof cfg.gameplayDifficultyByGame !== 'object') cfg.gameplayDifficultyByGame = {};
+            // Game mode không lưu bền (trạng thái RAM) — dọn field cũ.
+            delete cfg.gameplayModeEnabled;
+            delete cfg.gameplayArmedGameId;
+
+            // Auto-Switch Effect.
+            if (cfg.autoSwitchVisualEnabled == null) cfg.autoSwitchVisualEnabled = false;
+            if (cfg.autoSwitchVisualMode !== 'sequential' && cfg.autoSwitchVisualMode !== 'random') cfg.autoSwitchVisualMode = 'sequential';
+            if (typeof cfg.autoSwitchVisualSeconds === 'number' && cfg.autoSwitchVisualSecondsFixed == null) cfg.autoSwitchVisualSecondsFixed = cfg.autoSwitchVisualSeconds;
+            delete cfg.autoSwitchVisualSeconds;
+            // timeMode cũ: 'random' -> 'fixed' + kiểu random (giữ SecondsRandom làm trần); 'duration' -> 'perMedia'.
+            const legacyTime = AUTO_SWITCH_LEGACY_TIME_MODE[cfg.autoSwitchVisualTimeMode] || {};
+            if (legacyTime.timeMode) cfg.autoSwitchVisualTimeMode = legacyTime.timeMode;
+            if (legacyTime.fixedKind) cfg.autoSwitchVisualFixedKind = legacyTime.fixedKind;
+            if (cfg.autoSwitchVisualTimeMode !== 'fixed' && cfg.autoSwitchVisualTimeMode !== 'perMedia') cfg.autoSwitchVisualTimeMode = 'fixed';
+            if (cfg.autoSwitchVisualFixedKind !== 'const' && cfg.autoSwitchVisualFixedKind !== 'random') cfg.autoSwitchVisualFixedKind = 'const';
+            delete cfg.autoSwitchVisualSecondsDuration;
+            ['autoSwitchVisualSecondsFixed', 'autoSwitchVisualSecondsRandomMin', 'autoSwitchVisualSecondsRandom'].forEach((field) => {
+                if (typeof cfg[field] !== 'number' || !isFinite(cfg[field])) cfg[field] = DEFAULT_VIZ_CONFIG[field];
+                cfg[field] = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(AUTO_SWITCH_VISUAL_MAX_SECONDS, Math.round(cfg[field])));
             });
+            if (cfg.autoSwitchVisualSecondsRandomMin > cfg.autoSwitchVisualSecondsRandom) cfg.autoSwitchVisualSecondsRandom = cfg.autoSwitchVisualSecondsRandomMin;
+            if (cfg.autoSwitchVisualListBy !== 'group' && cfg.autoSwitchVisualListBy !== 'style') cfg.autoSwitchVisualListBy = 'style';
+            // Connector chỉ còn style 'circuit' (bỏ 'brain', 'synapse'): mọi lựa chọn style khác -> 'circuit'; dọn field riêng
+            // của 2 style đã bỏ khỏi bucket connector và ô byStyle.
+            const cn = (cfg.customEffect || {}).connector;
+            const CONNECTOR_REMOVED_STYLES = ['brain', 'synapse'];
+            const CONNECTOR_REMOVED_FIELDS = ['burstEnabled', 'neuronCount', 'synapseSpeedBase', 'synapseSpeedEnergyMult'];
+            if (cn) cn.connectorStyle = 'circuit';
+            if (cn) Object.keys(cn).forEach((k) => { if (k.indexOf('brain') === 0 || CONNECTOR_REMOVED_FIELDS.includes(k)) delete cn[k]; });
+            if (cn && cn.byStyle) CONNECTOR_REMOVED_STYLES.forEach((st) => { delete cn.byStyle[st]; });
+            // Bloom strength gộp vào Glow intensity: glowIntensity = bloomStrengthBase / 4 theo %, làm tròn bước 5 (ghi cả
+            // byStyle.circuit — giá trị cũ ở đó mang nghĩa khác).
+            if (cn && typeof cn.bloomStrengthBase === 'number') {
+                const glowFromBloom = Math.max(0, Math.min(100, Math.round(cn.bloomStrengthBase / 4 * 100 / 5) * 5));
+                cn.glowIntensity = glowFromBloom;
+                if (cn.byStyle && cn.byStyle.circuit) cn.byStyle.circuit.glowIntensity = glowFromBloom;
+            }
+            if (cn) delete cn.bloomStrengthBase;
+            if (cn) delete cn.bloomStrengthEnergyMult;
+            // Bar mirror bỏ option "Peak caps".
+            const barCfg = (cfg.customEffect || {}).bar;
+            if (barCfg) delete barCfg.mirrorPeaks;
+            if (barCfg && barCfg.byStyle) Object.keys(barCfg.byStyle).forEach((st) => { if (barCfg.byStyle[st]) delete barCfg.byStyle[st].mirrorPeaks; });
+            cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && CONNECTOR_REMOVED_STYLES.includes(item.style) ? { ...item, style: 'circuit' } : item));
+            cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && CONNECTOR_REMOVED_STYLES.includes(item.key) ? { ...item, key: 'circuit' } : item));
+            delete cfg.subtitleStyle; // khung phụ đề cũ
         }
 
-        /**
-         * Đồng bộ TOÀN BỘ UI Cài đặt theo vizConfig hiện tại (sau khi nạp/migrate xong) — điều
-         * phối duy nhất, gọi các hàm "init UI" của TỪNG MODULE CON qua guard `typeof === 'function'`.
-         */
-        async function loadConfig() {
-            let saved = localStorage.getItem('visualMasterConfigV21') || localStorage.getItem('visualMasterConfigV20');
-            // FALLBACK (v7): localStorage rỗng NHƯNG IndexedDB còn bản backup -> phục hồi NGAY vào
-            // localStorage rồi nạp tiếp như thường.
-            if (!saved) {
-                try {
-                    const backup = await getMeta('configBackup');
-                    if (backup && typeof backup === 'object') {
-                        saved = JSON.stringify(backup);
-                        localStorage.setItem('visualMasterConfigV21', saved);
-                        console.warn('[config] localStorage rỗng — đã phục hồi cấu hình từ bản backup IndexedDB.');
-                    }
-                } catch (e) { console.warn('[config] Không đọc được configBackup (IndexedDB):', e); }
-            }
-            if (saved) {
-                try {
-                    const savedObj = JSON.parse(saved);
-                    // (MIGRATE 21/09/2026 gradient-2-màu-giống -> 'solid' ĐÃ XOÁ 23/09/2026 — mode 'solid' đã bỏ; data 'solid' còn sót -> 'none', xem dưới.)
-                    appConfigViz.setAll({ ...appConfigViz.getAll(), ...savedObj });
-                } catch(e) {}
-            }
-            appConfigViz.mutateAll(cfg => {
-                // Di trú eqMode/manualEq cũ (ĐÃ BỎ HẲN, xem core/eq-presets.js) sang eqPresetId
-                // MỚI — 5 preset gốc giữ NGUYÊN id (flat/bass_boost/pop/rock/acoustic/electronic)
-                // nên chọn lại đúng preset cũ; riêng 'manual' không còn preset nào tên vậy nữa,
-                // về Default (gains riêng người dùng tự chỉnh trong 'manual' KHÔNG khôi phục được
-                // — đánh đổi chấp nhận được, dự án cá nhân, không cần lớp di trú phức tạp hơn).
-                if (!cfg.eqPresetId) cfg.eqPresetId = (cfg.eqMode && cfg.eqMode !== 'manual') ? cfg.eqMode : 'flat';
-                delete cfg.eqMode; delete cfg.manualEq;
-                // Cấu hình cũ từng có visualizer 'synthesia'/'firefly_forest'/'seasons'/'wave' đã bị
-                // loại bỏ — quy về 'bar' để không vỡ trải nghiệm người dùng cũ.
-                if (cfg.type === 'synthesia' || cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
+        /** Blob cần tạo URL theo loại nền media (video: thumb full-res, record cũ thiếu thì thumb vuông). */
+        const APP_BG_MEDIA_BLOBS_BY_KIND = {
+            photo: (record) => ({ image: record.blob, video: null, thumb: null }),
+            video: (record) => ({ image: null, video: record.blob, thumb: record.thumbFullBlob || record.thumbBlob || null }),
+        };
 
-                // MIGRATE (05/09/2026, "group hoá" effect picker, yêu cầu Giang) — 'black hole'
-                // (type riêng cũ) CHUYỂN thành 1 style của group 'bar'; 'rubik' (type riêng cũ)
-                // CHUYỂN thành group 'shape' (đổi tên, vẫn 1 style 'rubik'). PHẢI chạy TRƯỚC vòng
-                // merge DEFAULT_CUSTOM_EFFECT ngay dưới — DEFAULT_CUSTOM_EFFECT không còn 2 khoá
-                // 'black hole'/'rubik' nữa (đã đổi tên/gộp), nếu không di trú trước, tinh chỉnh
-                // riêng Giang từng lưu cho 2 effect đó (nếu có) sẽ bị bỏ quên, không ai đọc nữa.
-                if (cfg.customEffect) {
-                    if (cfg.customEffect['black hole']) {
-                        const wasActive = cfg.type === 'black hole';
-                        cfg.customEffect.bar = { ...cfg.customEffect['black hole'], ...cfg.customEffect.bar };
-                        if (wasActive) cfg.customEffect.bar.barStyle = 'black hole';
-                        delete cfg.customEffect['black hole'];
-                    }
-                    if (cfg.customEffect['rubik']) {
-                        cfg.customEffect.shape = { ...cfg.customEffect['rubik'], shapeStyle: 'rubik' };
-                        delete cfg.customEffect['rubik'];
-                    }
-                }
-                if (cfg.type === 'black hole') cfg.type = 'bar';
-                else if (cfg.type === 'rubik') cfg.type = 'shape';
+        /** Blob làm nền App từ record thư viện; record mất/thiếu blob -> null.
+         * @param {'photo'|'video'} kind @param {object|null|undefined} record @returns {null|{image:?Blob, video:?Blob, thumb:?Blob}} */
+        function pickAppBgMediaBlobs(kind, record) {
+            if (!record || !record.blob) return null;
+            return APP_BG_MEDIA_BLOBS_BY_KIND[kind](record);
+        }
 
-                // MIGRATE (12/08/2026, bỏ field phẳng cũ + chế độ hiệu năng) — customEffect() là
-                // OBJECT MỚI, seed đủ 7 effect từ default rồi merge field CŨ (nếu save trước bản
-                // này còn sót lại field phẳng ở gốc cfg) vào ĐÚNG effect tương ứng 1 lần duy nhất.
-                const legacyType = Object.keys(DEFAULT_CUSTOM_EFFECT).includes(cfg.type) ? cfg.type : null;
-                const next = {};
-                for (const key in DEFAULT_CUSTOM_EFFECT) next[key] = { ...DEFAULT_CUSTOM_EFFECT[key], ...(cfg.customEffect && cfg.customEffect[key]) };
-                if (!cfg.customEffect && legacyType && next[legacyType]) {
-                    const t = next[legacyType];
-                    if (cfg.mode) t.mode = cfg.mode;
-                    if (cfg.solidColor) t.solidColor = cfg.solidColor;
-                    if (cfg.dynA) t.dynA = cfg.dynA;
-                    if (cfg.dynB) t.dynB = cfg.dynB;
-                    if (cfg.blurEnabled != null) t.blurEnabled = cfg.blurEnabled;
-                    if (cfg.barStyle) t.barStyle = cfg.barStyle;
-                    if (cfg.vortexStyle) t.vortexStyle = cfg.vortexStyle;
-                    if (cfg.rainStyle) t.rainStyle = cfg.rainStyle;
-                    if (cfg.glassFlash != null) t.glassFlash = cfg.glassFlash;
-                    if (cfg.minH != null) t.minH = cfg.minH;
-                    if (cfg.maxH != null) t.maxH = cfg.maxH;
-                    if (cfg.barWidth != null) t.barWidth = cfg.barWidth;
-                    if (cfg.mirrorBarCount != null) t.mirrorBarCount = cfg.mirrorBarCount;
-                    if (cfg.rainGlassCityVisible != null) t.glassCityVisible = cfg.rainGlassCityVisible;
-                    if (cfg.rainGlassMoonVisible != null) t.glassMoonVisible = cfg.rainGlassMoonVisible;
-                }
-                // MIGRATE (19/09/2026, đồng bộ field chớp) — rain.glassFlash (bool) ĐỔI TÊN thành flashEnabled
-                // (dùng chung 4 effect chớp). Chỉ chuyển nếu save cũ CHƯA có flashEnabled; luôn xoá glassFlash.
-                const savedRain = cfg.customEffect && cfg.customEffect.rain;
-                if (next.rain && next.rain.glassFlash != null) {
-                    if (!savedRain || savedRain.flashEnabled == null) next.rain.flashEnabled = !!next.rain.glassFlash;
-                    delete next.rain.glassFlash;
-                }
-                // MIGRATE 26/09/2026 (clock lượt 6) — 2 toggle clockPendulum/clockRingsVisible -> dropdown
-                // clockAccessory (chỉ khi save cũ chưa có clockAccessory; con lắc bật thì ưu tiên con lắc).
-                const savedShape = cfg.customEffect && cfg.customEffect.shape;
-                if (next.shape && savedShape && savedShape.clockAccessory == null && (savedShape.clockPendulum != null || savedShape.clockRingsVisible != null)) {
-                    next.shape.clockAccessory = savedShape.clockPendulum === true ? 'pendulum' : savedShape.clockRingsVisible === false ? 'none' : 'rings';
-                }
-                if (next.shape) { delete next.shape.clockPendulum; delete next.shape.clockRingsVisible; }
-                // MIGRATE 26/09/2026 (clock lượt 5) — bỏ hẳn lựa chọn nguồn kim (chỉ còn Past & Future) -> xoá khoá thừa.
-                if (next.shape) delete next.shape.clockHandsSource;
-                // MIGRATE 27/09/2026 (clock lượt 9) — bỏ cơ chế lật thân đồng hồ -> xoá khoá thừa.
-                if (next.shape) delete next.shape.clockFlip;
-                // MIGRATE 28/09/2026 (Giang) — bỏ vòng Time scan + dropdown clockAccessory -> toggle clockPendulumEnabled
-                // (save cũ chọn 'pendulum' -> bật, 'rings'/'none' -> tắt); xoá khoá thừa của vòng + độ nhạy vạch phổ.
-                if (next.shape && savedShape && savedShape.clockPendulumEnabled == null && savedShape.clockAccessory != null) {
-                    next.shape.clockPendulumEnabled = savedShape.clockAccessory === 'pendulum';
-                }
-                // MIGRATE 28/09/2026 (Giang) — Black Hole: độ rộng cột đổi khoảng 1-15 -> 5-15px, giá trị cũ ngoài khoảng kẹp về.
-                if (next.bar && next.bar.barWidth != null) next.bar.barWidth = Math.max(5, Math.min(10, Number(next.bar.barWidth) || 8)); // 29/09: tối đa 10px
-                if (next.shape) ['clockAccessory', 'clockRingWidth', 'clockRingRadius', 'clockRingBgOpacity', 'clockTickGain'].forEach((k) => { delete next.shape[k]; });
-                cfg.customEffect = next;
-                delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
-                delete cfg.barStyle; delete cfg.vortexStyle; delete cfg.rainStyle; delete cfg.glassFlash;
-                delete cfg.minH; delete cfg.maxH; delete cfg.barWidth; delete cfg.mirrorBarCount;
-                delete cfg.rainGlassCityOpacity; delete cfg.rainGlassCityVisible; delete cfg.rainGlassMoonVisible; delete cfg.rainGlassWindowVisible;
-                delete cfg.quality;
+        /** Trường hợp nền media lúc boot: 'found' (resolve được) | 'broken' (có tham chiếu/đang ở mode 'background' mà không
+         * resolve được) | 'none' (không dùng nền media). @param {object} cfg @param {boolean} hasMedia @returns {string} */
+        function classifyAppBgMediaBoot(cfg, hasMedia) {
+            if (hasMedia) return 'found';
+            return cfg.bgMediaKey || cfg.themeMode === 'background' ? 'broken' : 'none';
+        }
 
-                // MIGRATE 23/09/2026 (Giang bỏ nền Solid, thay bằng None) — 'solid' ở themeMode/bgFallbackMode/morphinLastMode -> 'none'; bỏ field màu solid.
-                // Chạy mỗi boot, vô hại khi data đã sạch.
-                if (cfg.themeMode === 'solid') cfg.themeMode = 'none';
-                if (cfg.bgFallbackMode === 'solid') cfg.bgFallbackMode = 'none';
-                if (cfg.morphinLastMode === 'solid') cfg.morphinLastMode = 'none';
-                delete cfg.bgSolidColor;
-                // MỚI 23/09/2026 — data cũ chưa có `morphinLastMode` mà đang ở Morphin (themeMode là 1 kiểu nền) -> nhớ luôn kiểu đó.
-                if (!cfg.morphinLastMode && ['none', 'gradient', 'background'].includes(cfg.themeMode)) cfg.morphinLastMode = cfg.themeMode;
-                delete cfg.bgImageEnabled; // XOÁ field 21/09/2026 (dọn deadcode) — cờ "bật ảnh nền" của cơ chế copy blob cũ, nay mode 'background' + bgMediaKey thay thế
-                if (cfg.themeMode == null) cfg.themeMode = 'dark';
-                if (!cfg.gradientFrom) cfg.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;
-                if (!cfg.gradientTo) cfg.gradientTo = DEFAULT_VIZ_CONFIG.gradientTo;
-                if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
-                if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
-                if (cfg.visualEnabled == null) cfg.visualEnabled = true;
-                // MỚI (02/09/2026, Giang yêu cầu "phải lưu độ khó đã chọn cho từng game") — xem
-                // docstring đầy đủ ở DEFAULT_VIZ_CONFIG phía trên.
-                if (cfg.gameplayDifficultyByGame == null || typeof cfg.gameplayDifficultyByGame !== 'object') cfg.gameplayDifficultyByGame = {};
-                // [SỬA — 02/09/2026, Giang yêu cầu "game mode không lưu, trạng thái tạm thời RAM"]
-                // Armed game KHÔNG còn PERSISTENT (bản trước đó, cùng ngày, từng đổi boolean
-                // `gameplayModeEnabled` -> `gameplayArmedGameId` nullable-string VẪN ở AppConfig —
-                // giờ dọn NỐT, chuyển hẳn sang AppState session-only, xem core/gameplay/engine.js +
-                // service/state/gameplay-runtime.js). Dọn sạch field cũ nếu còn sót trong config đã
-                // lưu trước đó — KHÔNG migrate giá trị đi đâu (đúng ý mỗi lần mở app phải khởi động
-                // lại từ "chưa armed game nào").
-                delete cfg.gameplayModeEnabled;
-                delete cfg.gameplayArmedGameId;
-                // Auto-switch-visual — VIẾT LẠI migrate (26/09/2026, Giang "cải tiến lại Auto-Switch Effect").
-                if (cfg.autoSwitchVisualEnabled == null) cfg.autoSwitchVisualEnabled = false;
-                if (cfg.autoSwitchVisualMode !== 'sequential' && cfg.autoSwitchVisualMode !== 'random') cfg.autoSwitchVisualMode = 'sequential';
-                // Field cũ `autoSwitchVisualSeconds` (rất cũ) -> SecondsFixed.
-                if (typeof cfg.autoSwitchVisualSeconds === 'number' && cfg.autoSwitchVisualSecondsFixed == null) cfg.autoSwitchVisualSecondsFixed = cfg.autoSwitchVisualSeconds;
-                delete cfg.autoSwitchVisualSeconds;
-                // timeMode cũ: 'random' -> 'fixed' + kiểu random (giữ SecondsRandom làm trần); 'duration' -> 'perMedia'.
-                if (cfg.autoSwitchVisualTimeMode === 'random') { cfg.autoSwitchVisualTimeMode = 'fixed'; cfg.autoSwitchVisualFixedKind = 'random'; }
-                else if (cfg.autoSwitchVisualTimeMode === 'duration') cfg.autoSwitchVisualTimeMode = 'perMedia';
-                if (cfg.autoSwitchVisualTimeMode !== 'fixed' && cfg.autoSwitchVisualTimeMode !== 'perMedia') cfg.autoSwitchVisualTimeMode = 'fixed';
-                if (cfg.autoSwitchVisualFixedKind !== 'const' && cfg.autoSwitchVisualFixedKind !== 'random') cfg.autoSwitchVisualFixedKind = 'const';
-                delete cfg.autoSwitchVisualSecondsDuration;
-                ['autoSwitchVisualSecondsFixed', 'autoSwitchVisualSecondsRandomMin', 'autoSwitchVisualSecondsRandom'].forEach((field) => {
-                    if (typeof cfg[field] !== 'number' || !isFinite(cfg[field])) cfg[field] = DEFAULT_VIZ_CONFIG[field];
-                    cfg[field] = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(AUTO_SWITCH_VISUAL_MAX_SECONDS, Math.round(cfg[field])));
-                });
-                if (cfg.autoSwitchVisualSecondsRandomMin > cfg.autoSwitchVisualSecondsRandom) cfg.autoSwitchVisualSecondsRandom = cfg.autoSwitchVisualSecondsRandomMin;
-                // Danh sách group/style — chuẩn hoá theo registry hiện tại (group/style mới thêm vào cuối, đã tick).
-                if (cfg.autoSwitchVisualListBy !== 'group' && cfg.autoSwitchVisualListBy !== 'style') cfg.autoSwitchVisualListBy = 'style';
-                // XOÁ style 'brain' (01/10/2026) + 'synapse' (06/10/2026, Giang): connector chỉ còn 'circuit' — mọi lựa chọn style
-                // khác -> 'circuit' (trước khi chuẩn hoá); dọn field brain*/burstEnabled + field riêng synapse khỏi bucket connector
-                // và ô byStyle.brain/synapse.
-                const cn = (cfg.customEffect || {}).connector;
-                const CONNECTOR_REMOVED_STYLES = ['brain', 'synapse'];
-                const CONNECTOR_REMOVED_FIELDS = ['burstEnabled', 'neuronCount', 'synapseSpeedBase', 'synapseSpeedEnergyMult'];
-                if (cn) cn.connectorStyle = 'circuit';
-                if (cn) Object.keys(cn).forEach((k) => { if (k.indexOf('brain') === 0 || CONNECTOR_REMOVED_FIELDS.includes(k)) delete cn[k]; });
-                if (cn && cn.byStyle) CONNECTOR_REMOVED_STYLES.forEach((st) => { delete cn.byStyle[st]; });
-                // GỘP Bloom strength vào Glow intensity (07/10/2026, Giang báo 2 khối xung đột): giữ đúng độ bloom đang thấy —
-                // glowIntensity = bloomStrengthBase / 4 (bloom tối đa) theo %, làm tròn bước 5; ghi cả ô byStyle.circuit (glowIntensity
-                // là field lưu theo style, giá trị cũ ở đó là nghĩa "phát sáng thân chip", không còn đúng).
-                if (cn && typeof cn.bloomStrengthBase === 'number') {
-                    const glowFromBloom = Math.max(0, Math.min(100, Math.round(cn.bloomStrengthBase / 4 * 100 / 5) * 5));
-                    cn.glowIntensity = glowFromBloom;
-                    if (cn.byStyle && cn.byStyle.circuit) cn.byStyle.circuit.glowIntensity = glowFromBloom;
-                }
-                if (cn) delete cn.bloomStrengthBase;
-                if (cn) delete cn.bloomStrengthEnergyMult; // energy boost của bloom BỎ (07/10/2026, Giang)
-                // XOÁ option "Peak caps" của bar mirror (07/10/2026, Giang) — dọn field khỏi bucket bar + mọi ô byStyle.
-                const barCfg = (cfg.customEffect || {}).bar;
-                if (barCfg) delete barCfg.mirrorPeaks;
-                if (barCfg && barCfg.byStyle) Object.keys(barCfg.byStyle).forEach((st) => { if (barCfg.byStyle[st]) delete barCfg.byStyle[st].mirrorPeaks; });
-                cfg.autoSwitchVisualGroupList = (cfg.autoSwitchVisualGroupList || []).map((item) => (item && item.key === 'connector' && CONNECTOR_REMOVED_STYLES.includes(item.style) ? { ...item, style: 'circuit' } : item));
-                cfg.autoSwitchVisualStyleList = (cfg.autoSwitchVisualStyleList || []).map((item) => (item && CONNECTOR_REMOVED_STYLES.includes(item.key) ? { ...item, key: 'circuit' } : item));
-                cfg.autoSwitchVisualGroupList = normalizeAutoSwitchGroupList(cfg.autoSwitchVisualGroupList, EFFECT_GROUPS); // core/auto-switch-visual.js
-                cfg.autoSwitchVisualStyleList = normalizeAutoSwitchStyleList(cfg.autoSwitchVisualStyleList, MODES); // core/auto-switch-visual.js
-                delete cfg.subtitleStyle; // field khung phụ đề cũ (đã bỏ từ lâu) — dọn khỏi localStorage
-            });
+        /** Nền media không resolve được (item bị xoá/mất, hoặc config cũ ở mode 'background' chưa có `bgMediaKey`): gỡ URL +
+         * tham chiếu hỏng, đang ở 'background' thì về kiểu nền đã chọn trước đó (`bgFallbackMode`: 'none' | 'gradient').
+         * @param {object} cfg @returns {object} trường cần ghi */
+        function computeAppBgMediaFallback(cfg) {
+            return {
+                bgImage: '', bgVideo: '', bgMediaThumb: '', bgMediaKey: '', bgMediaKind: '',
+                themeMode: cfg.themeMode === 'background' ? (cfg.bgFallbackMode === 'none' ? 'none' : 'gradient') : cfg.themeMode,
+            };
+        }
 
-            // SỬA (phát hiện bug boot vỡ ngay từ đầu, phản hồi Giang — "config không load ngay từ
-            // đầu, settings bị reset khi reload") — `#setting-bg-blur`/`#val-bg-blur` sống trong
-            // TPL_SETTINGS_THEME (components/settings/theme.js) — KHÔNG còn mount từ đợt phân phối
-            // lại Settings (Theme viết lại UI mới, không có control "Độ mờ nền" nữa) — 2 dom-ref
-            // này giờ luôn `null`. Dòng gán `.value`/`.textContent` KHÔNG CÓ GUARD (khác hầu hết
-            // code còn lại trong hàm này) — ném TypeError NGAY LẬP TỨC, làm `loadConfig()` reject —
-            // đây là bước ĐẦU TIÊN của `boot()` (`await loadConfig()`), nên TOÀN BỘ các bước khôi
-            // phục config phía sau (Playlist/Player/EQ/Visual BG...) KHÔNG BAO GIỜ CHẠY TỚI. Thêm
-            // guard — giá trị `bgBlur` vẫn nguyên trong data, chỉ tạm KHÔNG có UI nào điều chỉnh nó
-            // nữa (chưa có chỗ trong Theme mới, để đợt sau).
-            // DỌN 23/09/2026: 2 dòng đồng bộ slider cũ ĐÃ XOÁ cùng dom-ref — blur ảnh nền đã bỏ hẳn, `bgBlur` không còn được đọc (xem DEFAULT_VIZ_CONFIG).
-
-            // bgImage là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn reset về rỗng
-            // TRƯỚC khi loadPlaylistBgMediaAsset() resolve lại item thư viện (SỬA 21/09/2026: thêm bgVideo/bgMediaThumb).
-            // (v13 Batch A — `videoBgUrl` KHÔNG còn ở đây; video nền màn Visualizer do domain
-            // `visualBg` tự resolve/áp dụng, xem event/workflow/visual-bg.js.)
-            appConfigViz.mutateAll(cfg => { cfg.bgImage = ''; cfg.bgVideo = ''; cfg.bgMediaThumb = ''; });
-            await loadPlaylistBgMediaAsset();
-            saveConfig();
-            // (Vẽ nền App Panel + nền màu Visualizer: workflowTheme.repaintAppBackground() / workflowVisualBg.paintSolidBg(), gọi từ
-            //  app-boot sau loadConfig().)
-
-            // XOÁ 01/10/2026: dòng gán masterGainNode.gain = volume — dòng chết (loadConfig() chỉ chạy lúc boot, audio graph chỉ
-            // dựng ở lượt phát đầu tiên nên node chưa tồn tại) và nay sai nghĩa (master là cổng seek; âm lượng ở volumeGainNode,
-            // workflowAudioEngine._buildGraph() tự đọc volume từ config lúc dựng).
-            // Volume HUD (core/hud.js) tự đồng bộ icon+slider MỖI LẦN MỞ (workflowHud.
-            // openVolume(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
-            // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).
-
-            // (Badge tốc độ trên nút Speed: workflowHud.syncSpeedUI(), gọi từ app-boot sau loadConfig().)
-
-            {
-                // [SỬA — 05/09/2026] MODES giờ là 12 STYLE con phẳng, không phải group — suy style
-                // hiện tại từ cfg.type (group, đã di trú ở trên) + field style riêng của group đó
-                // (GROUP_STYLE_FIELD, service/state/visualizer-runtime.js), rồi mới tìm index
-                // trong MODES. Fallback về style mặc định của group nếu field trống/lạ, fallback
-                // cuối cùng về index 0 nếu cfg.type cũng lạ nốt (config hỏng/rất cũ).
-                const group = EFFECT_GROUPS[appConfigViz.getAll().type] ? appConfigViz.getAll().type : 'bar';
-                const styleField = GROUP_STYLE_FIELD[group];
-                const savedStyle = (appConfigViz.getAll().customEffect[group] || {})[styleField];
-                let idx = MODES.indexOf(savedStyle);
-                if (idx === -1) idx = MODES.indexOf(DEFAULT_CUSTOM_EFFECT[group][styleField]);
-                if (idx === -1) idx = 0;
-                appState.set('currentModeIndex', idx);
-            }
-            updateProgressBarCSS();
-            // (updateTypeUI() — BỎ 28/09/2026: đã tách về workflowVisualizerRender.activateCurrentStyle(), gọi ngay sau
-            //  loadConfig() ở event/workflow/app-boot.js — core không gọi Workflow.)
-
-            // XOÁ (24/09/2026, rà soát refresh DOM) — `initVisualizerMiscSettingsUIFromConfig()` (core/visualizer/
-            // visualizer-misc-settings.js, đã xoá): chỉ đồng bộ 3 control keepScreenOn/visualizerType/gameMode mà id
-            // không còn trong DOM (const luôn null) — cả cụm "visualizerMiscSettings" đã chết, xoá cùng lúc.
-            // (Phụ đề: áp cờ bật/tắt + style khung + karaoke ở workflowSubtitleDisplay.initFromConfig(), gọi từ app-boot.)
-            // (Khoá nút/select đổi hiệu ứng tay theo Auto-Switch: workflowAutoSwitchVisual.syncLockedControls(), gọi từ app-boot.)
-            // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
-            // — domain 'player' RIÊNG, tự áp qua workflowPlayerControls.loadPersistedPlayerConfigOnBoot(),
-            // xem event/workflow/app-boot.js).
-            if (typeof setBottomPlayerVisible === 'function') setBottomPlayerVisible(appConfigViz.getAll().bottomPlayerVisible !== false);
-            if (typeof setPlaylistButtonVisible === 'function') setPlaylistButtonVisible(appConfigViz.getAll().playlistButtonVisible !== false);
-            if (typeof setControlCenterButtonVisible === 'function') setControlCenterButtonVisible(appConfigViz.getAll().controlCenterButtonVisible !== false);
+        /** Vị trí style đang chọn trong MODES (12 style con phẳng) từ cfg.type (group) + field style riêng của group đó
+         * (GROUP_STYLE_FIELD); field trống/lạ -> style mặc định của group; group lạ -> 'bar'; vẫn không thấy -> 0.
+         * @param {object} cfg @returns {number} */
+        function resolveModeIndexFromConfig(cfg) {
+            const group = EFFECT_GROUPS[cfg.type] ? cfg.type : 'bar';
+            const styleField = GROUP_STYLE_FIELD[group];
+            const savedStyle = (cfg.customEffect[group] || {})[styleField];
+            const savedIdx = MODES.indexOf(savedStyle);
+            const defaultIdx = MODES.indexOf(DEFAULT_CUSTOM_EFFECT[group][styleField]);
+            return savedIdx !== -1 ? savedIdx : Math.max(0, defaultIdx);
         }

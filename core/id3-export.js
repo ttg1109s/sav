@@ -70,8 +70,8 @@
          * `blob:` cuối (dù file lớn hay nhỏ) — `a.download` đã tự đặt tên hiển thị, KHÔNG cần dựng
          * Blob/File MỚI chỉ để đổi tên (dựng Blob mới từ 1 Blob/File đã có là bước có khả năng ép
          * sao chép lại toàn bộ byte, nghi vấn hàng đầu gây crash ở `navigator.share()`) — dùng thẳng
-         * `blob` GỐC (đã sẵn là 1 File thật nếu tới từ OPFS, xem `buildZipStreamingToOpfs()`, core/
-         * streaming-zip.js).
+         * `blob` GỐC (đã sẵn là 1 File thật nếu tới từ OPFS, xem
+         * `workflowStreamingZip.build()`, event/workflow/streaming-zip.js).
          *
          * CHƯA KIỂM CHỨNG THỰC TẾ trên thiết bị (nhánh Service Worker MỚI thêm) — Giang cần tự test
          * lại với file zip lớn thật, chạy qua HTTPS, trước khi coi đây đã xong dứt điểm.

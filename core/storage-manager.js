@@ -1,10 +1,11 @@
 /**
- * core/storage-manager.js — Quản lý lưu trữ (panel Storage, 3 domain Song/Video/Photo): vẽ thanh dung lượng, tính phần
- * "Khác"/"còn trống", chia + nén zip, quét/xoá file lỗi, vẽ kết quả quét. Không shield/modal/addEventListener — Workflow
- * (event/workflow/file-manager-storage.js, event/workflow/zip-download.js) gọi và bọc; phần tử DOM nhận qua tham số.
+ * core/storage-manager.js — Quản lý lưu trữ (panel Storage, 3 domain Song/Video/Photo): vẽ thanh dung lượng + đếm-lên,
+ * tính phần "Khác"/"còn trống", chọn nguồn/hành động, chia nhóm + đặt tên zip, phán định file lỗi từ kết quả thử giải mã
+ * (Workflow thử), xoá file lỗi, vẽ kết quả quét. Không đọc DB/appState, không shield/modal/timer/sự kiện — Workflow
+ * (event/workflow/file-manager-storage.js, event/workflow/zip-download.js) đọc dữ liệu, thử giải mã, gọi và bọc; phần tử
+ * DOM nhận qua tham số.
  *
- * NẠP SAU: service/db.js, core/about-stats.js, core/streaming-zip.js, core/playlist/loader.js (readAudioDuration),
- * core/file-manager/{video,image}.js.
+ * NẠP SAU: service/db.js (isQuickValidMime, deleteMediaRecord), lang/lang.js (t/tFormat).
  */
 
         /**
@@ -48,8 +49,7 @@
             const [songPct, videoPct, photoPct, otherPct] = computeBarPercents([
                 songStats.totalBytes, videoStats.totalBytes, photoStats.totalBytes, otherBytes, freeBytes
             ]);
-            // `dataset.bytes` (số byte thật) trên từng đoạn — bấm vào đoạn thì Workflow đọc lại để hiện
-            // (event/workflow/file-manager-storage.js::showSegmentBytes()).
+            // `dataset.bytes` (số byte thật) trên từng đoạn — bấm vào đoạn thì Listener gửi kèm để hiện (showSegmentBytes()).
             if (barSongsEl) { barSongsEl.style.width = `${songPct}%`; barSongsEl.dataset.bytes = String(songStats.totalBytes); }
             if (barVideosEl) { barVideosEl.style.width = `${videoPct}%`; barVideosEl.dataset.bytes = String(videoStats.totalBytes); }
             if (barPhotosEl) { barPhotosEl.style.width = `${photoPct}%`; barPhotosEl.dataset.bytes = String(photoStats.totalBytes); }
@@ -78,7 +78,114 @@
             };
         }
 
-        // ===================== Giải phóng bộ nhớ =====================
+        /** Tổng byte 3 loại media. @returns {number} */
+        function sumStorageMediaBytes(songStats, videoStats, photoStats) {
+            return songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes;
+        }
+
+        /** "còn trống / tối đa" để định dạng — không có estimate thì 0 (dòng đó đang ẩn).
+         * @param {{freeBytes: number, quota: number}|null} originBreakdown @returns {{freeBytes: number, quota: number}} */
+        function pickStorageFreeFigures(originBreakdown) {
+            return originBreakdown ? { freeBytes: originBreakdown.freeBytes, quota: originBreakdown.quota } : { freeBytes: 0, quota: 0 };
+        }
+
+        /**
+         * Các con số đếm-lên của panel: tổng dung lượng, số Song/Video/Photo, "còn trống" (chỉ khi có estimate). `kind` chọn
+         * cách định dạng ở Workflow ('bytes' | 'count' | 'free'). Phần tử thiếu (panel đóng) bị bỏ.
+         * @returns {Array<{el: HTMLElement, finalValue: number, kind: string}>}
+         */
+        function buildStorageCountupTargets(els, songStats, videoStats, photoStats, originBreakdown) {
+            return [
+                { el: els.totalBytesEl, finalValue: songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes, kind: 'bytes' },
+                { el: els.countSongsEl, finalValue: songStats.totalSongs, kind: 'count' },
+                { el: els.countVideosEl, finalValue: videoStats.totalVideos, kind: 'count' },
+                { el: els.countPhotosEl, finalValue: photoStats.totalImages, kind: 'count' },
+                { el: originBreakdown ? els.freeBytesEl : null, finalValue: originBreakdown ? originBreakdown.freeBytes : 0, kind: 'free' },
+            ].filter((target) => target.el);
+        }
+
+        /** Ghi 1 khung đếm-lên. @param {HTMLElement[]} els @param {string[]} texts - thẳng hàng `els` */
+        function setStorageCountupTexts(els, texts) {
+            els.forEach((el, i) => { el.textContent = texts[i]; });
+        }
+
+        // ===================== Chọn mục xoá =====================
+
+        /** Thứ tự + nhãn 3 nguồn. */
+        const STORAGE_SOURCE_TYPES = ['song', 'video', 'photo'];
+        const STORAGE_SOURCE_LABEL_KEY = { song: 'storageDrawer.legendSongs', video: 'storageDrawer.legendVideos', photo: 'storageDrawer.legendPhotos' };
+
+        /** Nguồn đang bật, theo thứ tự cố định. @param {{song:boolean, video:boolean, photo:boolean}} sources @returns {string[]} */
+        function pickEnabledStorageSources(sources) {
+            return STORAGE_SOURCE_TYPES.filter((type) => sources[type]);
+        }
+
+        /** Nhãn các nguồn đang bật (vd "Songs, Photos"); không nguồn nào -> ''. */
+        function buildStorageSourceLabel(sources) {
+            return STORAGE_SOURCE_TYPES.filter((type) => sources[type]).map((type) => t(STORAGE_SOURCE_LABEL_KEY[type])).join(', ');
+        }
+
+        /** Nút Thực hiện bấm được khi có ít nhất 1 nguồn VÀ 1 hành động. @returns {boolean} */
+        function canRunStorageAction(sources, downloadEnabled, deleteEnabled) {
+            return (sources.song || sources.video || sources.photo) && (downloadEnabled || deleteEnabled);
+        }
+
+        /**
+         * Đồng bộ 3 toggle nguồn + 2 toggle hành động + trạng thái nút Thực hiện (phần tử thiếu -> bỏ qua).
+         * @param {{sourceSongEl, sourceVideoEl, sourcePhotoEl, downloadEl, deleteEl, executeBtnEl}} els
+         */
+        function syncStorageActionUI(els, sources, downloadEnabled, deleteEnabled, canExecute) {
+            const checks = [
+                [els.sourceSongEl, sources.song], [els.sourceVideoEl, sources.video], [els.sourcePhotoEl, sources.photo],
+                [els.downloadEl, downloadEnabled], [els.deleteEl, deleteEnabled],
+            ];
+            checks.forEach(([el, checked]) => { if (el) el.checked = checked; });
+            if (els.executeBtnEl) els.executeBtnEl.disabled = !canExecute;
+        }
+
+        /** Câu hỏi xác nhận + nhãn nút theo tổ hợp 2 hành động. @returns {{bodyKey: string, btnKey: string}} */
+        function resolveStorageActionConfirmKeys(downloadEnabled, deleteEnabled) {
+            const bodyKey = downloadEnabled && deleteEnabled ? 'fileManager.song.storageAction.confirmDownloadAndDelete'
+                : downloadEnabled ? 'fileManager.song.storageAction.confirmDownloadOnly'
+                : 'fileManager.song.storageAction.confirmDeleteOnly';
+            const btnKey = deleteEnabled ? 'fileManager.song.storageAction.confirmBtnDelete' : 'fileManager.song.storageAction.confirmBtnDownload';
+            return { bodyKey, btnKey };
+        }
+
+        /** Chỉ xoá dữ liệu khi được bật VÀ bước tải (nếu có) thành công thật — mọi trạng thái khác giữ dữ liệu.
+         * @param {boolean} deleteEnabled @param {string} downloadStatus @returns {boolean} */
+        function shouldClearStorageSource(deleteEnabled, downloadStatus) {
+            return deleteEnabled && downloadStatus === 'ok';
+        }
+
+        /**
+         * Loại báo cáo tổng kết sau khi chạy: 'zipError' (có nguồn lỗi zip -> đã bỏ xoá nguồn đó) | 'notAllDownloaded' (tải +
+         * xoá nhưng có nguồn chưa tải đủ -> không xoá) | 'downloadAndDelete' | 'downloadOnly' | 'deleteOnly'.
+         * @param {Array<{status: string, message?: string}>} results
+         * @returns {{kind: string, zipErrorMessage: string}}
+         */
+        function resolveStorageActionReport(downloadEnabled, deleteEnabled, results) {
+            const zipError = results.find((r) => r && r.status === 'zipError');
+            const notAllDownloaded = results.some((r) => r && r.status === 'cancelled');
+            const kind = downloadEnabled && zipError ? 'zipError'
+                : downloadEnabled && deleteEnabled && notAllDownloaded ? 'notAllDownloaded'
+                : downloadEnabled && deleteEnabled ? 'downloadAndDelete'
+                : downloadEnabled ? 'downloadOnly'
+                : 'deleteOnly';
+            return { kind, zipErrorMessage: zipError ? zipError.message : '' };
+        }
+
+        // ===================== Giải phóng bộ nhớ — zip =====================
+
+        /** Tên file .zip kèm ngày (YYYY-MM-DD). @param {string} prefix @param {Date} now @returns {string} */
+        function buildDatedZipFileName(prefix, now) {
+            return `${prefix}-${now.toISOString().slice(0, 10)}.zip`;
+        }
+
+        /** Thông báo lỗi đóng gói. @returns {string} */
+        function describeZipError(err) {
+            return err && err.message ? err.message : String(err);
+        }
 
         /**
          * Từ `records` (Workflow đọc 1 transaction, thẳng hàng `keys`) dựng danh sách file cần nén: bỏ key không còn / thiếu
@@ -108,7 +215,7 @@
 
         /**
          * Chia `entries` thành các nhóm liên tiếp (giữ thứ tự), tổng mỗi nhóm <= `maxBytes`; 1 entry tự nó lớn hơn `maxBytes`
-         * (file nạp trước khi có giới hạn upload) đứng riêng 1 nhóm. Workflow nén từng nhóm bằng `_compressZipEntries()`.
+         * (file nạp trước khi có giới hạn upload) đứng riêng 1 nhóm. Workflow nén từng nhóm (workflowZipDownload._compressEntries()).
          * @param {Array<{filename:string, blob:Blob}>} entries
          * @param {number} maxBytes
          * @returns {Array<Array<{filename:string, blob:Blob}>>}
@@ -132,65 +239,125 @@
             return groups;
         }
 
-        /** Nén `entries` thành 1 Blob .zip qua `buildZipStreamingToOpfs()` (core/streaming-zip.js — ghi tăng dần vào OPFS,
-         * không giới hạn RAM) — đường nén zip duy nhất trong app; không hỗ trợ OPFS / lỗi thì ném ra, nơi gọi tự báo.
-         * Gắn `_zipDurationMs` (thuộc tính JS tự đặt) lên Blob — promptDownloadReady() (core/id3-export.js) hiện "thời gian xử
-         * lý".
-         * @param {Array<{filename:string, blob:Blob}>} entries
-         * @param {(done:number,total:number,percent:number|null) => void} [onProgress]
-         * @returns {Promise<Blob>}
-         */
-        async function _compressZipEntries(entries, onProgress) {
-            if (!isStreamingZipAvailable()) { // core/streaming-zip.js
-                throw new Error(t('common.storage.zipNotSupported'));
-            }
-            const startedAt = Date.now();
-            console.log(`[storage-manager] Bắt đầu nén zip (${entries.length} file) lúc ${new Date(startedAt).toLocaleTimeString()}.`);
-            const blob = await buildZipStreamingToOpfs(entries, onProgress); // core/streaming-zip.js — lỗi ném thẳng ra ngoài
-            const durationMs = Date.now() - startedAt;
-            console.log(`[storage-manager] Nén zip xong lúc ${new Date().toLocaleTimeString()} — mất ${(durationMs / 1000).toFixed(1)}s.`);
-            blob._zipDurationMs = durationMs;
-            return blob;
+        /** Tên phần thứ `partNumber`/`partCount`: hậu tố "-part{i}of{n}" trước đuôi (không có đuôi -> '.zip'). @returns {string} */
+        function buildZipPartFilename(zipFileName, partNumber, partCount) {
+            const dot = zipFileName.lastIndexOf('.');
+            const stem = dot > 0 ? zipFileName.slice(0, dot) : zipFileName;
+            const ext = dot > 0 ? zipFileName.slice(dot) : '.zip';
+            return `${stem}-part${partNumber}of${partCount}${ext}`;
+        }
+
+        /** Gắn thời gian nén (thuộc tính JS tự đặt) lên File zip — modal tải xuống hiện "thời gian xử lý". */
+        function markZipDuration(file, startedAtMs, finishedAtMs) {
+            file._zipDurationMs = finishedAtMs - startedAtMs;
+        }
+
+        /** Tổng dung lượng + tổng thời gian nén các phần. @returns {{totalBytes: number, totalDurationMs: number}} */
+        function summarizeZipParts(parts) {
+            return {
+                totalBytes: parts.reduce((sum, part) => sum + part.blob.size, 0),
+                totalDurationMs: parts.reduce((sum, part) => sum + (part.blob._zipDurationMs || 0), 0),
+            };
+        }
+
+        /** @returns {string} */
+        function formatZipDurationLog(startedAtMs, finishedAtMs) {
+            return `[zip-download] Nén zip xong — mất ${((finishedAtMs - startedAtMs) / 1000).toFixed(1)}s.`;
+        }
+
+        /** @returns {string} */
+        function formatZipPartsDoneLog(partCount, maxBytes, zipFileName) {
+            return `[zip-download] Nén xong ${partCount} phần (tối đa ${(maxBytes / (1024 * 1024)).toFixed(0)}MB/phần) cho "${zipFileName}".`;
         }
 
         // ===================== Quét & dọn file lỗi =====================
+        // Workflow đọc record + thử giải mã (audio duration / <video> metadata / img.decode); các hàm dưới chỉ phán định.
 
-        async function isRecordCorrupted(record) {
-            if (!record || !record.blob) return { corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') };
-            if (!isQuickValidMime(record.blob.type)) {
-                return { corrupted: true, reason: tFormat('common.storage.scanReasonBadMime', { mime: record.blob.type || t('common.storage.scanReasonBadMimeEmpty') }) };
-            }
-            const duration = await readAudioDuration(record.blob);
-            if (!duration || duration <= 0) return { corrupted: true, reason: t('common.storage.scanReasonNoDecode') };
-            return { corrupted: false };
+        /** Item đã được "Giữ lại" lúc phát lỗi (confirmedBrokenKeys) — luôn báo, không cần thử lại. */
+        function buildKeptBrokenVerdict() {
+            return { corrupted: true, fixable: false, reason: t('common.storage.scanReasonKeptFromError') };
         }
+
+        /** Record thiếu blob -> lỗi; còn blob -> null (cần thử giải mã). */
+        function precheckMediaRecordBlob(record) {
+            return record && record.blob ? null : { corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') };
+        }
+
+        /** Song: thêm kiểm tra mime trước khi giải mã. @returns {object|null} null = cần đọc duration */
+        function precheckSongRecord(record) {
+            if (!record || !record.blob) return { corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') };
+            if (isQuickValidMime(record.blob.type)) return null; // service/db.js
+            return { corrupted: true, fixable: false, reason: tFormat('common.storage.scanReasonBadMime', { mime: record.blob.type || t('common.storage.scanReasonBadMimeEmpty') }) };
+        }
+
+        /** Song: đọc được duration > 0 = lành. @param {number} duration */
+        function judgeSongDuration(duration) {
+            return duration > 0 ? { corrupted: false } : { corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') };
+        }
+
+        const VIDEO_PROBE_FAIL_REASON_KEY = { brokenBlob: 'common.storage.scanReasonBrokenBlob', undecodable: 'common.storage.scanReasonNoDecode' };
 
         /**
-         * Quét toàn bộ thư viện Song tìm record lỗi — trả kết quả thuần.
-         *
-         * @param {(current:number, total:number) => void} [onScanProgress]
-         * @returns {Promise<Array<{key:string, filename:string, reason:string}>>}
+         * Video: blob chính không nạp được metadata -> lỗi không sửa được (xoá cả record). Nạp được nhưng thiếu
+         * thumbBlob/thumbFullBlob -> `fixable: true` (Workflow tạo lại thumb, executeRepairBroken()), 2 lý do gộp 1 chuỗi.
+         * @param {object} record @param {'loaded'|'undecodable'|'brokenBlob'} probe
          */
-        async function scanAllSongsForCorruption(onScanProgress) {
-            const keys = await getAllSongKeys();
-            const results = [];
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                if (onScanProgress) onScanProgress(i + 1, keys.length);
-                const record = await getSongRecord(key);
-                if (appState.get('confirmedBrokenKeys').has(key)) {
-                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError') });
-                    continue;
-                }
-                const check = await isRecordCorrupted(record);
-                if (check.corrupted) {
-                    results.push({ key, filename: record ? record.filename : key, reason: check.reason });
-                }
-            }
-            return results;
+        function judgeVideoProbe(record, probe) {
+            if (probe !== 'loaded') return { corrupted: true, fixable: false, reason: t(VIDEO_PROBE_FAIL_REASON_KEY[probe]) };
+            const missingReasons = [
+                record.thumbBlob ? null : t('common.storage.scanReasonMissingThumbCover'),
+                record.thumbFullBlob ? null : t('common.storage.scanReasonMissingThumbFull'),
+            ].filter(Boolean);
+            return missingReasons.length > 0 ? { corrupted: true, fixable: true, reason: missingReasons.join(', ') } : { corrupted: false };
         }
 
-        /** Pure — tách kết quả quét lỗi theo loại media (`mediaType` gắn sẵn lúc quét). @returns {{song: Array, video: Array, photo: Array}} */
+        /** Photo: giải mã được = lành. @param {boolean} decoded */
+        function judgeImageDecode(decoded) {
+            return decoded ? { corrupted: false } : { corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') };
+        }
+
+        /** Gom 1 item vào kết quả quét nếu lỗi. @param {Array} results - sửa tại chỗ */
+        function appendScanResult(results, key, record, verdict, mediaType) {
+            if (!verdict.corrupted) return;
+            results.push({ key, filename: record ? record.filename : key, reason: verdict.reason, fixable: !!verdict.fixable, mediaType });
+        }
+
+        /** Kết quả "file lỗi" ở Storage: chỉ phần không sửa được (thumb thiếu/đen thuộc màn Troubleshooting). */
+        function pickUnfixableScanResults(results) {
+            return results.filter((r) => !r.fixable);
+        }
+
+        /** Kết quả "thumb video" ở Troubleshooting: chỉ phần sửa được. */
+        function pickFixableScanResults(results) {
+            return results.filter((r) => r.fixable);
+        }
+
+        /** Tập key đã có trong kết quả quét. @returns {Set<string>} */
+        function collectScanResultKeys(results) {
+            return new Set(results.map((r) => r.key));
+        }
+
+        /** Video cần đo pixel thumb full-res: có blob + thumbFullBlob và chưa được xác nhận đen thật (`thumbFullBlack`). */
+        function needsVideoThumbProbe(record) {
+            return !!(record && record.blob && record.thumbFullBlob && record.thumbFullBlack !== true);
+        }
+
+        /** Kết quả đo khung (workflowPlaylist._probeVideoFrame()) -> 'ok' | 'black' | 'undecodable'. */
+        function classifyThumbProbe(probe) {
+            if (!probe.drawn) return 'undecodable';
+            return probe.isBlack ? 'black' : 'ok';
+        }
+
+        const THUMB_VERDICT_REASON_KEY = { black: 'common.storage.scanReasonBlackThumbFull', undecodable: 'common.storage.scanReasonUndecodableThumbFull' };
+
+        /** Thumb full-res đen/không giải mã được -> item `fixable: true`; 'ok' -> null. */
+        function buildThumbScanItem(key, record, verdict) {
+            const reasonKey = THUMB_VERDICT_REASON_KEY[verdict];
+            if (!reasonKey) return null;
+            return { key, filename: record.filename || key, reason: t(reasonKey), fixable: true, mediaType: 'video' };
+        }
+
+        /** Tách kết quả quét theo loại media. @returns {{song: Array, video: Array, photo: Array}} */
         function groupBrokenResultsByType(scanResults) {
             return {
                 song: scanResults.filter((r) => r.mediaType === 'song'),
@@ -199,7 +366,7 @@
             };
         }
 
-        /** Pure — key media hỏng sẽ bị xoá (bỏ `skipKey` = media đang phát), cùng quy tắc deleteCorruptedMediaRecords(). */
+        /** Key media hỏng sẽ bị xoá (bỏ `skipKey` = media đang phát), cùng quy tắc deleteCorruptedMediaRecords(). */
         function pickDeletableBrokenKeys(scanResults, skipKey) {
             return scanResults.map((r) => r.key).filter((key) => key !== skipKey);
         }
@@ -223,80 +390,41 @@
             return deletedKeys;
         }
 
-        /**
-         * Bản Video của isRecordCorrupted(): nạp blob vào `<video>` ẩn tạm, 'loadedmetadata' vs 'error' (timeout 8s cho Safari
-         * iOS). Blob chính hỏng -> `fixable: false` (xoá cả record). Blob đọc được nhưng thiếu `thumbBlob`/`thumbFullBlob` ->
-         * `fixable: true` (Workflow `executeRepairBroken()` tạo lại thumb), 2 lý do gộp 1 chuỗi.
-         * @param {Object} record
-         * @returns {Promise<{corrupted: boolean, fixable?: boolean, reason?: string}>}
-         */
-        function isVideoRecordCorrupted(record) {
-            if (!record || !record.blob) return Promise.resolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') });
-            return new Promise((resolve) => {
-                let settled = false;
-                const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
-                let tempUrl;
-                try { tempUrl = URL.createObjectURL(record.blob); }
-                catch (err) { return safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') }); }
-                const tempVideo = document.createElement('video');
-                // Chỉ cần metadata; muted + playsInline để iOS không coi thẻ tạm là media có tiếng (không đụng audio session).
-                tempVideo.preload = 'metadata';
-                tempVideo.muted = true;
-                tempVideo.playsInline = true;
-                let released = false;
-                const onMeta = () => {
-                    safetyTimeout.kill(); cleanup();
-                    // Blob chính đọc được: thiếu thumb vẫn tính "lỗi cần sửa".
-                    const missingReasons = [];
-                    if (!record.thumbBlob) missingReasons.push(t('common.storage.scanReasonMissingThumbCover'));
-                    if (!record.thumbFullBlob) missingReasons.push(t('common.storage.scanReasonMissingThumbFull'));
-                    if (missingReasons.length > 0) { safeResolve({ corrupted: true, fixable: true, reason: missingReasons.join(', ') }); return; }
-                    safeResolve({ corrupted: false });
-                };
-                const onError = () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); };
-                // Giải phóng hẳn thẻ <video> tạm (không để N player mồ côi): pause -> bỏ src -> load() -> revoke. Cờ `released`
-                // chặn chạy 2 lần (load() rỗng có thể bắn lại 'error').
-                const cleanup = () => {
-                    if (released) return;
-                    released = true;
-                    tempVideo.removeEventListener('loadedmetadata', onMeta);
-                    tempVideo.removeEventListener('error', onError);
-                    try { tempVideo.pause(); } catch (e) {}
-                    tempVideo.removeAttribute('src');
-                    try { tempVideo.load(); } catch (e) {}
-                    try { URL.revokeObjectURL(tempUrl); } catch (e) {}
-                };
-                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
-                tempVideo.addEventListener('loadedmetadata', onMeta);
-                tempVideo.addEventListener('error', onError);
-                try { tempVideo.src = tempUrl; }
-                catch (err) { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, fixable: false, reason: t('common.storage.scanReasonBrokenBlob') }); }
-            });
+        /** Modal xác nhận sửa/xoá theo lô: chỉ có phần không sửa được -> xoá; chỉ phần sửa được -> sửa; cả 2 -> sửa + xoá
+         * (vẫn màu destructive vì có xoá thật). @returns {{bodyText: string, titleKey: string, btnKey: string, destructive: boolean}} */
+        function resolveFixBrokenModal(scanResults) {
+            const fixableCount = scanResults.filter((r) => r.fixable).length;
+            const brokenCount = scanResults.length - fixableCount;
+            if (fixableCount === 0) {
+                return { bodyText: tFormat('common.storage.deleteBrokenConfirm', { n: brokenCount }), titleKey: 'common.storage.deleteBrokenTitle', btnKey: 'common.storage.deleteBrokenConfirmBtn', destructive: true };
+            }
+            if (brokenCount === 0) {
+                return { bodyText: tFormat('common.storage.fixBrokenConfirmOnlyFixable', { n: fixableCount }), titleKey: 'common.storage.fixBrokenTitle', btnKey: 'common.storage.fixBrokenConfirmBtn', destructive: false };
+            }
+            return { bodyText: tFormat('common.storage.fixBrokenConfirmBoth', { broken: brokenCount, fixable: fixableCount }), titleKey: 'common.storage.fixBrokenTitle', btnKey: 'common.storage.fixBrokenConfirmBtn', destructive: true };
         }
 
-        /**
-         * Bản Video của scanAllSongsForCorruption(), kèm `fixable` cho Workflow rẽ xoá/sửa. Item đã "Giữ lại" lúc phát lỗi
-         * (confirmedBrokenKeys) luôn `fixable: false`.
-         * @param {(current:number, total:number) => void} [onScanProgress]
-         * @returns {Promise<Array<{key:string, filename:string, reason:string, fixable:boolean}>>}
-         */
-        async function scanAllVideosForCorruption(onScanProgress) {
-            const keys = await getAllVideoKeys();
-            const results = [];
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                if (onScanProgress) onScanProgress(i + 1, keys.length);
-                const record = await getVideoRecord(key);
-                if (appState.get('confirmedBrokenKeys').has(key)) {
-                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError'), fixable: false });
-                    continue;
-                }
-                const check = await isVideoRecordCorrupted(record);
-                if (check.corrupted) {
-                    results.push({ key, filename: record ? record.filename : key, reason: check.reason, fixable: !!check.fixable });
-                }
-            }
-            return results;
+        /** Câu báo sau khi sửa thumb. @returns {string} */
+        function formatRepairReport(fixedCount, failedCount) {
+            return failedCount > 0
+                ? tFormat('common.storage.repairSomeFailed', { fixed: fixedCount, failed: failedCount })
+                : tFormat('common.storage.repairDone', { n: fixedCount });
+        }
+
+        /** Dropdown "phạm vi quét" -> 3 nguồn. @param {'all'|'song'|'video'|'photo'} scope */
+        function scanScopeToSources(scope) {
+            const all = scope === 'all';
+            return { song: all || scope === 'song', video: all || scope === 'video', photo: all || scope === 'photo' };
+        }
+
+        /** `<select>` phạm vi quét trong modal vừa mở (giữ ref: modal đóng là gỡ khỏi DOM nhưng `.value` vẫn đọc được). */
+        function findScanScopeSelect() {
+            return document.getElementById('modal-scan-scope');
+        }
+
+        /** @param {HTMLSelectElement|null} selectEl @returns {string} */
+        function readScanScopeValue(selectEl) {
+            return selectEl ? selectEl.value : 'all';
         }
 
         /** @param {HTMLElement} resultEl @param {HTMLElement} listEl */
@@ -306,73 +434,20 @@
             listEl.innerHTML = '';
         }
 
+        /** Câu tóm tắt kết quả quét. @returns {string} */
+        function formatScanResultSummary(count) {
+            return count === 0 ? t('common.storage.scanNoneFound') : tFormat('common.storage.scanFoundCount', { n: count });
+        }
+
         /**
-         * @param {Array<{key:string,filename:string,reason:string}>} results
-         * @param {HTMLElement} resultEl @param {HTMLElement} summaryEl @param {HTMLElement} listEl @param {HTMLElement} deleteBtnEl
+         * Hiện khung kết quả quét. @param {{resultEl, summaryEl, listEl, actionBtnEl}} els
+         * @param {string} summaryText @param {string} listHtml - components/file-manager-storage.js::renderStorageScanResultListHtml()
+         * @param {boolean} hasResults - ẩn nút sửa/xoá khi không có gì
          */
-        function renderScanResultUI(results, resultEl, summaryEl, listEl, deleteBtnEl) {
-            if (!resultEl) return; // guard: panel đang đóng
-            resultEl.classList.remove('hidden');
-            if (results.length === 0) {
-                summaryEl.textContent = t('common.storage.scanNoneFound');
-                listEl.innerHTML = '';
-                deleteBtnEl.classList.add('hidden');
-            } else {
-                summaryEl.textContent = tFormat('common.storage.scanFoundCount', { n: results.length });
-                // filename/reason (có thể chứa mime đọc từ file) không đáng tin -> escapeHtml().
-                listEl.innerHTML = results.map(r => `<div class="truncate"><span class="text-amber-400">●</span> ${escapeHtml(r.filename)} — ${escapeHtml(r.reason)}</div>`).join('');
-                deleteBtnEl.classList.remove('hidden');
-            }
+        function showScanResultUI(els, summaryText, listHtml, hasResults) {
+            if (!els.resultEl) return; // guard: panel đang đóng
+            els.resultEl.classList.remove('hidden');
+            els.summaryEl.textContent = summaryText;
+            els.listEl.innerHTML = listHtml;
+            els.actionBtnEl.classList.toggle('hidden', !hasResults);
         }
-
-        // ===================== Photo =====================
-
-        /** Bản Photo của `isVideoRecordCorrupted()` — thử decode ảnh qua `Image()` ẩn tạm. */
-        function isImageRecordCorrupted(record) {
-            if (!record || !record.blob) return Promise.resolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') });
-            return new Promise((resolve) => {
-                let settled = false;
-                const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
-                let tempUrl;
-                try { tempUrl = URL.createObjectURL(record.blob); }
-                catch (err) { return safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
-                const img = new Image();
-                let released = false;
-                const onLoad = () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: false }); };
-                const onError = () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); };
-                // Bỏ src để nhả bitmap đã decode ngay (quét cả thư viện ảnh full-res); gỡ listener trước (bỏ src có thể bắn 'error').
-                const cleanup = () => {
-                    if (released) return;
-                    released = true;
-                    img.removeEventListener('load', onLoad);
-                    img.removeEventListener('error', onError);
-                    img.removeAttribute('src');
-                    try { URL.revokeObjectURL(tempUrl); } catch (e) {}
-                };
-                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
-                img.addEventListener('load', onLoad);
-                img.addEventListener('error', onError);
-                img.src = tempUrl;
-            });
-        }
-
-        /** Bản Photo của `scanAllVideosForCorruption()`. */
-        async function scanAllPhotosForCorruption(onScanProgress) {
-            const keys = await getAllImageKeys();
-            const results = [];
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                if (onScanProgress) onScanProgress(i + 1, keys.length);
-                const record = await getImageRecord(key);
-                if (appState.get('confirmedBrokenKeys').has(key)) {
-                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError') });
-                    continue;
-                }
-                const check = await isImageRecordCorrupted(record);
-                if (check.corrupted) {
-                    results.push({ key, filename: record ? record.filename : key, reason: check.reason });
-                }
-            }
-            return results;
-        }
-

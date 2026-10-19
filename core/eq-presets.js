@@ -4,7 +4,7 @@
  * Preset = {id, name, gains: number[10], locked}. Danh sách preset SỐNG ở `appState.eqPresets`
  * (service/state/audio-engine.js), NẠP lúc boot từ `meta.eqPresets` (IndexedDB) — xem
  * event/workflow/eq-presets.js::loadPresetsOnBoot(). Preset ĐANG CHỌN là field `appConfigViz.eqPresetId`, lưu bền qua
- * saveConfig() như mọi field vizConfig khác.
+ * workflowConfig.save() như mọi field vizConfig khác.
  *
  * Chỉ preset 'flat' (Default) khoá sửa/xoá (`locked:true`) — 5 preset gốc còn lại + preset người dùng tự tạo đều
  * sửa/xoá được.

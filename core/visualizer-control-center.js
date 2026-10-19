@@ -26,7 +26,7 @@ function clickControlCenterButtonIfShown(buttonEl) {
     buttonEl.click();
 }
 
-/** Toggle "Hiện Visual" (độc lập video nền). Lưu bền: Workflow gọi saveConfig(). @param {boolean} checked */
+/** Toggle "Hiện Visual" (độc lập video nền). Workflow tự lưu. @param {boolean} checked */
 function setVisualEnabled(checked) {
     appConfigViz.mutateAll(cfg => { cfg.visualEnabled = checked; });
     console.log(`writer: "setVisualEnabled", page: "vizConfig.visualEnabled", content: "${checked}"`);

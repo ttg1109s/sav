@@ -196,6 +196,12 @@
             return img.decode().then(() => 'decoded', () => 'error');
         }
 
+        /** Nhãn tên bài + nghệ sĩ trên Bottom Player. @param {string} title @param {string} artist */
+        function setPlayerTrackLabels(title, artist) {
+            playerTitle.textContent = title;
+            playerArtist.textContent = artist;
+        }
+
         function setVisualizerActiveFalse() {
             appState.set('isVisualizerActive', false);
             console.log(`writer: "setVisualizerActiveFalse", page: "isVisualizerActive", content: "false"`);
