@@ -244,6 +244,7 @@ Mỗi file chỉ định nghĩa `TPL_*` (chuỗi HTML tĩnh) hoặc hàm `render
 75. `components/subtitle-settings-drawer.js`
 76. `components/motion-settings-drawer.js`
 76a. `components/image-edit-modals.js` — MỚI 12/10/2026 (body modal sửa chữ layer Photo — plan-event-bus-wiring đợt 6a)
+76a2. `components/image-edit-drawers.js` — MỚI 16/10/2026 (lưới công cụ + danh sách Layer của trình sửa ảnh — plan-debt-domains đợt 15); lúc chạy: `buildDrawerHeaderHtml` (components/generic-drawer.js), `escapeHtml`
 76b. `components/image-preview-modal.js` — MỚI 13/10/2026 (markup modal xem/sửa ảnh — plan-debt-domains đợt 7)
 76c. `components/media-gallery.js` — MỚI 13/10/2026 (markup lưới ảnh/video nhóm ngày + khung picker — đợt 7)
 77. `components/visual-bg-settings-drawer.js`
@@ -352,6 +353,7 @@ của group.
 136. `core/pagination-ui.js`
 137. `core/file-manager/image.js`
 138. `core/file-manager/photo-ui.js`
+138-1. `core/image-edit-ui.js` — MỚI 16/10/2026 (ghi DOM/canvas trình sửa ảnh + danh sách Layer — đợt 15); không phụ thuộc lúc nạp
 138a. `core/file-manager/gallery-window.js` — MỚI 13/10/2026 (core thuần badge lưới — đợt 7)
 138b. `core/file-manager/gallery-window-ui.js` — MỚI 13/10/2026 (ghi DOM lưới nhóm ngày — đợt 7)
 138c. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
@@ -576,7 +578,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 319. `event/router/file-manager-photo.js` — cần: `event/bus.js` (eventBus)
 320. `event/workflow/image-edit.js`
 321. `event/router/image-edit.js` — cần: `event/bus.js` (eventBus)
-322. `event/listener/image-edit.js`
+322. `event/listener/image-edit.js` — cần: `core/dom-refs.js` (genericDrawerBody/Header), `event/bus.js`
 323. `event/workflow/file-manager-cleanup.js`
 324. `event/router/file-manager-cleanup.js` — cần: `event/bus.js` (eventBus)
 325. `event/workflow/photo-gallery-window.js`
