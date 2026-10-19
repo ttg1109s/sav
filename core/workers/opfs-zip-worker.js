@@ -4,7 +4,7 @@
  * dedicated Web Worker (main thread gọi thẳng sẽ lỗi ngay), dùng khi Safari chưa hỗ trợ
  * `createWritable()` (Path A, xem docstring core/streaming-zip.js).
  *
- * GIAO THỨC (postMessage, "ping-pong" TỪNG entry một — xem core/streaming-zip.js::_writeViaWorker()):
+ * GIAO THỨC (postMessage, "ping-pong" TỪNG entry một — xem event/workflow/streaming-zip.js::_writeViaWorker()):
  *   Main -> Worker: {type:'init', tmpDirName, tmpFileName, zipJsUrl, totalEntries}
  *   Worker -> Main: {type:'ready'}                              (đã mở xong file OPFS + zip.js)
  *   Main -> Worker: {type:'entry', filename, blob}               (từng file MỘT)
@@ -26,7 +26,7 @@ let zipWriter = null;
 let doneEntries = 0;
 
 /** Ngưỡng "treo thật" cho nén 1 entry (giống hệt lý do/giá trị `ENTRY_STALL_TIMEOUT_MS`,
- * core/streaming-zip.js::_addEntryWithStallGuard() — Worker là script RIÊNG, thread RIÊNG, không
+ * event/workflow/streaming-zip.js::_addEntryWithStallGuard() — Worker là script RIÊNG, thread RIÊNG, không
  * gọi được hàm từ file đó nên viết LẠI bản tương đương ở đây) — SỬA (10/09/2026, Giang báo bug
  * "hơn 1 phút vẫn không thoát loading shield") — Path A (main thread) đã có stall-guard, đúng như kỳ
  * vọng tự rơi xuống Path B sau 20s treo, NHƯNG Path B (file NÀY) trước đây KHÔNG có bảo vệ nào ở bước
@@ -36,17 +36,17 @@ let doneEntries = 0;
  * phút". Giờ Path B CŨNG có stall-guard y hệt Path A — treo thật (đo qua `onprogress` của zip.js,
  * KHÔNG phải tổng thời gian nén — file lớn nén chậm nhưng vẫn tiến triển sẽ KHÔNG bị huỷ oan) thì
  * `postMessage({type:'error'})` về main thread, `_writeViaWorker()` reject, CẢ 2 Path đã thất bại ->
- * `_compressZipEntries()` (core/storage-manager.js) ném lỗi thẳng ra ngoài (KHÔNG còn JSZip để rơi
+ * `workflowStreamingZip.build()` ném lỗi thẳng ra ngoài (KHÔNG còn JSZip để rơi
  * về, đã bỏ hẳn khỏi app — 10/09/2026), nơi gọi tự bắt và báo lỗi rõ ràng cho người dùng. */
 const ENTRY_STALL_TIMEOUT_MS = 20000;
 
 /** Ngưỡng riêng cho bước `zipWriter.close()` (finish) — bước này KHÔNG xử lý byte theo entry (chỉ
  * ghi central directory, bình thường rất nhanh) nên dùng 1 timeout CỐ ĐỊNH đơn giản, cùng tinh thần
- * timeout "bắt tay" (`_withTimeout()`, core/streaming-zip.js) thay vì cơ chế đo tiến triển như
+ * timeout "bắt tay" (`workflowTimeout.race()`, event/workflow/timeout.js) thay vì cơ chế đo tiến triển như
  * `_addEntryWithStallGuard()`. */
 const CLOSE_STALL_TIMEOUT_MS = 20000;
 
-/** Đua 1 Promise với thời hạn cố định — bản LOCAL của `_withTimeout()` (core/streaming-zip.js, thread
+/** Đua 1 Promise với thời hạn cố định — bản LOCAL của `workflowTimeout.race()` (event/workflow/timeout.js, thread
  * khác không gọi chéo được). Dùng cho bước `close()`. */
 function _raceTimeout(promise, ms, label) {
     let timer;
@@ -57,13 +57,13 @@ function _raceTimeout(promise, ms, label) {
 }
 
 /** Nén 1 entry trong Worker, đua với "đồng hồ báo treo" tự reset mỗi khi zip.js bắn `onprogress` —
- * bản LOCAL của `_addEntryWithStallGuard()` (core/streaming-zip.js), xem docstring đầy đủ ở
+ * bản LOCAL của `_addEntryWithStallGuard()` (event/workflow/streaming-zip.js), xem docstring đầy đủ ở
  * `ENTRY_STALL_TIMEOUT_MS` ngay trên.
  * SỬA (10/09/2026, Giang báo "mở Debug Console không thấy log gì") — bắn heartbeat MỖI GIÂY qua
  * `postMessage({type:'heartbeat'})` (KHÔNG gọi `console.log()` trực tiếp trong Worker — Worker có
  * `console` RIÊNG, việc bọc console.log của core/debug-console.js chạy ở MAIN THREAD không ảnh
  * hưởng gì tới đây, log gọi thẳng ở Worker sẽ KHÔNG BAO GIỜ xuất hiện trong Debug Console — main
- * thread (core/streaming-zip.js::_writeViaWorker()) nhận heartbeat này rồi MỚI thật sự console.log()
+ * thread (event/workflow/streaming-zip.js::_writeViaWorker()) nhận heartbeat này rồi MỚI thật sự console.log()
  * Ở ĐÓ để relay vào Debug Console).
  * SỬA (10/09/2026, Giang xác nhận qua log — GỐC BỆNH TREO THẬT SỰ là `zip.js` mặc định
  * `useWebWorkers: true`, ĐÃ SỬA ở 'init' bên dưới bằng `zip.configure({useWebWorkers:false})`) —
@@ -152,7 +152,7 @@ self.onmessage = async (e) => {
                 // SỬA (10/09/2026, Giang xác nhận qua log — gốc bệnh treo THẬT SỰ: zip.js mặc định
                 // `useWebWorkers: true`, tự cố spin 1 Worker RIÊNG CỦA CHÍNH NÓ để nén — bản
                 // "no-worker" đang nạp không có code lo việc đó, treo im lặng nếu không tắt rõ ràng.
-                // Xem docstring đầy đủ ở core/streaming-zip.js::_ensureZipJsLoaded(). Gọi NGAY sau
+                // Xem docstring đầy đủ ở core/streaming-zip.js (đầu file). Gọi NGAY sau
                 // importScripts(), TRƯỚC khi dựng ZipWriter bất kỳ.
                 if (typeof zip !== 'undefined' && typeof zip.configure === 'function') {
                     zip.configure({ useWebWorkers: false });
