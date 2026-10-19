@@ -2,7 +2,7 @@
  * event/listener/custom-effect.js — Listener cụm "customEffect" (MỚI 28/09/2026, dọn vi phạm event bus).
  *
  * Trước đây event/workflow/custom-effect.js tự `querySelector` + `addEventListener` 21 lần lên từng phần tử của
- * Drawer sau MỖI lần vẽ, callback gọi thẳng core (setCustomEffectField/saveConfig/...) — bỏ qua Listener -> Router.
+ * Drawer sau MỖI lần vẽ, callback gọi thẳng core (setCustomEffectField/workflowConfig.save()/...) — bỏ qua Listener -> Router.
  * Nay: ủy quyền 1 lần trên `genericDrawerBody` (+ `genericDrawerHeader` cho nút đóng), cùng chuẩn các Drawer khác
  * (auto-switch-visual.js, visual-bg.js...). Listener CHỈ đọc giá trị phần tử làm payload rồi chuyển thư.
  *
