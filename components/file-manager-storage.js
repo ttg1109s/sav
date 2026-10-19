@@ -8,7 +8,10 @@
  *   - "Dọn file lỗi": nút quét mở modalChoice() riêng chọn loại quét (xem askScanBrokenScope()), khung kết quả + nút
  *     Sửa file lỗi / Bỏ qua.
  *   - "Dọn dẹp dữ liệu" (`#btn-file-manager-cleanup-run`, router 'fileManagerCleanup').
+ * Thêm: danh sách kết quả quét (`renderStorageScanResultListHtml()`), thân modal chọn phạm vi quét
+ * (`renderStorageScanScopeModalBodyHtml()`).
  * Sự kiện: delegate trên genericDrawerBody ở event/listener/file-manager-storage.js.
+ * Lúc chạy: core/modal-choice-ui.js (escapeHtml).
  */
 /** Body Generic Drawer Storage: `renderFileManagerStorageManagementPanelBody()` bọc `p-4` + màu chữ mặc định theo theme. */
 function renderFileManagerStorageDrawerBody() {
@@ -157,4 +160,21 @@ function renderFileManagerStorageManagementPanelBody() {
                 </div>
                 </div>
 `;
+}
+
+/** Danh sách kết quả quét file lỗi (Storage + Troubleshooting > thumb video). Tên file/lý do có thể chứa mime đọc từ
+ * file -> escape. @param {Array<{filename: string, reason: string}>} results @returns {string} */
+function renderStorageScanResultListHtml(results) {
+    return results.map((r) => `<div class="truncate"><span class="text-amber-400">●</span> ${escapeHtml(r.filename)} — ${escapeHtml(r.reason)}</div>`).join('');
+}
+
+/** Thân modal chọn phạm vi quét file lỗi — `<select id="modal-scan-scope">` nằm trong phần chữ của modalChoice(). */
+function renderStorageScanScopeModalBodyHtml() {
+    return `${t('storageDrawer.scanBroken.modalBody')}
+<select id="modal-scan-scope" class="mt-3 w-full rounded-lg px-3 py-2.5 text-sm outline-none" data-uitk="inputBg inputBorder inputText">
+    <option value="all">${t('storageDrawer.scanBroken.scopeAll')}</option>
+    <option value="song">${t('storageDrawer.legendSongs')}</option>
+    <option value="video">${t('storageDrawer.legendVideos')}</option>
+    <option value="photo">${t('storageDrawer.legendPhotos')}</option>
+</select>`;
 }
