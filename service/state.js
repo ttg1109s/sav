@@ -17,9 +17,8 @@
  *     xem core/config.js) theo domain riêng ('viz'/'slideshow'/'reader'), TÁCH HẲN khỏi STATE:
  *     CONFIG là giá trị người dùng tự chỉnh (Settings), có default/seed/restore riêng; STATE là
  *     dữ liệu vận hành (playlist, hot path visualizer...). 2 khái niệm KHÔNG gộp chung 1 class.
- *   - core/config.js — giữ 3 bản default (DEFAULT_VIZ_CONFIG/DEFAULT_SLIDESHOW_CONFIG/
- *     DEFAULT_READER_CONFIG) + toàn bộ hàm nghiệp vụ thuần (saveConfig/loadConfig/seed/restore) —
- *     KHÔNG tự giữ giá trị runtime, gọi vào AppConfig (file này) để đọc/ghi.
+ *   - core/config.js — default + đăng ký/seed domain + hàm thuần quanh config, không giữ giá trị runtime;
+ *     lưu/nạp vizConfig: event/workflow/config.js (`workflowConfig`).
  *
  * KHÁC VỚI event/store.js (EventStore): EventStore chỉ quản lý "state context" — dữ liệu nhớ
  * giữa 2 message liên tiếp của 1 router trong /event/ (vd lastScanResults), VÀ (từ đợt này) toàn
@@ -43,8 +42,8 @@
  *   - `appConfig.seed(domain)` — dựng giá trị runtime = deep-clone của `defaults` đã đăng ký (deep
  *     clone qua JSON — tránh HẲN lớp bug "spread nông giữ reference mảng/object con bị Object.freeze()"
  *     đã từng gặp với `manualEq`, xem changelog cũ — deep-clone generic áp dụng cho MỌI field lồng,
- *     không chỉ riêng field đó). Gọi 1 LẦN/domain lúc boot (xem event/workflow/app-boot.js), TRƯỚC
- *     khi loadConfig() merge lại từ localStorage.
+ *     không chỉ riêng field đó). Gọi 1 LẦN/domain lúc nạp core/config.js, TRƯỚC
+ *     khi workflowConfig.loadOnBoot() merge lại từ localStorage.
  *   - `appConfig.access(domain)` — trả 1 accessor SCOPED cho đúng domain đó:
  *       • `.get(field)` / `.set(field, value, options)` / `.mutate(field, mutatorFn, options)` —
  *         thao tác TỪNG field, validate theo schema riêng của domain (fine-grained, khuyến khích
