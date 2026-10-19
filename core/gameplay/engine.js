@@ -158,7 +158,7 @@ function setGameplayArmedGameId(gameId) {
 }
 
 /** Ghi độ khó đã chọn cho 1 game — PERSISTENT (`gameplayDifficultyByGame`, core/config.js), khác `gameplayDifficulty`
- * (AppState, độ khó của phiên đang chơi). Workflow tự `saveConfig()` ngay sau.
+ * (AppState, độ khó của phiên đang chơi). Workflow tự lưu ngay sau.
  * @param {string} gameId
  * @param {'easy'|'medium'|'hard'} difficulty */
 function setGameDifficultyPreference(gameId, difficulty) {
