@@ -9,12 +9,13 @@
 
 /** Config Generic Drawer cho picker media — cao cố định 90vh, `maxHeight` cùng giá trị làm trần (lưới tải trước nhiều
  * màn hình không đẩy được header ra ngoài). @param {string} headerHtml - buildDrawerHeaderHtml() (components/generic-drawer.js)
- * @param {string} bodyHtml @returns {object} config cho workflowGenericDrawerHelpers.open()/update() */
-function buildMediaPickerDrawerConfig(headerHtml, bodyHtml) {
+ * @param {string} bodyHtml @param {number} [zIndex] - mở trên 1 modal (vd sửa ảnh); mặc định lớp Generic Drawer
+ * @returns {object} config cho workflowGenericDrawerHelpers.open()/update() */
+function buildMediaPickerDrawerConfig(headerHtml, bodyHtml, zIndex) {
     return {
         height: '90vh',
         maxHeight: '90vh',
-        zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js
+        zIndex: zIndex || Z_INDEX.GENERIC_DRAWER, // service/z-index.js
         headerHtml,
         bodyHtml,
         bodyClass: 'flex flex-col',

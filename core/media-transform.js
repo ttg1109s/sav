@@ -118,12 +118,31 @@ function computeRatioLockedResizedRect(rect, flipX, flipY, dx, ratio, minSize, m
     return { x: flipX ? anchorX - w : rect.x, y: flipY ? anchorY - h : rect.y, w, h };
 }
 
+/** 1 nhịp kéo khung: chế độ theo handle đang giữ ('move' = giữa khung, 'free'/'locked' = góc, tự do/khoá tỉ lệ),
+ * độ lệch so với lúc bắt đầu, cạnh đang kéo và rect lúc bắt đầu. Không giữ handle nào -> mode null. Nơi gọi chọn hàm
+ * tính rect (moveCropRect / computeFreeResizedRect / computeRatioLockedResizedRect) theo `mode`.
+ * @param {object} session @param {{x:number,y:number}} pos
+ * @returns {{mode: ('move'|'free'|'locked'|null), dx: number, dy: number, flipX: boolean, flipY: boolean, startRect: object}} */
+function computeCropDragStep(session, pos) {
+    const handle = session.activeHandle;
+    const s = session.dragStart || { x: pos.x, y: pos.y, rx: session.rect.x, ry: session.rect.y, rw: session.rect.w, rh: session.rect.h };
+    const cornerMode = Number.isNaN(session.aspectRatio) ? 'free' : 'locked';
+    return {
+        mode: !handle ? null : (handle === 'center' ? 'move' : cornerMode),
+        dx: pos.x - s.x, dy: pos.y - s.y,
+        flipX: handle === 'tl' || handle === 'bl',
+        flipY: handle === 'tl' || handle === 'tr',
+        startRect: { x: s.rx, y: s.ry, w: s.rw, h: s.rh },
+    };
+}
+
 /** Vẽ overlay crop (nền tối phủ ngoài khung + viền trắng + lưới rule-of-thirds + 4 handle góc) —
  * gọi lại MỖI LẦN `session.rect` đổi. `displayScale` = độ phân giải canvas / kích thước CSS thật
  * (không nhân hệ số này thì nét/handle sẽ tí hin trên màn hình).
- * @param {CanvasRenderingContext2D} ctx @param {object} session
- * @param {number} canvasWidth @param {number} canvasHeight @param {number} displayScale */
-function drawCropSessionOverlay(ctx, session, canvasWidth, canvasHeight, displayScale) {
+ * @param {HTMLCanvasElement} canvas @param {object} session @param {number} displayScale */
+function drawCropSessionOverlay(canvas, session, displayScale) {
+    const ctx = canvas.getContext('2d');
+    const canvasWidth = canvas.width, canvasHeight = canvas.height;
     const r = session.rect;
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
