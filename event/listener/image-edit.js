@@ -1,31 +1,61 @@
 /**
- * event/listener/image-edit.js — miền "imageEdit".
+ * event/listener/image-edit.js — Listener cụm "imageEdit": danh sách Layer của trình sửa ảnh trong Generic Drawer. Ủy
+ * quyền 1 lần trên `genericDrawerBody`/`genericDrawerHeader` (khuôn event/listener/motion-presets.js): mỗi loại sự kiện
+ * 1 bảng tuyến `match(target)` -> phần tử khớp, `send(el, e)` -> [msg.type, payload]; nội dung Drawer khác không khớp
+ * tuyến nào -> bỏ qua. Phần tử mang `data-image-layer-*` (components/image-edit-drawers.js), nút X `data-image-layers-close`.
  *
- * MỚI (31/07/2026, Giang chỉ ra "Nhóm B không có ngoại lệ, phải dời hết vào đúng tầng") —
- * `document.pointermove`/`document.pointerup` theo dõi quá trình kéo `floatingText` (tool Text) —
- * ĐÂY LÀ DOM TĨNH THẬT SỰ (`document` không tự mất/tái tạo theo modal, KHÁC hẳn `interactCanvas`/
- * `floatingText` — 2 phần tử ĐÓ mới đúng "DOM động", tự wire trong core/file-manager/photo-ui.js
- * mỗi lần dựng modal). Nếu wire 2 listener này bên trong hàm dựng modal (chạy lại mỗi lần mở ảnh)
- * sẽ CHỒNG CHẤT qua nhiều lần mở/đóng — phải wire ĐÚNG 1 LẦN DUY NHẤT ở đây, đúng tầng Listener.
+ * Kéo-thả sắp xếp: pointerdown trên tay nắm -> 'drag.start' (Workflow giữ con trỏ trên tay nắm), nên pointermove/up sau
+ * đó tới đúng tay nắm và nổi bọt lên đây.
  *
- * Callback CHỈ `eventBus.send()` — bắn LIÊN TỤC bất kể có đang kéo Text hay không (mọi cử động
- * chuột/chạm TRÊN TOÀN APP, không chỉ lúc Photo Edit mở) — Router/Workflow (`imageEdit`) tự đọc
- * trạng thái đang kéo hay không rồi quyết định làm gì tiếp (thường là không làm gì, sớm return).
- * ĐÂY LÀ ĐÁNH ĐỔI THẬT — chi phí dispatch nhỏ nhưng KHÔNG bằng 0, chạy toàn app, mọi lúc — ghi nhận
- * rõ ràng thay vì giấu đi, đúng tài liệu (Rule 5a không có ngoại lệ theo tần suất event).
+ * Các nút/canvas của chính modal ảnh (DOM tạo mỗi lần mở) wire ở core/file-manager/photo-ui.js::openImagePreviewModal().
+ *
+ * NẠP SAU: event/bus.js, core/dom-refs.js (genericDrawerBody/Header), event/router/image-edit.js.
  */
-document.addEventListener('pointermove', (e) => {
-    eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.pointerMove', payload: { x: e.clientX, y: e.clientY } });
-});
-document.addEventListener('pointerup', () => {
-    eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.pointerUp', payload: {} });
-});
 
-// Các điểm bắn eventBus({ router: 'imageEdit', ... }) KHÁC đều là nút/canvas ĐỘNG, tự wire trực
-// tiếp tại nơi dựng ra nó (core/file-manager/photo-ui.js::openImagePreviewModal(), Rule 5a):
-// toolsBtn/saveBtn/contextCancelBtn/contextApplyBtn/adjustDoneBtn/drawBrushBtn/drawEraserBtn/
-// interactCanvas (pointerdown/move/up/leave)/floatingText (pointerdown)/adjustSliderEl/
-// magicSliderEl (input). Dropdown Save (Ghi đè/Lưu mới) wire ở event/workflow/image-edit.js::
-// openSaveMenu(). Tile lưới tool (Generic Drawer) wire ở core/file-manager/photo-ui.js::
-// wirePhotoEditToolGridDelegation().
+function _ieClosest(target, selector) {
+    return target.closest ? target.closest(selector) : null;
+}
 
+const IMAGE_EDIT_LAYER_CLICK_ROUTES = [
+    { match: (t) => _ieClosest(t, '[data-image-layer-visible]'), send: (el) => ['imageEdit.layerPanel.visible.click', { id: Number(el.dataset.imageLayerVisible) }] },
+    { match: (t) => _ieClosest(t, '[data-image-layer-transform]'), send: (el) => ['imageEdit.layerPanel.transform.click', { id: Number(el.dataset.imageLayerTransform) }] },
+    { match: (t) => _ieClosest(t, '[data-image-layer-delete]'), send: (el) => ['imageEdit.layerPanel.delete.click', { id: Number(el.dataset.imageLayerDelete) }] },
+];
+const IMAGE_EDIT_LAYER_INPUT_ROUTES = [
+    { match: (t) => _ieClosest(t, '[data-image-layer-opacity]'), send: (el) => ['imageEdit.layerPanel.opacity.input', { id: Number(el.dataset.imageLayerOpacity), value: el.value }] },
+];
+const IMAGE_EDIT_LAYER_POINTERDOWN_ROUTES = [
+    { match: (t) => _ieClosest(t, '[data-image-layer-drag]'), send: (el, e) => { e.preventDefault(); return ['imageEdit.layerPanel.drag.start', { id: Number(el.dataset.imageLayerDrag), pointerId: e.pointerId, clientY: e.clientY, handleEl: el, rowEl: el.closest('[data-image-layer-row]') }]; } },
+];
+const IMAGE_EDIT_LAYER_POINTERMOVE_ROUTES = [
+    { match: (t) => _ieClosest(t, '[data-image-layer-drag]'), send: (el, e) => ['imageEdit.layerPanel.drag.move', { clientY: e.clientY }] },
+];
+const IMAGE_EDIT_LAYER_POINTEREND_ROUTES = [
+    { match: (t) => _ieClosest(t, '[data-image-layer-drag]'), send: () => ['imageEdit.layerPanel.drag.end', {}] },
+];
+const IMAGE_EDIT_LAYER_HEADER_CLICK_ROUTES = [
+    { match: (t) => _ieClosest(t, '[data-image-layers-close]'), send: () => ['imageEdit.layerPanel.close.click', {}] },
+];
+
+/** Tuyến đầu tiên khớp phần tử bị tác động -> Router 'imageEdit'. */
+function _ieDispatch(routes, e) {
+    for (const route of routes) {
+        const el = route.match(e.target);
+        if (!el) continue;
+        const [type, payload] = route.send(el, e);
+        eventBus.send({ router: 'imageEdit', type, payload });
+        return;
+    }
+}
+
+if (genericDrawerBody) {
+    genericDrawerBody.addEventListener('click', (e) => _ieDispatch(IMAGE_EDIT_LAYER_CLICK_ROUTES, e));
+    genericDrawerBody.addEventListener('input', (e) => _ieDispatch(IMAGE_EDIT_LAYER_INPUT_ROUTES, e));
+    genericDrawerBody.addEventListener('pointerdown', (e) => _ieDispatch(IMAGE_EDIT_LAYER_POINTERDOWN_ROUTES, e));
+    genericDrawerBody.addEventListener('pointermove', (e) => _ieDispatch(IMAGE_EDIT_LAYER_POINTERMOVE_ROUTES, e));
+    genericDrawerBody.addEventListener('pointerup', (e) => _ieDispatch(IMAGE_EDIT_LAYER_POINTEREND_ROUTES, e));
+    genericDrawerBody.addEventListener('pointercancel', (e) => _ieDispatch(IMAGE_EDIT_LAYER_POINTEREND_ROUTES, e));
+}
+if (genericDrawerHeader) {
+    genericDrawerHeader.addEventListener('click', (e) => _ieDispatch(IMAGE_EDIT_LAYER_HEADER_CLICK_ROUTES, e));
+}
