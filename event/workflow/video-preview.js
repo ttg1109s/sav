@@ -723,7 +723,7 @@ const workflowVideoPreview = {
         const session = appState.get('videoPreviewCropSession');
         const canvas = this._modalHandle.cropCanvasEl;
         const scale = canvas.width / (canvas.offsetWidth || 1); // offsetWidth — KHÔNG dùng getBoundingClientRect() (bbox bị tráo cạnh khi xoay 90°/270°)
-        drawCropSessionOverlay(canvas.getContext('2d'), session, canvas.width, canvas.height, scale); // core/media-transform.js
+        drawCropSessionOverlay(canvas, session, scale); // core/media-transform.js
     },
 
     // ===================== Rotate / Flip / Reset =====================

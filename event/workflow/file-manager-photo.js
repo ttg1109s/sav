@@ -55,24 +55,26 @@ const workflowFileManagerPhoto = {
      * (`updateInPlace`, cùng cách picker Theme/VBG) và lúc chọn/X KHÔNG đóng drawer — nơi gọi tự vẽ lại màn của mình
      * trong callback. (Đóng hẳn bằng `closeFully()` rồi nơi gọi mở lại ngay thì hẹn giờ ẩn của closeFully() vẫn chạy
      * -> ẩn mất màn vừa mở.)
+     * `opts.zIndex` / `opts.title`: mở trên modal sửa ảnh (chèn ảnh làm layer — event/workflow/image-edit.js).
      * @param {(imageKey: string) => void} onSelect
      * @param {() => void} [onCancel] - gọi khi đóng bằng nút X mà chưa chọn gì.
-     * @param {{inPlace?: boolean}} [opts]
+     * @param {{inPlace?: boolean, zIndex?: number, title?: string}} [opts]
      */
     async openCoverImagePicker(onSelect, onCancel, opts) {
-        const inPlace = !!(opts && opts.inPlace);
+        const { inPlace = false, zIndex, title = t('playlistView.songEdit.coverPickLibrary') } = opts || {};
         _imagePickerSession = { onSelect, onCancel, hasSelected: false, inPlace };
-        await this._openImagePickerDrawer(t('playlistView.songEdit.coverPickLibrary'), inPlace);
+        await this._openImagePickerDrawer(title, inPlace, zIndex);
     },
 
     /** Mở khung picker (`workflowGenericDrawerHelpers.mountMediaPicker()`, 90vh), đợi drawer trượt xong rồi
      * mới đọc DB + dựng lưới. Danh sách qua `listPickableMedia()` — bỏ ảnh thuộc folder Hidden.
      * @param {string} title
      * @param {boolean} [inPlace] - true = thay nội dung drawer đang mở (xem openCoverImagePicker()).
+     * @param {number} [zIndex]
      */
-    async _openImagePickerDrawer(title, inPlace) {
+    async _openImagePickerDrawer(title, inPlace, zIndex) {
         const bodyHtml = renderMediaPickerBodyHtml('file-manager-image-picker-scroll', 'file-manager-image-picker-empty', t('fileManager.photo.image.empty'), 'textMutedIcon'); // components/media-gallery.js
-        workflowGenericDrawerHelpers.mountMediaPicker({ routerName: 'fileManagerPhoto', msgPrefix: 'fileManagerPhoto.imagePicker', title, bodyHtml, tileSelector: '[data-image-key]', tileDataKey: 'imageKey', updateInPlace: !!inPlace });
+        workflowGenericDrawerHelpers.mountMediaPicker({ routerName: 'fileManagerPhoto', msgPrefix: 'fileManagerPhoto.imagePicker', title, bodyHtml, tileSelector: '[data-image-key]', tileDataKey: 'imageKey', updateInPlace: !!inPlace, zIndex });
 
         await new Promise((resolve) => { taskManager.once(resolve, GENERIC_DRAWER_ANIM_MS, 'fileManagerPhotoPickerOpenSettle'); }); // core/generic-drawer.js
 

@@ -219,9 +219,10 @@ const workflowGenericDrawerHelpers = {
     /** MỚI (24/09/2026, dọn vi phạm Rule 3 của core/media-picker-drawer-ui.js — core gọi core mở Drawer) — mở/thay
      * picker Ảnh/Video (dùng chung File Manager Photo, Visual Background, Theme): lấy config từ core, gắn qua
      * `open()`/`update()` ở trên, rồi mới wire (core, Rule 5a — callback chỉ bắn eventBus).
-     * @param {{routerName:string, msgPrefix:string, title:string, bodyHtml:string, tileSelector:string, tileDataKey:string, showConfirmButton?:boolean, updateInPlace?:boolean}} opts */
+     * `zIndex`: mở trên 1 modal (picker chèn ảnh của trình sửa ảnh).
+     * @param {{routerName:string, msgPrefix:string, title:string, bodyHtml:string, tileSelector:string, tileDataKey:string, showConfirmButton?:boolean, updateInPlace?:boolean, zIndex?:number}} opts */
     mountMediaPicker(opts) {
-        const config = buildMediaPickerDrawerConfig(buildDrawerHeaderHtml({ title: opts.title }), opts.bodyHtml); // core/media-picker-drawer-ui.js + components/generic-drawer.js (SỬA 07/10/2026)
+        const config = buildMediaPickerDrawerConfig(buildDrawerHeaderHtml({ title: opts.title }), opts.bodyHtml, opts.zIndex); // core/media-picker-drawer-ui.js + components/generic-drawer.js
         if (opts.updateInPlace) this.update(config); else this.open(config);
         wireMediaPickerDrawerUi(opts.routerName, opts.msgPrefix, opts.tileSelector, opts.tileDataKey); // core/media-picker-drawer-ui.js
         if (opts.showConfirmButton) wireMediaPickerConfirmButtonUi(opts.routerName, opts.msgPrefix); // core/media-picker-drawer-ui.js
