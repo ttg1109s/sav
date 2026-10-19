@@ -3,7 +3,7 @@
  * (components/visualizer-overlay.js) dùng chung cơ chế mở/auto-hide.
  *
  * NẠP SAU: core/hud.js, core/dom-refs.js, core/player-controls.js (applyPlaybackSpeedToActiveMedia), core/playlist/render.js
- * (resolvePlayingMediaType), core/config.js (saveConfig), service/task-manager.js.
+ * (resolvePlayingMediaType), event/workflow/config.js (workflowConfig.save), service/task-manager.js.
  * NẠP TRƯỚC: event/router/hud.js.
  */
 const HUD_AUTO_HIDE_DELAY = 2500;
@@ -43,7 +43,7 @@ const workflowHud = {
         this._scheduleAutoHide(visualizerSpeedHud, SPEED_HUD_AUTO_HIDE_TASK);
     },
 
-    /** Đồng bộ toàn bộ UI Speed HUD theo `speed` — gọi thêm lúc boot (event/workflow/app-boot.js, sau loadConfig()) để
+    /** Đồng bộ toàn bộ UI Speed HUD theo `speed` — gọi thêm lúc boot (event/workflow/app-boot.js, sau workflowConfig.loadOnBoot()) để
      * badge trên nút khớp tốc độ đã lưu ngay từ đầu. @param {number} speed */
     syncSpeedUI(speed) {
         syncSpeedHudUI(speedHudSlider, speedHudValueLabel, speedHudOptions, speedBadgeLabel, resolveSpeedHudView(speed)); // core/hud.js
@@ -55,7 +55,7 @@ const workflowHud = {
     selectSpeed(value) {
         const speed = clampAndRoundPlaybackSpeed(value); // core/hud.js
         appConfigViz.mutateAll((cfg) => { cfg.playbackSpeed = speed; });
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
         const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
         applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed); // core/player-controls.js
         HUD_SPEED_FOLLOW_UP_BY_MEDIA_TYPE[resolvePlayingMediaType(isVideoPlayerMode, isPhotoPlayerMode)](); // core/playlist/render.js

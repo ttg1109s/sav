@@ -2,7 +2,7 @@
  * event/workflow/eq-presets.js — Workflow của router "eqPresets".
  *
  * Danh sách preset sống ở `appState.eqPresets` (nạp lúc boot từ `meta.eqPresets`, seed 6 preset gốc nếu DB chưa có);
- * preset đang chọn là `appConfigViz.eqPresetId` (lưu qua saveConfig()).
+ * preset đang chọn là `appConfigViz.eqPresetId` (lưu qua workflowConfig.save()).
  *
  * #btn-cycle-eq — bấm ngắn: xoay sang preset kế tiếp, áp ngay (cyclePreset()); giữ 1.5s: mở Generic Drawer (List/Edit,
  * components/eq-presets-drawer.js). Đếm giờ giữ qua `taskManager.once()` — startCycleHold()/endCycleHold()/
@@ -113,7 +113,7 @@ const workflowEqPresets = {
         const preset = findEqPresetById(presets, nextId); // core
         applyEqGains(eqBandNodes, preset ? preset.gains : null); // core
         syncEqBadgeLabel(preset ? preset.name : ''); // core
-        saveConfig();
+        workflowConfig.save();
     },
 
     /** View List — từ _fireCycleHold(), sau khi Xoá, nút Back của Edit, đổi trang.
@@ -250,7 +250,7 @@ const workflowEqPresets = {
         console.log(`writer: "workflowEqPresets._applyAndNotify", page: "vizConfig.eqPresetId", content: "${preset.id}"`);
         applyEqGains(appState.get('eqBandNodes'), this._draftGains); // core
         syncEqBadgeLabel(preset.name); // core
-        saveConfig();
+        workflowConfig.save();
         this._renderEditView(preset);
         alertModal(tFormat('eqPresets.appliedNotice', { name: escapeHtml(preset.name) }), { title: t('eqPresets.title') }); // core/modal-choice-ui.js
     },
@@ -287,7 +287,7 @@ const workflowEqPresets = {
             const flatPreset = findEqPresetById(presets, 'flat'); // core
             applyEqGains(eqBandNodes, flatPreset ? flatPreset.gains : null); // core
             syncEqBadgeLabel(flatPreset ? flatPreset.name : 'Default'); // core
-            saveConfig();
+            workflowConfig.save();
         }
         this.openListView();
     },

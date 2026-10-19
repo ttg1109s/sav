@@ -16,13 +16,13 @@
  *   - `onMediaChanged()` — 3 player khi currentKey đổi.
  *   - `killAllTasks()` — event/workflow/playlist.js, event/workflow/file-manager-storage.js (xoá media đang phát/Clear all).
  *   - `startBranch()` — các setter Settings ngay dưới.
- *   - `syncLockedControls()` — event/workflow/app-boot.js (sau loadConfig()).
+ *   - `syncLockedControls()` — event/workflow/app-boot.js (sau workflowConfig.loadOnBoot()).
  *
  * Mọi rẽ nhánh THEO TRẠNG THÁI viết bằng `VirtualMachineState.run()` (khai báo đủ mọi trường hợp — trường hợp "không làm
  * gì" có rule no-op có chủ đích); điều kiện nhiều vế tính ở core (`resolveAutoSwitchSyncPhase()`). Còn lại chỉ guard
  * clause (readme/event-bus-flow.md mục 7).
  *
- * NẠP SAU: core/auto-switch-visual.js, core/auto-switch-visual-ui.js, core/config.js (saveConfig, MODES),
+ * NẠP SAU: core/auto-switch-visual.js, core/auto-switch-visual-ui.js, service/state/visualizer-runtime.js (MODES),
  * service/task-manager.js, core/dom-refs.js (audioPlayer), event/virtual-machine-state.js. Lúc chạy:
  * event/workflow/visualizer-render.js (`applyStyle()`).
  */
@@ -35,14 +35,14 @@ const workflowAutoSwitchVisual = {
 
     setEnabled(checked) {
         setAutoSwitchVisualEnabled(checked); // core/auto-switch-visual.js
-        saveConfig();
+        workflowConfig.save();
         this.syncLockedControls();
         appState.set('_autoSwitchLastMediaKey', appState.get('currentKey')); // perMedia: media đang phát không tính là "mới"
         this.startBranch();
     },
 
     /** Làm mờ/khoá nút "Đổi hiệu ứng" + select "Kiểu hiệu ứng" theo Auto-Switch bật/tắt — khi bật/tắt và lúc boot
-     * (event/workflow/app-boot.js, sau loadConfig()). */
+     * (event/workflow/app-boot.js, sau workflowConfig.loadOnBoot()). */
     syncLockedControls() {
         const enabled = appConfigViz.getAll().autoSwitchVisualEnabled;
         updateCycleModeButtonState(enabled); // core/auto-switch-visual.js
@@ -51,12 +51,12 @@ const workflowAutoSwitchVisual = {
 
     setMode(value) {
         setAutoSwitchVisualMode(value);
-        saveConfig();
+        workflowConfig.save();
     },
 
     setTimeMode(value) {
         setAutoSwitchVisualTimeMode(value);
-        saveConfig();
+        workflowConfig.save();
         appState.set('_autoSwitchLastMediaKey', appState.get('currentKey'));
         this.startBranch();
         this._rerenderPanel();
@@ -64,33 +64,33 @@ const workflowAutoSwitchVisual = {
 
     setFixedKind(value) {
         setAutoSwitchVisualFixedKind(value);
-        saveConfig();
+        workflowConfig.save();
         this.startBranch();
         this._rerenderPanel();
     },
 
     setListBy(value) {
         setAutoSwitchVisualListBy(value);
-        saveConfig();
+        workflowConfig.save();
         this._rerenderPanel();
     },
 
     setItemEnabled(listBy, key, checked) {
         this._ensureLists();
         setAutoSwitchVisualItemEnabled(listBy, key, checked);
-        saveConfig();
+        workflowConfig.save();
     },
 
     setGroupStyle(groupKey, style) {
         this._ensureLists();
         setAutoSwitchVisualGroupStyle(groupKey, style);
-        saveConfig();
+        workflowConfig.save();
     },
 
     moveItem(listBy, fromKey, toKey) {
         this._ensureLists();
         moveAutoSwitchVisualItem(listBy, fromKey, toKey);
-        saveConfig();
+        workflowConfig.save();
         this._rerenderPanel();
     },
 
@@ -164,7 +164,7 @@ const workflowAutoSwitchVisual = {
             onConfirm: (resultMs) => {
                 setAutoSwitchVisualSeconds(fieldName, resultMs); // core/auto-switch-visual.js
                 console.log(`writer: "workflowAutoSwitchVisual.openSecondsPicker", page: "vizConfig", content: "${fieldName}=${appConfigViz.getAll()[fieldName]}"`);
-                saveConfig();
+                workflowConfig.save();
                 this.startBranch();
                 this._rerenderPanel();
             },

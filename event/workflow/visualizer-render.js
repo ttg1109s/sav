@@ -10,7 +10,7 @@
  *     giữ trạng thái RIÊNG của group mình + bảng `styles` (style -> hàm vẽ) + hook vòng đời tuỳ chọn:
  *       activate(style)      — style của group vừa được chọn (vd dựng scene WebGL lần đầu, ẩn/hiện nhóm mesh)
  *       onResize(viewport)   — khung nhìn đổi kích thước ({ width, height, dpr } px CSS)
- *       onStyleApplied(vp)   — người dùng/auto-switch vừa chọn style thuộc group (sau activate + saveConfig)
+ *       onStyleApplied(vp)   — người dùng/auto-switch vừa chọn style thuộc group (sau activate + lưu)
  *       onSeek()             — media vừa nhảy thời gian (connector ổn định lại FFT)
  *       onNewMedia()         — đổi bài/video (connector dọn tia đang bay)
  *       rebuild()            — Custom Effect đổi field cần dựng lại scene (vortex/connector)
@@ -229,13 +229,13 @@ const workflowVisualizerRender = {
         appState.set('currentModeIndex', idx);
         console.log(`writer: "workflowVisualizerRender.applyStyle", page: "currentModeIndex", content: "${idx} (${style})"`);
         this.activateCurrentStyle();
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
         this._callGroupHook(STYLE_TO_GROUP[style], 'onStyleApplied', this._currentViewport());
     },
 
     /** Kích hoạt style theo `currentModeIndex`: ghi vizConfig, nhãn icon, ẩn/hiện #webgl-canvas, hook `activate`
      * của group, độ phân giải FFT. THAY `updateTypeUI()` cũ trong core. Gọi lúc boot (app-boot.js, sau
-     * loadConfig()), trước khi phát (player.js, video-player.js) và từ `applyStyle()`. */
+     * workflowConfig.loadOnBoot()), trước khi phát (player.js, video-player.js) và từ `applyStyle()`. */
     activateCurrentStyle() {
         const style = MODES[appState.get('currentModeIndex')];
         const groupName = STYLE_TO_GROUP[style];

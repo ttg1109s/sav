@@ -127,7 +127,7 @@ const workflowSubtitleDisplay = {
 
     // ===================== Boot / cài đặt =====================
 
-    /** Gọi từ event/workflow/app-boot.js ngay sau loadConfig(). */
+    /** Gọi từ event/workflow/app-boot.js ngay sau workflowConfig.loadOnBoot(). */
     initFromConfig() {
         setSubtitlesEnabledState(appConfigViz.getAll().subtitlesEnabled !== false); // core
         this.applyFrameStyle();

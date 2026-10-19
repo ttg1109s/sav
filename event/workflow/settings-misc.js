@@ -7,7 +7,7 @@
  * CỐ Ý KHÔNG có: folderIndex/deletedFolderIds (thư viện), songStats/totalListenSeconds (thống kê),
  * *Migrated (cờ migrate 1 lần), clearingInProgress (cờ tác vụ). */
 const RESTORE_DEFAULTS_META_KEYS = [
-    'configBackup', // bản backup vizConfig — PHẢI xoá, không loadConfig() sẽ phục hồi lại cấu hình cũ từ đây
+    'configBackup', // bản backup vizConfig — PHẢI xoá, không workflowConfig.loadOnBoot() sẽ phục hồi lại cấu hình cũ từ đây
     'visualBgConfig',
     'eqPresets',
     'motionPresets',
@@ -18,7 +18,7 @@ const RESTORE_DEFAULTS_META_KEYS = [
     'activePlayListFolder', // thư mục đang áp cho từng Nguồn -> về "Tất cả"
 ];
 
-/** MỌI key localStorage chứa CÀI ĐẶT (cùng lý do trên). V20 = key cũ loadConfig() còn đọc fallback. */
+/** MỌI key localStorage chứa CÀI ĐẶT (cùng lý do trên). V20 = key cũ workflowConfig.loadOnBoot() còn đọc fallback. */
 const RESTORE_DEFAULTS_LOCAL_STORAGE_KEYS = ['visualMasterConfigV21', 'visualMasterConfigV20', 'uiThemeName', 'uiThemeBoot'];
 
 const workflowSettingsMisc = {
@@ -171,7 +171,7 @@ const workflowSettingsMisc = {
      * KHÔNG đụng (DỮ LIỆU, không phải cài đặt): media đã upload (Song/Video/Photo), thư mục + tên + nội
      * dung, thống kê nghe (songStats/totalListenSeconds), gói ngôn ngữ đã tải lên, cờ migrate 1 lần, trạng
      * thái tạm (resume/subtitle đang sửa).
-     * Thứ tự: reset RAM viz/visualBg TRƯỚC (lỡ có saveConfig() nào chạy chen giữa lúc await thì nó ghi
+     * Thứ tự: reset RAM viz/visualBg TRƯỚC (lỡ có workflowConfig.save() nào chạy chen giữa lúc await thì nó ghi
      * lại MẶC ĐỊNH chứ không phải cấu hình cũ) + huỷ lượt backup vizConfig đang hẹn giờ, rồi mới xoá. Đợi
      * MỌI lượt ghi/xoá IndexedDB xong mới reload (reload sớm = mất phần chưa ghi xong). */
     async confirmRestoreDefaults() {

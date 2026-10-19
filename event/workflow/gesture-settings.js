@@ -4,7 +4,7 @@
  * setField(field, value) dùng chung cho 7 action picker (4 vuốt + tap/double tap/tap 3 lần), 3 ô Action và 2 số
  * Seek-hold (gestureSeekStepMs = Time 1 đơn vị nhảy / gestureSeekHoldIntervalMs = Time 2 nhịp giữ để tua tiếp, xem
  * event/workflow/visualizer-gesture.js); setToggle(field, checked) cho 2 checkbox (vuốt cạnh trên, bật/tắt seek-hold).
- * Cả hai cùng 1 tiến trình: ghi 1 field vizConfig + saveConfig().
+ * Cả hai cùng 1 tiến trình: ghi 1 field vizConfig + workflowConfig.save().
  *
  * NẠP SAU: core/gesture-settings-ui.js, core/time-picker-modal.js.
  */
@@ -20,7 +20,7 @@ const workflowGestureSettings = {
     setToggle(field, checked) {
         appConfigViz.mutateAll((cfg) => { cfg[field] = checked; });
         console.log(`writer: "workflowGestureSettings.setToggle", page: "vizConfig.${field}", content: "${checked}"`);
-        saveConfig();
+        workflowConfig.save();
     },
 
     /** 10 msg.type select của panel; và onConfirm của _openSeekTimePicker() cho 2 số Seek-hold.
@@ -28,7 +28,7 @@ const workflowGestureSettings = {
     setField(field, value) {
         appConfigViz.mutateAll((cfg) => { cfg[field] = value; });
         console.log(`writer: "workflowGestureSettings.setField", page: "vizConfig.${field}", content: "${value}"`);
-        saveConfig();
+        workflowConfig.save();
     },
 
     /** 'gestureSettings.openSeekStepPicker.click' — Time 1: đơn vị nhảy mỗi lần seek. */

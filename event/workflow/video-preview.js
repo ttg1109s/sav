@@ -30,7 +30,8 @@
  *
  * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js, core/video-editor/compat-guard.js/filmstrip.js/
  * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, core/dynamic-object-ui.js,
- * service/state/video-preview.js, service/blob-url.js, event/workflow/media-transform-helpers.js.
+ * core/video-editor/opfs-temp.js, service/state/video-preview.js, service/blob-url.js, event/workflow/media-transform-helpers.js,
+ * event/workflow/timeout.js.
  */
 // Dải phim 10 ô (giữ trong RAM): mốc ô thứ i = i × thời lượng/10 (core/video-editor/filmstrip.js). Ô nào không trích được ảnh: tạm hiện ảnh của ô gần
 // nhất (không để ô đen), rồi trích LẠI ở giữa ô khi thả tay cầm Start/End (`_refillMissingFilmstripFrames()`).
@@ -39,6 +40,7 @@ const FILMSTRIP_THUMB_H = 56;              // = chiều cao dải phim (assets/c
 const FILMSTRIP_REFILL_OFFSET = 0.5;       // trích lại tại GIỮA ô (mốc đầu ô đã không có khung)
 const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End
 
+const VIDEO_EDIT_TEMP_WRITABLE_TIMEOUT_MS = 10000; // createWritable() file tạm OPFS có thể treo thay vì lỗi trên vài bản Safari
 const VIDEO_PREVIEW_METADATA_TIMEOUT_MS = 15000; // quá hạn chờ `<video>` báo metadata thì coi như hỏng, không kẹt shield
 
 /** Nạp 1 file script cục bộ (core/dynamic-object-ui.js::loadScriptFile()). Thành công thì nhớ lại (không nạp lần 2);
@@ -945,6 +947,21 @@ const workflowVideoPreview = {
         return `${base}-edit-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.mp4`;
     },
 
+    /** File tạm OPFS mở sẵn để ghi video xuất (core/video-editor/opfs-temp.js); máy không hỗ trợ/lỗi/treo -> null (ghi RAM).
+     * @returns {Promise<{fileName: string, fileHandle: FileSystemFileHandle, writable: FileSystemWritableFileStream}|null>} */
+    async _openTempTarget(fileName) {
+        const temp = await openVideoEditTempFile(fileName);
+        if (!temp) return null;
+        try {
+            const writable = await workflowTimeout.race(openVideoEditTempWritable(temp.fileHandle), VIDEO_EDIT_TEMP_WRITABLE_TIMEOUT_MS, 'createWritable() file tạm OPFS'); // event/workflow/timeout.js
+            console.log(`[workflowVideoPreview._openTempTarget] mở file tạm OPFS "${fileName}" để ghi video xuất`);
+            return { ...temp, writable };
+        } catch (err) {
+            console.warn('[workflowVideoPreview._openTempTarget] không mở được file tạm OPFS, dùng RAM:', err);
+            return null;
+        }
+    },
+
     /** Luồng lưu DUY NHẤT cho cả 2 kiểu. Toàn bộ nằm trong shield: không bấm Lưu 2 lần, không đóng giữa chừng
      * (đóng giữa chừng -> `videoPreviewRecord` null -> crash sau khi encode xong, mất file). % = 0-90 tiến độ Conversion, 90-100 chụp thumb + ghi DB.
      * @param {string} mode - 'overwrite' | 'asNew' */
@@ -962,7 +979,7 @@ const workflowVideoPreview = {
             let temp = null;
             try {
                 await clearVideoEditTempDir(); // core/video-editor/opfs-temp.js — dọn rác lần xuất trước (nếu từng crash)
-                temp = await openVideoEditTempTarget(`edit-${Date.now()}.mp4`); // core/video-editor/opfs-temp.js — null = ghi RAM
+                temp = await this._openTempTarget(`edit-${Date.now()}.mp4`); // null = ghi RAM
                 const result = await processVideo({ ...params, writable: temp ? temp.writable : null, onProgress: (f) => pct(f * 90) }); // core/video-editor/webcodecs-engine.js
                 if (result.status === 'invalid') {
                     console.error('[workflowVideoPreview._runSave] Conversion không hợp lệ:', result.reasons);

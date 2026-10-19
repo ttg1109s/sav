@@ -4,11 +4,11 @@
  * khó trên card). Phiên chơi thật thuộc event/workflow/gameplay-engine.js (+ workflow từng mode) — file này chỉ gọi vào.
  *
  * `gameplayArmedGameId` là AppState session-only (không lưu); độ khó từng game (`gameplayDifficultyByGame`, core/config.js)
- * là PERSISTENT — saveConfig() ở đúng cycleDifficulty(). Mỗi thao tác vẽ lại toàn bộ list (catalog chỉ vài game) kèm chấm
+ * là PERSISTENT — workflowConfig.save() ở đúng cycleDifficulty(). Mỗi thao tác vẽ lại toàn bộ list (catalog chỉ vài game) kèm chấm
  * báo "Game Mode" trên nút Game ở bottom nav (theo `gameplayArmedGameId != null`, không theo `gameplayPhase`).
  *
  * NẠP SAU: core/gameplay/catalog.js, components/game-panel.js, core/gameplay/game-panel-ui.js, core/gameplay/engine.js
- * (setGameplayArmedGameId, setGameDifficultyPreference), core/config.js (appConfigViz, saveConfig), core/app-panel-nav.js,
+ * (setGameplayArmedGameId, setGameDifficultyPreference), core/config.js (appConfigViz), core/app-panel-nav.js,
  * core/placeholder-panel.js, core/ui-theme/apply-ui.js, event/workflow/placeholder-panels.js,
  * event/workflow/gameplay-engine.js, core/dom-refs.js. NẠP TRƯỚC: event/router/game-catalog.js.
  */
@@ -68,7 +68,7 @@ const workflowGameCatalog = {
 
         const current = resolveGameDifficulty(appConfigViz.getAll().gameplayDifficultyByGame, gameId); // core/gameplay/catalog.js
         setGameDifficultyPreference(gameId, computeNextGameDifficulty(current)); // core/gameplay/engine.js + catalog.js
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
 
         this.renderList();
     },

@@ -1,38 +1,32 @@
 /**
- * event/workflow/zip-download.js — Workflow "zipDownload" (MỚI 06/10/2026, Giang yêu cầu: "khi zip file lớn hơn
- * 500MB thì chia thành nhóm rồi zip, khi xong hiển thị các file zip lẻ ở modal download, tuân thủ theme key").
+ * event/workflow/zip-download.js — Workflow "zipDownload": mọi lượt tải file ra ngoài (tên cụm giữ từ thời chỉ có zip).
  *
- * VÌ SAO: trong PWA iOS chỉ navigator.share() lưu được file ra ngoài, và share đọc nguyên file vào RAM — Giang đo
- * (share-size-test.html) 600MB vẫn ổn, chốt mỗi file/phần tối đa 500MB (MEDIA_FILE_MAX_BYTES, core/upload-
- * validation.js — cũng là giới hạn upload). Mỗi phần là 1 zip HOÀN CHỈNH (giải nén riêng được trong app Tệp).
+ * Trong PWA iOS chỉ navigator.share() lưu được file ra ngoài và share đọc nguyên file vào RAM — mỗi file/phần tối đa
+ * 500MB (MEDIA_FILE_MAX_BYTES, core/upload-validation.js — cũng là giới hạn upload). Mỗi phần là 1 zip hoàn chỉnh.
  *
- * DÙNG CHUNG cho MỌI luồng zip: Storage Management + Folder Download (event/workflow/file-manager-storage.js::
+ * Dùng chung cho mọi luồng zip: Storage Management + Folder Download (event/workflow/file-manager-storage.js::
  * zipAndDownloadOrFallback()) và Xuất ZIP ở chế độ Chọn (event/workflow/playlist.js::exportSelected*Zip()).
- *   1. `compressInParts(entries, zipFileName)` — gọi BÊN TRONG withLoadingShield() của nơi gọi: chia nhóm (core
- *      groupZipEntriesBySize()), nén từng nhóm vào OPFS (core _compressZipEntries()), tự cập nhật chữ tiến độ.
- *   2. `deliver(parts)` — gọi SAU khi shield đóng: 1 phần -> modal cũ promptDownloadReady() (y nguyên hành vi trước
- *      đây); nhiều phần -> modal danh sách (components/zip-download-parts.js + core/zip-download-ui.js), mỗi phần
- *      1 nút Tải xuống riêng (mỗi lượt share cần 1 lần chạm thật). Đóng modal xong tự dọn mọi file zip tạm OPFS.
- *      Resolve `true` chỉ khi MỌI phần đã tải — Storage Management dựa vào đó để không xoá dữ liệu khi chưa tải đủ.
+ *   1. `compressInParts(entries, zipFileName)` — gọi BÊN TRONG withLoadingShield() của nơi gọi: chia nhóm <= 500MB
+ *      (groupZipEntriesBySize()), nén từng nhóm vào OPFS (`_compressEntries()` -> workflowStreamingZip), cập nhật chữ tiến độ.
+ *   2. `deliver(parts)` — gọi SAU khi shield đóng: 1 phần -> modal `promptSingle()`; nhiều phần -> modal danh sách
+ *      (components/zip-download-parts.js + core/zip-download-ui.js), mỗi phần 1 nút Tải xuống (mỗi lượt share cần 1 lần
+ *      chạm thật). Đóng modal xong tự dọn file zip tạm OPFS. Resolve `true` chỉ khi MỌI phần đã tải — Storage Management
+ *      dựa vào đó để không xoá dữ liệu khi chưa tải đủ.
+ *   - `deliverFile(blob, filename)` — chọn đường Share / <a download>, core thi hành từng đường (core/id3-export.js).
+ *   - `promptSingle(blob, filename)` — modal "Sẵn sàng tải xuống" 1 file, nút đi qua eventBus ('zipDownload.single.click'
+ *     / '.cancel').
+ *   - `collectEntries(type, keys)` — đọc record 1 transaction, `planZipEntries()` đặt tên chống trùng, Song gắn lại tag
+ *     qua `buildTaggedBlob()`.
  *
- * Trạng thái modal nhiều phần (`_parts`, `_bodyEl`, `_downloaded`, `_busyIndex`, `_resolveParts`) chỉ sống trong
- * lúc modal mở — cùng cách event/workflow/recorder.js giữ trạng thái modal nghe lại.
- *
- * MỞ RỘNG (06/10/2026, dọn nợ Rule 1/3 — Giang yêu cầu) — cụm này giờ lo MỌI lượt tải file ra ngoài, không riêng zip:
- *   - `deliverFile(blob, filename)` — THAY core `triggerDownload()`: chọn đường Share / <a download> bằng object map, gọi
- *     core thi hành từng đường (core/id3-export.js). Đường Service Worker bỏ 07/10/2026 (sw.js đã xoá).
- *   - `promptSingle(blob, filename)` — THAY core `promptDownloadReady()`: modal "Sẵn sàng tải xuống" 1 file, nút đi qua
- *     eventBus ('zipDownload.single.click' / '.cancel') -> `downloadSingle()` / `cancelSingle()`.
- *   - `collectEntries(type, keys)` — THAY core `collectAll*ZipEntries()`/`_collectZipEntries()` (core tự đọc DB): đọc
- *     record 1 transaction, core thuần `planZipEntries()` đặt tên chống trùng, Song gắn lại tag qua `buildTaggedBlob()`.
- *   Tên cụm 'zipDownload' giữ nguyên (lịch sử) — nghĩa thực tế là "tải xuống".
+ * Trạng thái modal nhiều phần (`_parts`, `_bodyEl`, `_downloaded`, `_busyIndex`, `_resolveParts`) chỉ sống lúc modal mở.
  *
  * NẠP SAU: core/upload-validation.js (MEDIA_FILE_MAX_BYTES — đọc NGAY lúc nạp), core/storage-manager.js,
  * core/id3-export.js, core/streaming-zip.js, core/about-stats.js, core/modal-choice-ui.js, core/zip-download-ui.js,
- * components/zip-download-parts.js. NẠP TRƯỚC: event/router/zip-download.js.
+ * core/loading-shield-util.js, components/zip-download-parts.js. NẠP TRƯỚC: event/router/zip-download.js.
+ * Lúc chạy: event/workflow/streaming-zip.js.
  */
 
-const ZIP_PART_MAX_BYTES = MEDIA_FILE_MAX_BYTES; // core/upload-validation.js — 500MB, Giang chốt 06/10/2026
+const ZIP_PART_MAX_BYTES = MEDIA_FILE_MAX_BYTES; // core/upload-validation.js — 500MB
 
 /** Chữ tiến độ trong loading shield — 1 phần giữ NGUYÊN chữ cũ, nhiều phần ghi thêm "phần i/n". */
 const ZIP_PROGRESS_TEXT_BY_SINGLE = {
@@ -43,12 +37,7 @@ const ZIP_PROGRESS_TEXT_BY_SINGLE = {
 /** Tên file từng phần — 1 phần giữ NGUYÊN tên gốc, nhiều phần thêm hậu tố "-part{i}of{n}" trước đuôi. */
 const ZIP_PART_FILENAME_BY_SINGLE = {
     true: (zipFileName) => zipFileName,
-    false: (zipFileName, partNumber, partCount) => {
-        const dot = zipFileName.lastIndexOf('.');
-        const stem = dot > 0 ? zipFileName.slice(0, dot) : zipFileName;
-        const ext = dot > 0 ? zipFileName.slice(dot) : '.zip';
-        return `${stem}-part${partNumber}of${partCount}${ext}`;
-    },
+    false: (zipFileName, partNumber, partCount) => buildZipPartFilename(zipFileName, partNumber, partCount), // core/storage-manager.js
 };
 
 /** Câu tóm tắt modal nhiều phần — kèm thời gian xử lý nếu đo được. */
@@ -57,8 +46,7 @@ const ZIP_PARTS_SUMMARY_BY_HAS_DURATION = {
     false: (vars) => tFormat('common.export.partsBody', vars),
 };
 
-/** Đường giao file cho hệ điều hành — chọn trong deliverFile(). Share hỏng (không phải huỷ) rơi về
- * <a download> (lưới cuối, như bản core cũ). */
+/** Đường giao file cho hệ điều hành — chọn trong deliverFile(). Share hỏng (không phải huỷ) rơi về <a download>. */
 const FILE_DELIVERY_BY_ROUTE = {
     share: (blob, filename, file) => shareFileViaSystem(file) // core/id3-export.js
         .then((result) => SHARE_RESULT_TO_DELIVERED[result](blob, filename)),
@@ -88,8 +76,8 @@ const workflowZipDownload = {
     _resolveParts: null,
 
     /**
-     * Chia `entries` thành các nhóm <= 500MB rồi nén TỪNG nhóm thành 1 zip trong OPFS. Gọi BÊN TRONG
-     * withLoadingShield() của nơi gọi (tự ghi `loadingText`). Lỗi nén ném thẳng ra ngoài — nơi gọi đã có try/catch.
+     * Chia `entries` thành các nhóm <= 500MB rồi nén TỪNG nhóm thành 1 zip trong OPFS. Gọi BÊN TRONG withLoadingShield()
+     * của nơi gọi. Lỗi nén ném thẳng ra ngoài — nơi gọi đã có try/catch.
      * @param {Array<{filename:string, blob:Blob}>} entries
      * @param {string} zipFileName - tên file .zip đầy đủ khi chỉ có 1 phần
      * @returns {Promise<Array<{blob: Blob, filename: string, fileCount: number}>>}
@@ -100,14 +88,28 @@ const workflowZipDownload = {
         const parts = [];
         for (let i = 0; i < groups.length; i++) {
             const partNumber = i + 1;
-            const blob = await _compressZipEntries(groups[i], (done, total, percent) => { // core/storage-manager.js
-                const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                loadingText.textContent = ZIP_PROGRESS_TEXT_BY_SINGLE[isSingle](partNumber, groups.length, pct);
+            const blob = await this._compressEntries(groups[i], (done, total, percent) => {
+                setLoadingShieldText(ZIP_PROGRESS_TEXT_BY_SINGLE[isSingle](partNumber, groups.length, percent)); // core/loading-shield-util.js
             });
             parts.push({ blob, filename: ZIP_PART_FILENAME_BY_SINGLE[isSingle](zipFileName, partNumber, groups.length), fileCount: groups[i].length });
         }
-        console.log(`[zip-download] Nén xong ${parts.length} phần (tối đa ${(ZIP_PART_MAX_BYTES / (1024 * 1024)).toFixed(0)}MB/phần) cho "${zipFileName}".`);
+        console.log(formatZipPartsDoneLog(parts.length, ZIP_PART_MAX_BYTES, zipFileName)); // core/storage-manager.js
         return parts;
+    },
+
+    /** Nén 1 nhóm thành 1 File .zip trong OPFS (workflowStreamingZip — đường nén duy nhất của app). Không có OPFS -> ném lỗi.
+     * Gắn `_zipDurationMs` lên kết quả — modal tải xuống hiện "thời gian xử lý".
+     * @param {Array<{filename:string, blob:Blob}>} entries @param {(done:number, total:number, percent:number) => void} onProgress
+     * @returns {Promise<File>} */
+    async _compressEntries(entries, onProgress) {
+        if (!workflowStreamingZip.isAvailable()) throw new Error(t('common.storage.zipNotSupported')); // event/workflow/streaming-zip.js
+        const startedAt = Date.now();
+        console.log(`[zip-download] Bắt đầu nén zip (${entries.length} file).`);
+        const file = await workflowStreamingZip.build(entries, onProgress);
+        const finishedAt = Date.now();
+        markZipDuration(file, startedAt, finishedAt); // core/storage-manager.js
+        console.log(formatZipDurationLog(startedAt, finishedAt)); // core/storage-manager.js
+        return file;
     },
 
     /**
@@ -118,21 +120,18 @@ const workflowZipDownload = {
     async deliver(parts) {
         if (parts.length === 0) return true; // không có gì để tải (mọi key đều không còn tồn tại)
         const deliverByCount = {
-            true: () => this.promptSingle(parts[0].blob, parts[0].filename), // modal 1 file, giữ nguyên hành vi cũ
+            true: () => this.promptSingle(parts[0].blob, parts[0].filename),
             false: () => this._presentParts(parts),
         };
         const allDownloaded = await deliverByCount[parts.length === 1]();
-        await Promise.all(parts
-            .filter((part) => part.blob._opfsTempName)
-            .map((part) => cleanupStreamingZipTemp(part.blob._opfsTempName))); // core/streaming-zip.js
+        await Promise.all(parts.map((part) => cleanupStreamingZipTemp(part.blob._opfsTempName))); // core/streaming-zip.js — không có tên tạm thì bỏ qua
         return allDownloaded;
     },
 
     /** Mở modal danh sách các phần — resolve khi bấm "Xong" (xem finishParts()).
      * @returns {Promise<boolean>} */
     _presentParts(parts) {
-        const totalBytes = parts.reduce((sum, part) => sum + part.blob.size, 0);
-        const totalDurationMs = parts.reduce((sum, part) => sum + (part.blob._zipDurationMs || 0), 0);
+        const { totalBytes, totalDurationMs } = summarizeZipParts(parts); // core/storage-manager.js
         const summaryVars = { size: formatBytes(totalBytes), n: parts.length, limit: formatBytes(ZIP_PART_MAX_BYTES) }; // core/about-stats.js
         const summaryText = ZIP_PARTS_SUMMARY_BY_HAS_DURATION[totalDurationMs > 0](summaryVars, totalDurationMs);
         const rows = parts.map((part) => ({
@@ -199,7 +198,7 @@ const workflowZipDownload = {
     },
 
     /**
-     * Giao 1 file cho hệ điều hành — THAY core `triggerDownload()` (06/10/2026). PHẢI gọi đồng bộ ngay trong lượt bấm thật
+     * Giao 1 file cho hệ điều hành. PHẢI gọi đồng bộ ngay trong lượt bấm thật
      * (eventBus đồng bộ) — trước bước Share KHÔNG có await nào. Chọn đường:
      *   - file <= LARGE_FILE_SKIP_SHARE_BYTES (core/id3-export.js) + trình duyệt cho share đúng File này -> 'share';
      *   - còn lại -> 'anchor' (<a download>, có thể dính lỗi WebKitBlobResource với file rất lớn qua file://).
@@ -211,7 +210,7 @@ const workflowZipDownload = {
         // File lớn KHÔNG bọc new File() (bản cũ nghi bước này ép sao chép byte) — chỉ cần cho đường Share.
         const file = isLargeFile ? null : new File([blob], filename, { type: blob.type || 'application/octet-stream' });
         const canShare = !!file && !!navigator.canShare && !!navigator.share && navigator.canShare({ files: [file] });
-        const route = (canShare && 'share') || 'anchor'; // SỬA 07/10/2026 — bỏ đường Service Worker (sw.js đã xoá)
+        const route = (canShare && 'share') || 'anchor';
         console.log(`[zip-download] Giao "${filename}" (${(blob.size / (1024 * 1024)).toFixed(1)}MB) qua đường "${route}"`);
         return FILE_DELIVERY_BY_ROUTE[route](blob, filename, file);
     },
@@ -225,8 +224,8 @@ const workflowZipDownload = {
     },
 
     /**
-     * Modal "Sẵn sàng tải xuống" cho 1 file — THAY core `promptDownloadReady()` (06/10/2026), giữ nguyên chữ/hành vi: nút
-     * "Tải xuống" mới giao file (user activation của ĐÚNG lượt bấm đó), Huỷ thì đóng. Nút đi qua eventBus.
+     * Modal "Sẵn sàng tải xuống" cho 1 file: nút "Tải xuống" mới giao file (user activation của ĐÚNG lượt bấm đó), Huỷ thì
+     * đóng. Nút đi qua eventBus.
      * @param {Blob} blob @param {string} filename
      * @returns {Promise<boolean>} true = đã tải, false = Huỷ / huỷ Share Sheet / lỗi
      */
@@ -263,9 +262,8 @@ const workflowZipDownload = {
     },
 
     /**
-     * Gom `{filename, blob}` sẵn sàng nén cho 1 loại media — THAY core `collectAll*ZipEntries()`/`_collectZipEntries()`
-     * (06/10/2026, core tự đọc DB). Đọc record 1 transaction, core thuần `planZipEntries()` đặt tên chống trùng + bỏ key
-     * không còn tồn tại; 1 file gắn tag lỗi thì rơi về file gốc (không làm rớt cả lượt).
+     * Gom `{filename, blob}` sẵn sàng nén cho 1 loại media. Đọc record 1 transaction, core thuần `planZipEntries()` đặt
+     * tên chống trùng + bỏ key không còn tồn tại; 1 file gắn tag lỗi thì rơi về file gốc (không làm rớt cả lượt).
      * @param {'song'|'video'|'photo'} type @param {string[]} keys
      * @returns {Promise<Array<{filename: string, blob: Blob}>>}
      */

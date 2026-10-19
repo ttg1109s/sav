@@ -19,7 +19,7 @@ const workflowVisualizerDisplay = {
     /** 'visualizerDisplay.visualEnable.change'. */
     setVisualEnabled(checked) {
         setVisualEnabled(checked); // core/visualizer-control-center.js (cùng tên)
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
     },
 
     /** 'visualizerDisplay.statsPanelEnable.change' — lưu bền qua domain 'player' (cùng Shuffle/Repeat). */
@@ -32,17 +32,17 @@ const workflowVisualizerDisplay = {
     setBottomPlayerVisible(checked) {
         setBottomPlayerVisible(checked); // core cùng tên
         appConfigViz.mutateAll(cfg => { cfg.bottomPlayerVisible = checked; });
-        saveConfig();
+        workflowConfig.save();
     },
     setPlaylistButtonVisible(checked) {
         setPlaylistButtonVisible(checked); // core cùng tên
         appConfigViz.mutateAll(cfg => { cfg.playlistButtonVisible = checked; });
-        saveConfig();
+        workflowConfig.save();
     },
     setControlCenterButtonVisible(checked) {
         setControlCenterButtonVisible(checked); // core cùng tên
         appConfigViz.mutateAll(cfg => { cfg.controlCenterButtonVisible = checked; });
-        saveConfig();
+        workflowConfig.save();
     },
 
     // ===================== Modal chọn effect =====================

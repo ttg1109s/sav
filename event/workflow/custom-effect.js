@@ -149,14 +149,14 @@ const workflowCustomEffect = {
 
     /** Lưu config (thả tay slider blur). */
     commit() {
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
     },
 
     // ===================== Màu =====================
 
     setColorMode(value) {
         this._writeField(this._openType, 'mode', value); // core/custom-effect.js
-        saveConfig();
+        workflowConfig.save();
         syncCustomEffectColorModeRows(genericDrawerBody, value); // core/custom-effect-drawer-ui.js
         workflowVisualizerDisplay.syncProgressBarColor(); // event/workflow/visualizer-display.js
     },
@@ -166,13 +166,13 @@ const workflowCustomEffect = {
         if (!isCustomEffectHexColor(value)) return; // core/custom-effect.js
         this._writeField(this._openType, 'solidColor', value); // core
         setCustomEffectInputValueById(genericDrawerBody, crossTargetId, value); // core/custom-effect-drawer-ui.js
-        saveConfig();
+        workflowConfig.save();
         workflowVisualizerDisplay.syncProgressBarColor();
     },
 
     setDynColor(field, value) {
         this._writeField(this._openType, field, value); // core
-        saveConfig();
+        workflowConfig.save();
         this._syncProgressBarForDynB(field);
     },
 
@@ -186,7 +186,7 @@ const workflowCustomEffect = {
 
     setBlurEnabled(checked) {
         this._writeField(this._openType, 'blurEnabled', checked); // core
-        saveConfig();
+        workflowConfig.save();
         syncCustomEffectBlurRow(genericDrawerBody, checked); // core/custom-effect-drawer-ui.js
     },
 
@@ -202,7 +202,7 @@ const workflowCustomEffect = {
     /** Toggle hoặc select: ghi + lưu, rồi dựng lại scene (field.refresh) / vẽ lại Drawer (field.rerender) nếu cần. */
     setFieldValue(field, value) {
         this._writeField(this._openType, field, value); // core
-        saveConfig();
+        workflowConfig.save();
         const meta = this._fieldMeta(field);
         this._refreshForField(meta);
         this._rerenderForField(meta);
@@ -218,7 +218,7 @@ const workflowCustomEffect = {
 
     /** Thả tay slider: lưu + dựng lại scene nếu field cần. */
     commitFieldSlider(field) {
-        saveConfig();
+        workflowConfig.save();
         this._refreshForField(this._fieldMeta(field));
     },
 
@@ -252,7 +252,7 @@ const workflowCustomEffect = {
         const type = this._openType;
         workflowFileManagerPhoto.openCoverImagePicker((imageKey) => { // event/workflow/file-manager-photo.js
             this._writeField(type, field, imageKey);
-            saveConfig();
+            workflowConfig.save();
             this._rerenderBody();
         }, () => this._rerenderBody(), { inPlace: true });
     },
@@ -260,7 +260,7 @@ const workflowCustomEffect = {
     /** Bỏ ảnh đã chọn — effect quay về nguồn mặc định (clock: bìa bài đang phát). */
     clearImageField(field) {
         this._writeField(this._openType, field, null); // core
-        saveConfig();
+        workflowConfig.save();
         this._rerenderBody();
     },
 
@@ -270,7 +270,7 @@ const workflowCustomEffect = {
     setFireworksStyleEnabled(style, checked) {
         const cfg = this._openConfig();
         this._writeField(this._openType, 'enabledStyles', toggleFireworksStyleList(cfg.enabledStyles, style, checked)); // core
-        saveConfig();
+        workflowConfig.save();
     },
 
     /** Chữ bắn pháo hoa (customEffect.lighting.customTexts) — thêm/xoá đổi độ dài mảng -> vẽ lại body. */
@@ -278,13 +278,13 @@ const workflowCustomEffect = {
         const next = appendFireworksText(this._openConfig().customTexts, rawText); // core
         if (!next.isValid) return;
         this._writeField(this._openType, 'customTexts', next.list);
-        saveConfig();
+        workflowConfig.save();
         this._rerenderBody();
     },
 
     removeFireworksText(index) {
         this._writeField(this._openType, 'customTexts', removeCustomEffectListItem(this._openConfig().customTexts, index)); // core
-        saveConfig();
+        workflowConfig.save();
         this._rerenderBody();
     },
 
@@ -295,14 +295,14 @@ const workflowCustomEffect = {
         const next = appendCustomLamp(this._openConfig().customLamps); // core
         if (!next.isValid) return;
         this._writeField(this._openType, 'customLamps', next.list);
-        saveConfig();
+        workflowConfig.save();
         this._runRefresh('resizeCanvas');
         this._rerenderBody();
     },
 
     removeLamp(index) {
         this._writeField(this._openType, 'customLamps', removeCustomEffectListItem(this._openConfig().customLamps, index)); // core
-        saveConfig();
+        workflowConfig.save();
         this._runRefresh('resizeCanvas');
         this._rerenderBody();
     },
@@ -317,7 +317,7 @@ const workflowCustomEffect = {
 
     /** Thả tay slider đèn: lưu + dựng lại cảnh phố. */
     commitLampSlider() {
-        saveConfig();
+        workflowConfig.save();
         this._runRefresh('resizeCanvas');
     },
 };

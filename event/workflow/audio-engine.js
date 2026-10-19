@@ -101,7 +101,7 @@ const workflowAudioEngine = {
         const volume = appConfigViz.getAll().volume;
         console.log(`writer: "workflowAudioEngine.setVolume", page: "vizConfig", content: "volume=${volume}"`);
         this._applyVolumeGain(appState.get('volumeGainNode'), volume);
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
         syncVolumeHudIcon(resolveVolumeIconLevel(volume)); // core/hud.js — icon loa Volume HUD khớp dù đổi âm lượng từ đâu
     },
 

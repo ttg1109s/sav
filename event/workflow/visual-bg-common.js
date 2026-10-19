@@ -70,7 +70,7 @@ const workflowVisualBg = {
     _pickerOpen: false,
     _pickerSelectedKeys: [], // ordered — thứ tự chọn
 
-    /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU loadConfig(). */
+    /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU workflowConfig.loadOnBoot(). */
     async loadPersistedSettingsOnBoot() {
         const saved = await getMeta('visualBgConfig');
         if (saved && typeof saved === 'object') {
@@ -200,7 +200,7 @@ const workflowVisualBg = {
     },
 
     /** Sơn nền màu `#visualizer-solid-bg` theo cấu hình VBG hiện tại (đen khi video VBG che kín, gradient hoặc màu đặc). Gọi
-     * lúc boot (app-boot.js, sau loadConfig()) và sau mọi thay đổi ảnh hưởng nền màu (miền VBG, Video Player, audio engine). */
+     * lúc boot (app-boot.js, sau workflowConfig.loadOnBoot()) và sau mọi thay đổi ảnh hưởng nền màu (miền VBG, Video Player, audio engine). */
     paintSolidBg() {
         const cfg = appConfigVisualBg.getAll();
         updateDOMBackground(cfg, buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg)); // core/color-utils.js + core/visual-bg-common.js

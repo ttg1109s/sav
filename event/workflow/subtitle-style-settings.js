@@ -1,6 +1,6 @@
 /**
  * event/workflow/subtitle-style-settings.js — Workflow router "subtitleStyleSettings" (panel Settings > Display >
- * Subtitles + toggle "Show subtitles" ở panel Display). Mọi thay đổi: ghi vizConfig (core) -> saveConfig() -> áp
+ * Subtitles + toggle "Show subtitles" ở panel Display). Mọi thay đổi: ghi vizConfig (core) -> workflowConfig.save() -> áp
  * lên hiển thị qua workflowSubtitleDisplay -> đồng bộ lại panel.
  *
  * NẠP SAU: core/subtitle/subtitle-style-settings.js, core/subtitle/subtitle-transition.js, core/subtitle/
@@ -28,14 +28,14 @@ const workflowSubtitleStyleSettings = {
     /** Toggle "Show subtitles" (panel Display). */
     setEnabled(checked) {
         setSubtitleVizField('subtitlesEnabled', checked); // core
-        saveConfig();
+        workflowConfig.save();
         workflowSubtitleDisplay.setEnabled(checked);
     },
 
     /** Toggle Custom styling: bật -> nút Styling, tắt -> 2 field mặc định. */
     setUseCustomStyling(checked) {
         setSubtitleVizField('subtitleUseCustomStyling', checked); // core
-        saveConfig();
+        workflowConfig.save();
         workflowSubtitleDisplay.applyFrameStyle();
         this._syncCustomStylingVisibility(checked);
     },
@@ -43,20 +43,20 @@ const workflowSubtitleStyleSettings = {
     /** Cỡ chữ / màu mặc định. */
     setDefaultField(field, value) {
         setSubtitleVizField(field, value); // core
-        saveConfig();
+        workflowConfig.save();
         workflowSubtitleDisplay.applyFrameStyle();
     },
 
     /** Effect / giá trị Comming-In-Outing (dòng kế tiếp dùng cài đặt mới). */
     setTransitionField(field, value) {
         setSubtitleVizField(field, value); // core
-        saveConfig();
+        workflowConfig.save();
     },
 
     /** Mọi control karaoke. Đổi bật/tắt karaoke thì dựng lại các dòng đang hiện (span từ <-> text thường). */
     setKaraokeField(field, value) {
         setSubtitleVizField(field, value); // core
-        saveConfig();
+        workflowConfig.save();
         workflowSubtitleDisplay.applyKaraokeConfig();
         this._rebuildIfKaraokeToggled(field);
         this._syncKaraokeSettings();
@@ -110,7 +110,7 @@ const workflowSubtitleStyleSettings = {
     openStyling() {
         workflowElementStyleEditor.open(subtitleFrame, (cssString) => {
             setSubtitleVizField('subtitleBoxCss', cssString); // core
-            saveConfig();
+            workflowConfig.save();
             workflowSubtitleDisplay.applyFrameStyle();
         }, appConfigViz.getAll().subtitleBoxCss, () => workflowAppSettings._renderSubtitle());
     },

@@ -2,7 +2,7 @@
  * event/workflow/theme.js — router "theme": chốt NỀN của app (Light · Dark · Morphin: None / Gradient / Background media).
  *
  *   - Background media THAM CHIẾU item thư viện (`bgMediaKind` + `bgMediaKey`), không copy blob; item bị xoá/mất -> boot về
- *     `bgFallbackMode` (`loadPlaylistBgMediaAsset()`, core/config.js).
+ *     `bgFallbackMode` (`workflowConfig.loadOnBoot()`, event/workflow/config.js).
  *   - Mọi lần chốt mode đi qua `commitThemeMode()`; field config ghi vào do core thuần `computeThemeModeCommit()` tính.
  *   - Giá trị hiển thị (lớp nền App + 3 card ở Settings > Theme) tính 1 lần bằng `computeThemeBackgroundView()`
  *     (core/theme-background.js); ghi DOM: `updatePlaylistBg()` (core/color-utils.js), `patchThemeBackgroundCards()`.
@@ -46,7 +46,7 @@ const workflowTheme = {
     commitThemeMode(mode) {
         const patch = computeThemeModeCommit(appConfigViz.getAll(), mode); // core/theme-background.js
         appConfigViz.mutateAll((cfg) => { Object.assign(cfg, patch); });
-        saveConfig(); // core/config.js
+        workflowConfig.save(); // core/config.js
         const view = computeThemeBackgroundView(appConfigViz.getAll()); // core/theme-background.js
         updatePlaylistBg(view.playlistBg); // core/color-utils.js
         this._forceGlassRepaint();
@@ -115,7 +115,7 @@ const workflowTheme = {
 
     /** Item thư viện -> URL runtime -> ghi tham chiếu + chốt 'background'. Item vừa bị xoá ở nơi khác (null) -> bỏ qua. */
     async _applyPickedMedia(kind, key) {
-        const media = await resolveAppBgMedia(kind, key); // core/config.js
+        const media = await workflowConfig.resolveAppBgMedia(kind, key); // event/workflow/config.js
         if (!media) return;
         const cfg = appConfigViz.getAll();
         [cfg.bgImage, cfg.bgVideo, cfg.bgMediaThumb].forEach(revokeBlobUrl); // service/blob-url.js — 3 URL runtime của nền media cũ
@@ -129,7 +129,7 @@ const workflowTheme = {
     /** Ứng với 'theme.glassBlur.input' — độ nhoè kính Playlist chính. Gọi liên tục lúc kéo, không đổi mode. @param {string} value */
     setAppGlassBlur(value) {
         setAppGlassBlur(value); // core/visualizer/visualizer-display.js
-        saveConfig();
+        workflowConfig.save();
         const view = computeThemeBackgroundView(appConfigViz.getAll());
         updatePlaylistBg(view.playlistBg);
         this._forceGlassRepaint();
@@ -139,7 +139,7 @@ const workflowTheme = {
     /** Ứng với 'theme.glassTint.input' — độ đục nền trắng của kính Playlist chính. @param {string} value */
     setAppGlassTint(value) {
         setAppGlassTint(value); // core/visualizer/visualizer-display.js
-        saveConfig();
+        workflowConfig.save();
         const view = computeThemeBackgroundView(appConfigViz.getAll());
         updatePlaylistBg(view.playlistBg);
         this._patchCards(view.cards);
@@ -176,7 +176,7 @@ const workflowTheme = {
         setAppBgVideoPlayback(shouldPlayAppBgVideo(appConfigViz.getAll(), visualizerScreenActive, document.visibilityState)); // core/color-utils.js + core/theme-background.js
     },
 
-    /** Vẽ nền App Panel theo config hiện tại — lúc boot (event/workflow/app-boot.js, ngay sau loadConfig()). */
+    /** Vẽ nền App Panel theo config hiện tại — lúc boot (event/workflow/app-boot.js, ngay sau workflowConfig.loadOnBoot()). */
     repaintAppBackground() {
         updatePlaylistBg(computeThemeBackgroundView(appConfigViz.getAll()).playlistBg); // core/color-utils.js + core/theme-background.js
     },
