@@ -496,6 +496,7 @@ của group.
 `workflowVisualizerRender` lúc nạp nên phải đứng sau host. Các file này chạy ngoài Listener→Router (vòng `raf` tự nuôi,
 xem [event-bus-flow.md](./event-bus-flow.md) mục 1).
 
+257a. `event/workflow/config.js` — MỚI 19/10/2026 (plan-debt-domains đợt 16: lưu/nạp vizConfig, `workflowConfig`); lúc chạy: `core/config.js`, `service/db.js`, `service/blob-url.js`, `core/auto-switch-visual.js`
 258. `event/workflow/audio-engine.js`
 259. `event/workflow/audio-analysis.js` — cần: `core/audio-tempo.js` (createOnsetEnvelope, TEMPO_ENVELOPE_CAPACITY, TEMPO_WINDOW_MS…); `core/audio-analysis.js` (AUDIO_FEATURE_BANDS, AUDIO_FEATURE_RING_CAPACITY)
 260. `event/workflow/visualizer-render.js`
@@ -543,6 +544,8 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 284. `event/workflow/playlist-filter-presets.js`
 285. `event/router/playlist-filter-presets.js` — cần: `event/bus.js` (eventBus)
 286. `event/listener/playlist-filter-presets.js` — cần: `core/dom-refs.js` (genericDrawerBody)
+286a. `event/workflow/timeout.js` — MỚI 19/10/2026 (đợt 17b: `workflowTimeout.race()`/`heartbeat()` qua taskManager)
+286b. `event/workflow/streaming-zip.js` — MỚI 19/10/2026 (đợt 17b: điều phối zip OPFS Path A/B, `workflowStreamingZip`); lúc chạy: `core/streaming-zip.js`, `core/dynamic-object-ui.js`, `event/workflow/timeout.js`
 287. `event/workflow/zip-download.js` — cần: `core/upload-validation.js` (MEDIA_FILE_MAX_BYTES)
 288. `event/router/zip-download.js` — cần: `event/bus.js` (eventBus)
 289. `event/workflow/media-in-use.js`
@@ -892,6 +895,7 @@ của video; Back/Lưu quay về `../index.html` và cuộn tới mục. Một v
 **Workflow dùng chung và cụm videoPreview**
 
 51. `event/workflow/media-transform-helpers.js`
+51a. `event/workflow/timeout.js` — MỚI 19/10/2026 (hạn giờ `createWritable()` file tạm OPFS, `workflowVideoPreview._openTempTarget()`)
 52. `event/workflow/video-thumb-extract.js`
 53. `event/workflow/photo-duration.js`
 54. `event/workflow/video-frame-capture.js`

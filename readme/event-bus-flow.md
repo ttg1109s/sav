@@ -103,6 +103,9 @@ ngoại lệ này. Nơi dùng (thêm chỗ mới = cập nhật bảng này):
 | `event/workflow/recorder.js` — `_measureLatency` | ScriptProcessorNode | `audioprocess` (luồng) |
 | `event/workflow/video-thumb-extract.js` — `_waitVideoEvent`, `extract` | `<video>` tạm | `seeked`, `error`, `loadedmetadata` (1 lần) |
 | `event/workflow/video-preview.js` — `_loadVideoEditorScriptOnce` (qua `loadScriptFile()`) | `<script>` tạm + `window` `error` trong lúc nạp | `load`/`error` (1 lần) |
+| `event/workflow/file-manager-storage.js` — `_probeVideoBlob` (quét file lỗi) | `<video>` tạm (`createMetadataProbeVideoElement()`) | `loadedmetadata`, `error` (1 lần) |
+| `event/workflow/streaming-zip.js` — `_ensureZipJs` (qua `loadScriptFile()`) | `<script>` zip.js dự phòng | `load`/`error` (1 lần) |
+| `event/workflow/streaming-zip.js` — `_writeViaWorker` | Worker OPFS zip (Path B) | `message`, `error` (luồng) |
 
 **Chờ sự kiện của phần tử media TĨNH — cụm `mediaWait`** (đợt 6b-4). Workflow cần đợi `audioPlayer`/`bgVideoElement`
 bắn 1 sự kiện (tua xong, phát được, nạp xong metadata) thì KHÔNG tự `addEventListener`, mà đăng ký lượt chờ với
