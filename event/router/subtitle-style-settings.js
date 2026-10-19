@@ -1,6 +1,6 @@
 /**
  * event/router/subtitle-style-settings.js — Router "subtitleStyleSettings". Mọi case ghi cài đặt đều cần lưu
- * (saveConfig) + áp lại hiển thị -> giao Workflow (event/workflow/subtitle-style-settings.js).
+ * (workflowConfig.save()) + áp lại hiển thị -> giao Workflow (event/workflow/subtitle-style-settings.js).
  */
 const routerSubtitleStyleSettings = (() => {
     function handle(msg) {

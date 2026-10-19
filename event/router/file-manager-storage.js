@@ -136,7 +136,7 @@ const routerFileManagerStorage = (() => {
                 // MỚI — quy đổi lựa chọn dropdown ('all'|'song'|'video'|'photo') thành
                 // đúng shape `sources` mà executeScanBroken() cần (hàm đó GIỮ NGUYÊN, không quan
                 // tâm sources tới từ đâu).
-                const sources = workflowFileManagerStorage._scopeToSources(msg.payload.scope);
+                const sources = workflowFileManagerStorage.scopeToSources(msg.payload.scope);
                 workflowFileManagerStorage.executeScanBroken({
                     sources,
                     onScanComplete: (results) => { lastScanResults = results; }
@@ -148,7 +148,7 @@ const routerFileManagerStorage = (() => {
             // listener -> router dùng VMState check payload hoặc state") — `deleteBroken.click`/
             // `.confirm` ĐỔI TÊN thành `fixBroken.click`/`.confirm`: nút giờ mang 2 Ý NGHĨA tuỳ
             // ĐÚNG state của từng phần tử trong `lastScanResults` (`fixable` — gắn sẵn ở
-            // `executeScanBroken()`/`isVideoRecordCorrupted()`, core/storage-manager.js) — phần
+            // `executeScanBroken()`/`judgeVideoProbe()`, core/storage-manager.js) — phần
             // `fixable:false` (blob chính hỏng) vẫn xoá như cũ, phần `fixable:true` (chỉ thiếu
             // thumb) giờ SỬA (tạo lại thumb) thay vì xoá. 2 đích Core/Workflow THẬT SỰ khác nhau
             // (executeDeleteBroken() vs executeRepairBroken() MỚI) tuỳ theo state đọc được — ĐÚNG
