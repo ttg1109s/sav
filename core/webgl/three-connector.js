@@ -2,7 +2,7 @@
  * core/webgl/three-connector.js — builder THUẦN (dựng mesh/scene, không đọc appState) cho group "connector".
  *
  * [06/10/2026, Giang] Style 'synapse' ĐÃ XOÁ HẲN (lưới neuron, sợi trục, tia điện thế, hạt dịch nền, góc máy synapse) —
- * connector giờ CHỈ còn style 'circuit'. Cấu hình đã lưu đang chọn synapse/brain -> 'circuit' (core/config.js::loadConfig()).
+ * connector giờ CHỈ còn style 'circuit'. Cấu hình đã lưu đang chọn synapse/brain -> 'circuit' (core/config.js::migrateVizConfig()).
  *
  * [06/10/2026, Giang — thiết kế lại circuit, giữ khối lập phương 3D]
  *   - Chip VUÔNG dẹt, chân THANH MẢNH ở cả 4 cạnh; TỔNG số chân mỗi chip = Chip count (nodeCount) chia đều 4 cạnh. Thân +
