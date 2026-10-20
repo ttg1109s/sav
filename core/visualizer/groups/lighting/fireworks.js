@@ -3,24 +3,14 @@
  * 'fireworks' (pháo hoa) tách riêng khỏi `core/visualizer/types/lighting.js` cũ (trước đây gộp
  * chung với 'thunder'). Nội dung hàm GIỮ NGUYÊN 100%.
  *
- * [SỬA — rà soát Rule 3, không ngoại lệ] TRƯỚC ĐÂY 14 hàm `explodeFireworksXXX()` +
- * `splitFireworksParticle()` + `explodeFireworksText()` tự gọi thẳng `createFireworksParticle()`
- * (cùng file) VÀ `getComputedColor()` (core/visualizer/effect-paint.js, khác file) — cả 2 đều là Core gọi
- * Core, vi phạm Rule 3a, KHÔNG đạt điều kiện miễn trừ Rule 3c (createFireworksParticle() là hàm
- * top-level tái dùng ở ≥14 nơi, tự nó là 1 GIÁ TRỊ HOÀN CHỈNH có ý nghĩa nghiệp vụ riêng — "1 hạt
- * pháo hoa" — không phải hàm con chỉ phục vụ vòng lặp/giá trị trung gian). SỬA: 14 hàm explode* +
- * `splitFireworksParticle()` + `explodeFireworksText()` giờ trả về mảng SPEC THUẦN (dữ liệu, không
- * phải particle thật) — mỗi spec gồm `{x, y, fixedColor | colorArgs: [i, total, dataValue],
- * targetColorArgs?, options}`. Workflow tự `_fwMaterializeSpecs()` (event/workflow/
- * visualizer-render.js) — gọi RIÊNG LẺ `getComputedColor()` (nếu spec cần) rồi
- * `createFireworksParticle()` cho TỪNG spec — đúng nguyên lý Rule 3c điều kiện 2 ("logic đã có ở 1
- * core khác — PHẢI tái dùng core đó qua Workflow, không gọi thẳng từ core khác").
+ * Các hàm explode* + `splitFireworksParticle()` + `explodeFireworksText()` trả mảng SPEC thuần `{x, y, fixedColor | colorArgs:
+ * [i, total, dataValue], targetColorArgs?, options}`; Workflow (`_fwMaterializeSpecs()`, event/workflow/visualizer/lighting.js)
+ * resolve màu qua `workflowVisualizerRender.colorAt()` rồi gọi `createFireworksParticle()` cho từng spec.
  *
  * Chớp màn hình khi burst lớn (dùng chung với style 'thunder' + Rain) = `computeScreenFlashAlpha()` +
  * `drawScreenFlash()` (core/visualizer/draw/) — nguồn năng lượng = beatScale tại lúc rocket nổ.
  *
- * NẠP SAU: core/config.js (FIREWORKS_STYLE_KEYS);
- * core/custom-effect.js (getActiveEffectConfig); core/visualizer/effect-paint.js (getComputedColor).
+ * NẠP SAU: core/config.js (FIREWORKS_STYLE_KEYS).
  */
 
 // ================================ Style "fireworks" (pháo hoa) ================================
@@ -28,7 +18,7 @@
 // xa/gần giữa các lần bắn; `binIndex`/`launchBeatScale` (MỚI) là 2 nguồn "zoom to/nhỏ" theo nhạc
 // (khác depthScale — đó là phối cảnh ngẫu nhiên, đây là do nhạc quyết định), xem
 // computeFireworksSizeScale() + _fwLaunchOne() (event/workflow/visualizer-render.js). `color`
-// tham số của createFireworksRocket() do Workflow tự resolve SẴN (getComputedColor() TRƯỚC).
+// tham số của createFireworksRocket() do Workflow tự resolve SẴN (colorAt() TRƯỚC).
 
 /** @returns {object} rocket mới, bay từ (startX,startY) tới (targetX,targetY). `binIndex` = dải
  * tần FFT gán cho rocket này lúc bắn, đọc lại LÚC NỔ để lấy độ cao bin hiện tại (mục 4, phản hồi
@@ -134,7 +124,7 @@ function updateFireworksParticle(particle) {
     particle.alpha -= particle.decay;
 
     // "Ghost" — đổi hẳn sang targetColor giữa vòng đời (thay vì nội suy từng kênh RGB, vì màu
-    // trả về bởi getComputedColor() có thể là hex/rgb()/hsla() tuỳ mode, không parse chung được).
+    // trả về bởi colorAt() có thể là hex/rgb()/hsla() tuỳ mode, không parse chung được).
     if (particle.colorShift && !particle.colorSwapped && particle.alpha < 0.7) {
         particle.color = particle.targetColor || particle.color;
         particle.colorSwapped = true;
@@ -146,7 +136,7 @@ function updateFireworksParticle(particle) {
     return particle.alpha > 0 ? 'alive' : 'dead';
 }
 
-/** @param {number} blurMult - 0..1, getActiveBlurMult() (core/visualizer/effect-paint.js) — 0 nếu tắt
+/** @param {number} blurMult - 0..1, computeEffectBlurMult() (core/visualizer/effect-paint.js) — 0 nếu tắt
  * "Glow/blur" ở Custom Effect Drawer. Glow ở ĐÚNG vùng nổ (shadowBlur quanh mỗi hạt). */
 function drawFireworksParticle(ctx, particle, blurMult, dpr) {
     if (particle.alpha <= 0) return;
@@ -174,7 +164,7 @@ function drawFireworksParticle(ctx, particle, blurMult, dpr) {
 }
 
 /** Crossette — 1 hạt "gãy" giữa không thành 4 hạt con, hướng vuông góc nhau. Trả về mảng SPEC
- * thuần (`{x, y, fixedColor, options}`, dùng lại màu CỦA HẠT GỐC — không cần getComputedColor) —
+ * thuần (`{x, y, fixedColor, options}`, dùng lại màu CỦA HẠT GỐC — không cần colorAt) —
  * KHÔNG tự gọi createFireworksParticle() (Rule 3). Workflow tự `_fwMaterializeSpecs()` (event/
  * workflow/visualizer-render.js). */
 function splitFireworksParticle(particle) {
@@ -191,9 +181,9 @@ function splitFireworksParticle(particle) {
 // hàm). Workflow tự chọn ĐÚNG hàm cần gọi qua FIREWORKS_EXPLODERS bên dưới. `spectrumBin` (0-255,
 // 1 dải tần vizDataArray do Workflow truyền vào) lệch dần theo index hạt để tạo biến thiên màu ở
 // mode 'gradient'. MỖI HÀM TRẢ VỀ MẢNG SPEC THUẦN (`{x, y, fixedColor | colorArgs: [i, total,
-// dataValue], targetColorArgs?, options}`) — KHÔNG tự gọi getComputedColor()/createFireworksParticle()
+// dataValue], targetColorArgs?, options}`) — KHÔNG tự gọi colorAt()/createFireworksParticle()
 // (Rule 3, 2 hàm đó ở khác/cùng file nhưng đều là Core khác) — Workflow tự resolve màu (gọi
-// getComputedColor() với ĐÚNG colorArgs) rồi tạo particle thật qua `_fwMaterializeSpecs()` (event/
+// colorAt() với ĐÚNG colorArgs) rồi tạo particle thật qua `_fwMaterializeSpecs()` (event/
 // workflow/visualizer-render.js), xem docstring đầu file. -----
 
 function explodeFireworksCluster(x, y, count, power, gravity, spectrumBin) {
@@ -508,7 +498,7 @@ function buildFireworksTextPoints(text) {
     return points;
 }
 
-/** Trả về mảng SPEC thuần (1 spec/điểm chữ) — KHÔNG tự gọi getComputedColor()/
+/** Trả về mảng SPEC thuần (1 spec/điểm chữ) — KHÔNG tự gọi colorAt()/
  * createFireworksParticle() (Rule 3), xem docstring đầu file. */
 function explodeFireworksText(x, y, points, power, spectrumBin) {
     return points.map((pt) => ({

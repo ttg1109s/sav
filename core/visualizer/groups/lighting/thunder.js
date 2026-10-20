@@ -4,9 +4,9 @@
  * với 'fireworks'). Nội dung hàm GIỮ NGUYÊN 100%. Port thuần từ `drawLightning()` cũ (đã xoá, vi
  * phạm Rule 2).
  *
- * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (rà soát Rule 3) — Workflow
+ * THUẦN, không side-effect, không đọc appState/config effect (rà soát Rule 3) — Workflow
  * (`_tickLightingThunder()`, event/workflow/visualizer-render.js) tự gom state rồi gọi RIÊNG LẺ
- * từng hàm dưới đây, tự resolve màu qua `getComputedColor()` TRƯỚC khi gọi `createLightningBolt()`.
+ * từng hàm dưới đây, tự resolve màu qua `colorAt()` TRƯỚC khi gọi `createLightningBolt()`.
  * Chớp màn hình (dùng chung với style 'fireworks' + Rain) = `computeScreenFlashAlpha()` + `drawScreenFlash()`
  * (core/visualizer/draw/screen-flash-alpha.js / screen-flash.js) — KHÔNG còn công thức chớp riêng ở đây;
  * `computeLightningEnergySpike()` vẫn là NGUỒN năng lượng của Thunder (dùng cho cả chớp lẫn bolt).
@@ -24,7 +24,7 @@ function shouldSpawnLightningBolt(isPlaying, energySpike, boltThreshold, boltSpa
 }
 
 /** Tạo 1 tia sét mới — zig-zag từ trên xuống đáy màn hình. `color` do Workflow tự resolve SẴN
- * (gọi getComputedColor() TRƯỚC khi gọi hàm này) — hàm này không tự gọi getComputedColor. */
+ * (gọi colorAt() TRƯỚC khi gọi hàm này) — hàm này không tự gọi colorAt. */
 function createLightningBolt(canvasWidth, canvasHeight, dpr, horizontalDeviation, segmentLength, color) {
     const startX = (Math.random() * 0.8 + 0.1) * canvasWidth;
     const bolt = { life: 1.0, color, segments: [] };
