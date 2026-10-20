@@ -151,14 +151,49 @@ function normalizeFolderNameInput(name) {
     return (name || '').trim();
 }
 
-/** Pure — Map<folderId, thứ tự chọn (từ 1)> cho badge số trên tile picker multi-select. */
-function computeFolderSelectionOrder(selectedIds) {
-    return new Map(selectedIds.map((id, i) => [id, i + 1]));
+/** Pure — Map<folderId, thứ tự chọn (từ 1)> cho badge số trên tile picker multi-select; không multi-select -> null
+ * (không badge). @param {string[]} selectedIds @param {boolean} isMultiSelect @returns {Map<string, number>|null} */
+function computeFolderSelectionOrder(selectedIds, isMultiSelect) {
+    return isMultiSelect ? new Map(selectedIds.map((id, i) => [id, i + 1])) : null;
+}
+
+/** Pure — tuỳ chọn mở picker folder (workflowPlaylist._openFolderPickerDrawer()) -> đủ field; thiếu -> mặc định của 2
+ * luồng "Thêm vào thư mục" Playlist (có tile "Tạo folder mới", chọn 1, đóng hẳn Drawer). `selectedIds` chỉ giữ khi
+ * multi-select. @param {object} [options] @returns {object} */
+function resolveFolderPickerOptions(options) {
+    const opts = options || {};
+    return {
+        folders: opts.folders || null,
+        showAddTile: opts.showAddTile !== false,
+        emptyMsg: opts.emptyMsg || '',
+        onClose: opts.onClose || null,
+        multiSelect: !!opts.multiSelect,
+        selectedIds: opts.multiSelect ? (opts.selectedIds || []) : [],
+        typeOptions: opts.typeOptions || null,
+        onTypeChange: opts.onTypeChange || null,
+    };
+}
+
+/** Pure — loại folder đang duyệt trong picker có dropdown đổi loại; không có dropdown -> null.
+ * @param {{current: string}|null} typeOptions @returns {string|null} */
+function resolveFolderPickerType(typeOptions) {
+    return typeOptions ? typeOptions.current : null;
+}
+
+/** Pure — @param {Array<{id: string}>} folders @param {string} folderId @returns {object|undefined} */
+function findFolderById(folders, folderId) {
+    return folders.find((f) => f.id === folderId);
 }
 
 /** Pure — bật/tắt chọn 1 folder trong danh sách đã chọn (giữ thứ tự chọn), trả mảng MỚI. */
 function toggleFolderSelection(selectedIds, folderId) {
     return selectedIds.includes(folderId) ? selectedIds.filter((id) => id !== folderId) : [...selectedIds, folderId];
+}
+
+/** Pure — folder làm đích được cho picker "Thêm vào thư mục": bỏ folder đang là Scope (mục đã hiện qua nó) và folder
+ * Read-only. @param {Array<{id: string, isReadOnly?: boolean}>} folders @param {string|null} activeFolderId @returns {Array} */
+function pickFoldersForAddPicker(folders, activeFolderId) {
+    return folders.filter((f) => f.id !== activeFolderId && !f.isReadOnly);
 }
 
 // ============================== Ghi ==============================

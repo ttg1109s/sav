@@ -16,7 +16,7 @@
 
 /**
  * Lưu 1 video mới (hoặc ghi đè trọn nếu trùng filename — key do Workflow resolve qua `resolveVideoKey()`, service/db.js).
- * Thumb/kích thước/thời lượng tính sẵn ở Workflow (event/workflow/playlist.js::extractVideoThumbAndMeta()).
+ * Thumb/kích thước/thời lượng tính sẵn ở Workflow (event/workflow/video-thumb-extract.js::extract()).
  * @param {string} videoKey
  * @param {File|Blob} file - blob video GỐC (không resize), Blob MỚI (không đọc từ IndexedDB).
  * @param {string} filename
