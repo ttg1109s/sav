@@ -137,9 +137,7 @@ if (songEditTabButtons) {
     });
 }
 
-// VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (#song-edit-cover-upload) + input file trực tiếp.
-// SỬA (06/10/2026, Giang) — nút "Choose" xổ dropdown nổi 2 lựa chọn Photo / Video thumbnail (core/dropdown-menu.js;
-// mỗi mục tự bắn 'playlist.editCover.pickFromLibrary' / 'playlist.editCover.pickFromVideoThumb' — xem
+// Nút "Choose" xổ dropdown 2 lựa chọn Photo / Video thumbnail (mỗi mục tự bắn eventBus —
 // event/workflow/playlist.js::openCoverChooseMenu()).
 if (songEditCoverChooseBtn) {
     songEditCoverChooseBtn.addEventListener('click', () => {
@@ -153,8 +151,14 @@ if (songEditCoverRemoveBtn) {
     });
 }
 
-// MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nút duration trong tab "Sửa" của
-// nhóm field Photo, mở time-picker (xem event/workflow/playlist.js::openPhotoEditDurationPicker()).
+// Ảnh preview tab Ảnh bìa (<img> tĩnh) tải lỗi -> đĩa than mặc định (applyDefaultCover() tự bỏ qua nếu đã là ảnh mặc định).
+if (songEditCoverPreview) {
+    songEditCoverPreview.addEventListener('error', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.cover.error', payload: { img: songEditCoverPreview } });
+    });
+}
+
+// Nút thời lượng trong tab "Sửa" của Photo — mở time-picker (event/workflow/playlist.js::openPhotoEditDurationPicker()).
 if (songEditPhotoDurationBtn) {
     songEditPhotoDurationBtn.addEventListener('click', () => {
         eventBus.send({ router: 'playlist', type: 'playlist.edit.photoDuration.click', payload: {} });
@@ -213,9 +217,11 @@ if (songActionOverlay) {
     });
 }
 
+// Chỉ 2 mục <label> bọc input file của menu "Thêm nhạc" mới tính (ủy quyền bằng closest()).
 if (uploadActionMenu) {
     uploadActionMenu.addEventListener('click', (e) => {
-        eventBus.send({ router: 'playlist', type: 'playlist.uploadMenu.labelClick', payload: { target: e.target } });
+        if (!e.target.closest('label')) return;
+        eventBus.send({ router: 'playlist', type: 'playlist.uploadMenu.labelClick', payload: {} });
     });
 }
 
