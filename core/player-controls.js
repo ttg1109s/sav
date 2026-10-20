@@ -196,7 +196,7 @@
             return img.decode().then(() => 'decoded', () => 'error');
         }
 
-        /** Nhãn Bottom Player — chuỗi rỗng thì ô đó tự ẩn (CSS `:empty`). @param {string} title @param {string} artist @param {string} album */
+        /** Nhãn Bottom Player — chuỗi rỗng thì ô đó trống chữ (vẫn giữ chỗ). @param {string} title @param {string} artist @param {string} album */
         function setPlayerTrackLabels(title, artist, album) {
             playerTitle.textContent = title;
             playerArtist.textContent = artist; playerAlbum.textContent = album;
