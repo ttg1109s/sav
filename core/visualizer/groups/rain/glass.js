@@ -4,13 +4,8 @@
  * `core/visualizer/types/rain.js` cũ (trước đây gộp chung với 'street'). Nội dung hàm GIỮ NGUYÊN
  * 100%.
  *
- * [SỬA — rà soát Rule 3, không ngoại lệ] TRƯỚC ĐÂY `drawRainGlass()` tự `appState.get()` (Rule 2)
- * + tự gọi `getActiveEffectConfig()`/`getComputedColor()`/`getVisualBgFillStyle()`/
- * `drawWaterDrop()`/`drawWindowFrame()` (Rule 3 — cả cùng lẫn khác file). SỬA: mọi hàm dưới đây
- * giờ CHỈ nhận tham số; những chỗ cần gọi Core khác (getComputedColor/getVisualBgFillStyle/
- * drawWaterDrop/drawWindowFrame) đều chuyển ra Workflow (`_tickRainGlass()`, event/workflow/
- * visualizer-render.js) gọi RIÊNG LẺ. `appState.mutate('glassStreaks'/'glassStaticDrops', ...)`
- * GIỮ NGUYÊN bên trong — Rule 2 chỉ cấm ĐỌC, không cấm GHI.
+ * Mọi hàm dưới đây chỉ nhận tham số; màu/nền/giọt nước/khung cửa do Workflow (event/workflow/visualizer/rain.js) gọi riêng.
+ * `appState.mutate('glassStreaks'/'glassStaticDrops', ...)` ghi bên trong — Rule 2 chỉ cấm đọc.
  *
  * `computeRainFlashEnergy()` (nguồn năng lượng chớp, dùng chung với style 'street') nằm ở
  * `core/visualizer/groups/rain/common.js`; alpha + vẽ dùng chung `computeScreenFlashAlpha()`/`drawScreenFlash()`
@@ -56,9 +51,9 @@ function paintRainMoon(ctx, moon) {
  * đang tắt" với "không có cửa". Giờ tách 3 bước (Rule 3 — Workflow `_tickRainGlass()` gọi RIÊNG LẺ):
  *   1. computeRainCityFrame()     — hình học + trạng thái sáng/tắt + alpha (giữ NGUYÊN luật sáng cũ:
  *      15% cửa luôn sáng mờ, còn lại sáng khi bin FFT của nó > 140).
- *   2. resolveRainCityLitColor()  — màu cửa SÁNG = ĐÚNG màu mode (Giang chốt: không pha):
+ *   2. resolveRainCityLitColorHsl()/FromRgb() — màu cửa SÁNG = ĐÚNG màu mode (Giang chốt: không pha):
  *      solid = solidColor, dynamic = dynA->dynB theo vị trí ngang, gradient = THEO TỪNG CỬA, cùng công
- *      thức getComputedColor() (core/visualizer/effect-paint.js).
+ *      thức luật màu gradient (core/visualizer/effect-paint.js).
  *   3. resolveRainCityOffColor()  — màu cửa TẮT TƯƠNG PHẢN với màu sáng (Giang chốt): hue đối (+180°),
  *      độ sáng lật phía (sáng >= 50% -> tắt tối 25%, sáng tối -> tắt 70%); màu gần xám (S < 15%) giữ
  *      xám, chỉ lật độ sáng. Vẽ ở alpha thấp RAIN_CITY_OFF_ALPHA.
@@ -90,38 +85,20 @@ function computeRainCityFrame(canvasWidth, canvasHeight, cityBuildings, dpr, viz
     return { walls, windows };
 }
 
-/** Màu cửa SÁNG theo color mode — trả css + HSL (h 0-360, s/l 0-100) để resolveRainCityOffColor() lật. Mode 'palette' =
- * gradient có bảng 7 màu tuỳ chỉnh (cùng cách nội suy nhánh bảng màu của getComputedColor()).
- * @param {{mode:string, solid:{r,g,b}, dynA:{r,g,b}, dynB:{r,g,b}, gradientRgb:{r,g,b}[]|null, hueOffset:number}} palette - Workflow
- * tự hexToRgb() 1 lần/frame. @param {number} t - vị trí ngang 0-1 @param {number} value - byte FFT 0-255 */
-function resolveRainCityLitColor(palette, t, value) {
-    if (palette.mode === 'gradient') {
-        // Cùng công thức nhánh gradient của getComputedColor() (core/visualizer/effect-paint.js), i/total = t.
-        const h = (palette.hueOffset + t * 240 + (value / 255) * 80) % 360;
-        const s = Math.round(70 + (value / 255) * 30);
-        const l = Math.round(40 + (value / 255) * 30);
-        return { css: `hsl(${h}, ${s}%, ${l}%)`, h, s, l };
-    }
-    let r, g, b;
-    if (palette.mode === 'dynamic') {
-        r = palette.dynA.r + (palette.dynB.r - palette.dynA.r) * t;
-        g = palette.dynA.g + (palette.dynB.g - palette.dynA.g) * t;
-        b = palette.dynA.b + (palette.dynB.b - palette.dynA.b) * t;
-    } else if (palette.mode === 'palette') {
-        const pal = palette.gradientRgb;
-        const hue = (palette.hueOffset + t * 240 + (value / 255) * 80) % 360;
-        const pos = (((hue % 360) + 360) % 360 / 360) * pal.length;
-        const k = Math.floor(pos) % pal.length, f = pos - Math.floor(pos);
-        const c0 = pal[k], c1 = pal[(k + 1) % pal.length];
-        const shade = 0.7 + (value / 255) * 0.3;
-        r = (c0.r + (c1.r - c0.r) * f) * shade;
-        g = (c0.g + (c1.g - c0.g) * f) * shade;
-        b = (c0.b + (c1.b - c0.b) * f) * shade;
-    } else {
-        r = palette.solid.r; g = palette.solid.g; b = palette.solid.b;
-    }
-    // RGB -> HSL (chuẩn), để bước "tắt" lật được hue/độ sáng.
-    const rn = r / 255, gn = g / 255, bn = b / 255;
+/** Màu cửa SÁNG — luật gradient mặc định (dải hue, cùng công thức computeGradientHslEffectColor()). Trả css + HSL (h 0-360,
+ * s/l 0-100) để resolveRainCityOffColor() lật. @param {number} hueOffset @param {number} t - vị trí ngang 0-1
+ * @param {number} value - byte FFT 0-255 @returns {{css:string, h:number, s:number, l:number}} */
+function resolveRainCityLitColorHsl(hueOffset, t, value) {
+    const h = (hueOffset + t * 240 + (value / 255) * 80) % 360;
+    const s = Math.round(70 + (value / 255) * 30);
+    const l = Math.round(40 + (value / 255) * 30);
+    return { css: `hsl(${h}, ${s}%, ${l}%)`, h, s, l };
+}
+
+/** Màu cửa SÁNG từ 1 RGB đã có (luật solid / dynamic / bảng 7 màu — Workflow tính RGB trước) — đổi sang HSL chuẩn để
+ * resolveRainCityOffColor() lật. @param {{r:number,g:number,b:number}} rgb @returns {{css:string, h:number, s:number, l:number}} */
+function resolveRainCityLitColorFromRgb(rgb) {
+    const rn = rgb.r / 255, gn = rgb.g / 255, bn = rgb.b / 255;
     const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
     const l = (max + min) / 2;
     let h = 0, s = 0;
@@ -132,10 +109,10 @@ function resolveRainCityLitColor(palette, t, value) {
         else if (max === gn) h = ((bn - rn) / d + 2) * 60;
         else h = ((rn - gn) / d + 4) * 60;
     }
-    return { css: `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`, h, s: s * 100, l: l * 100 };
+    return { css: `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`, h, s: s * 100, l: l * 100 };
 }
 
-/** Màu cửa TẮT tương phản với màu sáng (h/s/l từ resolveRainCityLitColor()): hue đối +180°, độ sáng lật
+/** Màu cửa TẮT tương phản với màu sáng (h/s/l từ resolveRainCityLitColorHsl()/FromRgb()): hue đối +180°, độ sáng lật
  * phía; màu gần xám giữ xám. @returns {string} css */
 function resolveRainCityOffColor(h, s, l) {
     const offH = (h + 180) % 360;

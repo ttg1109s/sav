@@ -4,13 +4,8 @@
  * `core/visualizer/types/rain.js` cũ (trước đây gộp chung với 'glass'). Nội dung hàm GIỮ NGUYÊN
  * 100%.
  *
- * [SỬA — rà soát Rule 3, không ngoại lệ] TRƯỚC ĐÂY `drawRainStreet()`/`drawParkFence()` tự
- * `appState.get()` (Rule 2) + tự gọi `getActiveEffectConfig()`/`getComputedColor()`/
- * `getVisualBgFillStyle()`/`interpolateColor()`/`drawParkFence()` nội bộ (Rule 3). SỬA: mọi hàm
- * dưới đây giờ CHỈ nhận tham số; những chỗ cần gọi Core khác đều chuyển ra Workflow
- * (`_tickRainStreet()`, event/workflow/visualizer-render.js) gọi RIÊNG LẺ. `appState.mutate(
- * 'streetRain'/'streetLamps'/'ripples', ...)` GIỮ NGUYÊN bên trong — Rule 2 chỉ cấm ĐỌC, không
- * cấm GHI.
+ * Mọi hàm dưới đây chỉ nhận tham số; màu/nền/hàng rào do Workflow (event/workflow/visualizer/rain.js) gọi riêng.
+ * `appState.mutate('streetRain'/'streetLamps'/'ripples', ...)` ghi bên trong — Rule 2 chỉ cấm đọc.
  *
  * `computeRainFlashEnergy()` (nguồn năng lượng chớp, dùng chung với style 'glass') nằm ở
  * `core/visualizer/groups/rain/common.js`; alpha + vẽ dùng chung `computeScreenFlashAlpha()`/`drawScreenFlash()`
@@ -89,7 +84,7 @@ function paintRainGroundGradient(ctx, canvasWidth, canvasHeight, groundY, stopCo
 
 /**
  * Tiến flicker + tính khung hình TỪNG đèn đường — vẫn 1 khối `appState.mutate('streetLamps', ...)`
- * như bản gốc (Rule 2 chỉ cấm đọc). KHÔNG tự gọi `getComputedColor()` — trả `colorArgs` để Workflow
+ * như bản gốc (Rule 2 chỉ cấm đọc). KHÔNG tự gọi `colorAt()` — trả `colorArgs` để Workflow
  * tự resolve rồi `paintRainLamp()` cho từng spec (Rule 3, cùng khuôn `_fwMaterializeSpecs()`).
  * @returns {object[]} specs, cùng thứ tự `streetLamps`.
  */
@@ -117,7 +112,7 @@ function advanceRainLampsAndBuildSpecs(streetLamps, isPlaying, beatScale, dpr) {
 
 /** Vẽ 1 đèn đường (cột + chụp + quầng sáng + bóng đèn) từ spec đã tính + `lampFill` đã resolve sẵn
  * (Workflow tự chọn theo `cfg.mode` — solid/dynamic dùng thẳng màu cấu hình, gradient dùng
- * `colorArgs` đã resolve, cùng logic `getComputedColor()` vốn đã tự chọn nội bộ). Chỉ Canvas API. */
+ * `colorArgs` đã resolve, cùng logic `colorAt()` vốn đã tự chọn nội bộ). Chỉ Canvas API. */
 function paintRainLamp(ctx, spec, lampFill, dpr) {
     ctx.fillStyle = spec.postColor;
     ctx.fillRect(spec.x - spec.postW / 2, spec.postTopY, spec.postW, spec.height);
@@ -151,7 +146,7 @@ function paintRainLamp(ctx, spec, lampFill, dpr) {
 }
 
 /** Sinh 1 gợn nước dưới chân đèn chính — chỉ GHI qua `appState.mutate()` (được phép). `color`/`glow`
- * đã resolve sẵn (Workflow tự `getComputedColor(0, 1, 200)` TRƯỚC — giá trị cố định, không cần spec). */
+ * đã resolve sẵn (Workflow tự `colorAt(0, 1, 200)` TRƯỚC — giá trị cố định, không cần spec). */
 function spawnRainRipple(lampX, groundY, canvasHeight, dpr, color, glow) {
     appState.mutate('ripples', (arr) => arr.push({
         x: lampX + (Math.random() - 0.5) * 60 * dpr, y: groundY + (canvasHeight - groundY) * 0.4,
