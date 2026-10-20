@@ -192,9 +192,9 @@
             // 3 toggle hiện/ẩn UI chrome màn Visualizer (core/visualizer-ui-visibility.js).
             bottomPlayerVisible: true, playlistButtonVisible: true, controlCenterButtonVisible: true,
             // Settings > Theme > Player control (core/player-control-style.js): kiểu nền 'glass' | 'floating' | 'none', độ đục
-            // 20-100 (%), bìa trong nút Play, phụ đề 'inbox' (trong thanh) | 'outside' (trên thanh, cách N px).
+            // 20-100 (%), bìa trong nút Play, khoảng cách phụ đề ↔ mép trên thanh (px).
             playerControlBgStyle: 'glass', playerControlOpacity: 100, playerControlCoverPlay: true,
-            playerControlSubtitlePlacement: 'outside', playerControlSubtitleGap: 16,
+            playerControlSubtitleGap: 16,
             // Cử chỉ (event/workflow/visualizer-gesture.js): mỗi hướng vuốt/tap 1 hành động ('next'/'prev'/'playPause'/
             // 'openPlaylist'/'none' = tắt, hoặc 'actionSlot1/2/3').
             gestureActionSwipeUp: 'next', gestureActionSwipeDown: 'prev',
@@ -399,7 +399,7 @@
                 subtitleKaraokePointer: 'boolean', subtitleKaraokePointerShape: 'string',
                 bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
                 playerControlBgStyle: 'string', playerControlOpacity: 'number', playerControlCoverPlay: 'boolean',
-                playerControlSubtitlePlacement: 'string', playerControlSubtitleGap: 'number',
+                playerControlSubtitleGap: 'number',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',

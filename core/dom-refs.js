@@ -109,7 +109,6 @@
         const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
         const btnRestartTrack = document.getElementById('btn-restart-track'); // MỚI 25/09/2026 — Control Center "Phát lại từ đầu" (components/visualizer-overlay.js)
         const playerPanel = document.getElementById('player-panel'); // bề mặt Bottom Player (kiểu nền/độ đục — core/player-control-style.js)
-        const pcSubSlot = document.getElementById('pc-sub-slot'); // chỗ neo phụ đề "Inside" trong Bottom Player
         const progressBar = document.getElementById('progress-bar');
         const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (ảnh không hỗ trợ kéo tay tuỳ ý) — core/photo-player.js
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
