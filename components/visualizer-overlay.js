@@ -61,8 +61,8 @@ const TPL_VISUALIZER_OVERLAY = `
             <!-- Hàng trên cùng HỢP NHẤT — Control Center (trái) + BPM/Pitch/Energy (giữa,
                  #stats-panel — toggle ẩn/hiện qua Settings) + Quay lại Danh sách (phải). -->
             <div id="visualizer-top-bar" class="absolute top-4 left-3 right-3 sm:left-6 sm:right-6 z-40 flex items-center justify-between gap-2 pointer-events-none">
-                <button id="btn-open-control-center" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnControlCenter.title" title="${t('visualizerOverlay.btnControlCenter.title')}">
-                    ${iconSvg('chevron-down', 'h-5 w-5 text-slate-300 group-hover:text-white transition-transform', 'id="icon-control-center-down"')}
+                <button id="btn-open-control-center" class="viz-chrome w-10 h-10 shrink-0 flex items-center justify-center rounded-full pointer-events-auto" data-i18n-title="visualizerOverlay.btnControlCenter.title" title="${t('visualizerOverlay.btnControlCenter.title')}">
+                    ${iconSvg('chevron-down', 'h-5 w-5 transition-transform', 'id="icon-control-center-down"')}
                 </button>
 
                 <div id="stats-panel" class="flex-1 min-w-0 flex justify-center items-center gap-4 sm:gap-12 pointer-events-none select-none sub-text-glow">
@@ -71,58 +71,58 @@ const TPL_VISUALIZER_OVERLAY = `
                     <div class="flex flex-col items-center"><span class="text-slate-300 font-semibold tracking-wider text-[8px] sm:text-[9px] mb-0.5 whitespace-nowrap">ENERGY</span><span id="stat-energy" class="font-mono text-white font-bold text-xs sm:text-sm">0%</span></div>
                 </div>
 
-                <button id="btn-back-playlist" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}">${iconSvg('menu-alt-2', 'h-5 w-5 text-slate-300 group-hover:text-white')}</button>
+                <button id="btn-back-playlist" class="viz-chrome w-10 h-10 shrink-0 flex items-center justify-center rounded-full pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}">${iconSvg('menu-alt-2', 'h-5 w-5')}</button>
             </div>
 
             <!-- Panel "Control Center" — phóng ra từ vị trí nút mở (top-left), kính mờ trong suốt.
                  Neo cả 2 mép trái/phải, grid co giãn full-width. -->
             <div id="control-center-overlay" class="hidden fixed inset-0 z-[45] pointer-events-auto"></div>
-            <div id="visualizer-control-center" class="absolute top-16 left-3 right-3 sm:left-6 sm:right-6 glass-control-center rounded-3xl shadow-2xl transform scale-0 opacity-0 transition-all duration-300 ease-out z-[46] pointer-events-auto p-4" style="transform-origin: top left;">
+            <div id="visualizer-control-center" class="absolute top-16 left-3 right-3 sm:left-6 sm:right-6 viz-cc-panel rounded-3xl transform scale-0 opacity-0 transition-all duration-300 ease-out z-[46] pointer-events-auto p-4" style="transform-origin: top left;">
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 sm:gap-2 w-full">
-                    <button id="btn-cycle-mode" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors relative" data-i18n-title="visualizerOverlay.cycleMode.title" title="${t('visualizerOverlay.cycleMode.title')}">
-                        ${iconSvg('effect', 'h-6 w-6 text-sky-400')}
-                        <span id="mode-cycle-label" class="text-[10px] text-white font-medium truncate max-w-full">${t('visualizerOverlay.cycleMode.label')}</span>
+                    <button id="btn-cycle-mode" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl relative" data-i18n-title="visualizerOverlay.cycleMode.title" title="${t('visualizerOverlay.cycleMode.title')}">
+                        ${iconSvg('effect', 'h-6 w-6 viz-cc-accent')}
+                        <span id="mode-cycle-label" class="viz-cc-label text-[10px] font-medium truncate max-w-full">${t('visualizerOverlay.cycleMode.label')}</span>
                     </button>
-                    <button id="btn-shuffle" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.shuffle.title" title="${t('visualizerOverlay.shuffle.title')}">
+                    <button id="btn-shuffle" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.shuffle.title" title="${t('visualizerOverlay.shuffle.title')}">
                         ${iconSvg('switch-horizontal', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.shuffle.label">${t('visualizerOverlay.shuffle.label')}</span>
                     </button>
-                    <button id="btn-repeat" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70 relative" data-i18n-title="visualizerOverlay.repeat.title" title="${t('visualizerOverlay.repeat.title')}">
+                    <button id="btn-repeat" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl relative" data-i18n-title="visualizerOverlay.repeat.title" title="${t('visualizerOverlay.repeat.title')}">
                         ${iconSvg('repeat', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.repeat.label">${t('visualizerOverlay.repeat.label')}</span>
                     </button>
                     <!-- MỚI (25/09/2026, Giang yêu cầu) — #btn-restart-track: phát lại bài/video/ảnh hiện tại từ đầu. Thay hành vi cũ
                          "Prev quá 3s thì tua về đầu" (Prev giờ LUÔN sang bài trước) — xem workflowPlayerControls.restartCurrentTrack(). -->
-                    <button id="btn-restart-track" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.restart.title" title="${t('visualizerOverlay.restart.title')}">
+                    <button id="btn-restart-track" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.restart.title" title="${t('visualizerOverlay.restart.title')}">
                         ${iconSvg('replay', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.restart.label">${t('visualizerOverlay.restart.label')}</span>
                     </button>
                     <!-- Chỉ hiện lúc Video Player mode — xem setBgVideoElementForPlayerMode(),
                          core/video-player.js. -->
-                    <button id="btn-capture-video-frame" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.captureFrame.title" title="${t('visualizerOverlay.captureFrame.title')}">
+                    <button id="btn-capture-video-frame" data-cc-action class="hidden viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.captureFrame.title" title="${t('visualizerOverlay.captureFrame.title')}">
                         ${iconSvg('camera', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.captureFrame.label">${t('visualizerOverlay.captureFrame.label')}</span>
                     </button>
                     <!-- MỚI (29/09/2026, Giang) — kính lúp: bật/tắt Zoom mode (tắt cử chỉ app, dùng pinch/pan để zoom
                          Video/Photo). Chỉ hiện ở Video/Photo Player mode — xem event/workflow/player-zoom.js. -->
-                    <button id="btn-player-zoom" data-cc-action class="hidden flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.playerZoom.title" title="${t('visualizerOverlay.playerZoom.title')}">
+                    <button id="btn-player-zoom" data-cc-action class="hidden viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.playerZoom.title" title="${t('visualizerOverlay.playerZoom.title')}">
                         ${iconSvg('zoom-in', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.playerZoom.label">${t('visualizerOverlay.playerZoom.label')}</span>
                     </button>
                     <!-- MỚI (01/10/2026, Giang yêu cầu) — Ghi âm: mic + tiếng đang phát trộn thành 1 bản ghi. Hiện ở Song/Video
                          Player, ẩn ở Photo (không có tiếng — core/photo-player.js). Bắt đầu ghi -> overlay #recorder-layer
                          chặn mọi thao tác (components/recorder-overlay.js) — xem event/workflow/recorder.js. -->
-                    <button id="btn-record-start" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="recorder.start.title" title="${t('recorder.start.title')}">
+                    <button id="btn-record-start" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="recorder.start.title" title="${t('recorder.start.title')}">
                         ${iconSvg('microphone', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="recorder.start.label">${t('recorder.start.label')}</span>
                     </button>
-                    <button id="btn-open-volume" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.volume.title" title="${t('visualizerOverlay.volume.title')}">
+                    <button id="btn-open-volume" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.volume.title" title="${t('visualizerOverlay.volume.title')}">
                         ${iconSvg('volume', 'w-6 h-6')}
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</span>
                     </button>
                     <!-- Ẩn ở Photo Player mode (không có playbackRate) — toggle bởi core/player-
                          display-apply.js, cùng cách #btn-capture-video-frame ẩn/hiện theo mode. -->
-                    <button id="btn-open-speed" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.speed.title" title="${t('visualizerOverlay.speed.title')}">
+                    <button id="btn-open-speed" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.speed.title" title="${t('visualizerOverlay.speed.title')}">
                         ${iconSvg('gauge', 'w-6 h-6')}
                         <span id="speed-badge-label" class="text-[10px] font-medium">1x</span>
                     </button>
@@ -132,7 +132,7 @@ const TPL_VISUALIZER_OVERLAY = `
                          (như cũ), GIỮ đủ 1.5s = mở Generic Drawer quản lý preset (components/
                          eq-presets-drawer.js) — xem event/workflow/eq-presets.js
                          (startCycleHold()/endCycleHold()/cancelCycleHold()). -->
-                    <button id="btn-cycle-eq" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.cycleEq.title" title="${t('visualizerOverlay.cycleEq.title')}">
+                    <button id="btn-cycle-eq" data-cc-action class="viz-cc-item flex flex-col items-center gap-1.5 py-3 rounded-2xl" data-i18n-title="visualizerOverlay.cycleEq.title" title="${t('visualizerOverlay.cycleEq.title')}">
                         ${iconSvg('sliders', 'w-6 h-6')}
                         <span id="eq-badge-label" class="text-[10px] font-medium truncate max-w-full">Default</span>
                     </button>
@@ -147,8 +147,8 @@ ${TPL_RECORDER_OVERLAY}
                  event/workflow/hud.js) — KHÔNG dùng eventBus cho slider bên trong (cùng
                  khuôn Generic Drawer, Workflow tự wire trực tiếp vì đây là panel nổi riêng, không
                  phải Settings Stack). -->
-            <div id="visualizer-volume-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-3 px-5 py-3 w-64 max-w-[80vw]">
-                ${iconSvg('volume-hud', 'w-5 h-5 text-white shrink-0', 'id="volume-hud-icon"')}
+            <div id="visualizer-volume-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] viz-cc-panel rounded-full pointer-events-auto flex items-center gap-3 px-5 py-3 w-64 max-w-[80vw]">
+                ${iconSvg('volume-hud', 'w-5 h-5 shrink-0', 'id="volume-hud-icon"')}
                 <input type="range" id="volume-hud-slider" min="0" max="100" step="1" class="setting-slider flex-1">
             </div>
 
@@ -175,16 +175,16 @@ ${TPL_RECORDER_OVERLAY}
                  hẳn px-2/justify-between cũ (flex-1 tự chia đều, 2 thứ đó không còn tác dụng).
                  Panel rộng thêm w-64 -> w-72 (thoáng hơn, KHÔNG bắt buộc để hết overflow — flex-1 tự
                  đúng ở MỌI bề rộng, kể cả bị max-w-[80vw] kẹp nhỏ lại trên màn rất hẹp). -->
-            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-3xl shadow-2xl pointer-events-auto flex flex-col gap-2 px-5 py-4 w-72 max-w-[80vw]">
-                <div id="speed-hud-value" class="text-center text-sm font-semibold text-white">1x</div>
+            <div id="visualizer-speed-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] viz-cc-panel rounded-3xl pointer-events-auto flex flex-col gap-2 px-5 py-4 w-72 max-w-[80vw]">
+                <div id="speed-hud-value" class="text-center text-sm font-semibold">1x</div>
                 <input type="range" id="speed-hud-slider" min="0.5" max="2" step="0.01" class="setting-slider w-full">
                 <div class="flex items-center gap-1">
-                    <button type="button" data-speed-option="0.5" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">0.5x</button>
-                    <button type="button" data-speed-option="0.75" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">0.75x</button>
-                    <button type="button" data-speed-option="1" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">1x</button>
-                    <button type="button" data-speed-option="1.25" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">1.25x</button>
-                    <button type="button" data-speed-option="1.5" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">1.5x</button>
-                    <button type="button" data-speed-option="2" class="speed-hud-option flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium text-white/70 transition-colors">2x</button>
+                    <button type="button" data-speed-option="0.5" class="speed-hud-option viz-chip flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium">0.5x</button>
+                    <button type="button" data-speed-option="0.75" class="speed-hud-option viz-chip flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium">0.75x</button>
+                    <button type="button" data-speed-option="1" class="speed-hud-option viz-chip flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium">1x</button>
+                    <button type="button" data-speed-option="1.25" class="speed-hud-option viz-chip flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium">1.25x</button>
+                    <button type="button" data-speed-option="1.5" class="speed-hud-option viz-chip flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium">1.5x</button>
+                    <button type="button" data-speed-option="2" class="speed-hud-option viz-chip flex-1 min-w-0 overflow-hidden whitespace-nowrap text-center py-1 rounded-full text-[11px] font-medium">2x</button>
                 </div>
             </div>
         </div>

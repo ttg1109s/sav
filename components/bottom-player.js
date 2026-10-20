@@ -1,6 +1,7 @@
 /**
  * Component: Bottom Player (thanh điều khiển phát nhạc ở dưới cùng) — components/app-mount.js chèn lúc khởi động.
- * Giao diện: assets/css/player-control.css (bề mặt, bố cục) + assets/css/sliders.css (.music-slider).
+ * Giao diện: assets/css/player-control.css (bề mặt, bố cục) + assets/css/sliders.css (.music-slider) — màu theo UI theme qua
+ * biến `--viz-*` (assets/css/glass.css).
  */
 const TPL_BOTTOM_PLAYER = `
     <!-- z-40: dưới #playlist-view (z-60) -> Playlist trượt vào che kín ngay từ khung hình đầu. #player-container lo vị trí/trượt
@@ -23,8 +24,8 @@ const TPL_BOTTOM_PLAYER = `
                         <img id="record-art" src="" class="w-full h-full rounded-full object-cover shadow-lg relative z-20" alt="Record">
                     </div>
                     <div class="pc-meta">
-                        <h2 id="player-title" class="text-white font-bold text-xs sm:text-sm truncate drop-shadow-md" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
-                        <p id="player-artist" class="text-sky-300 text-[10px] sm:text-xs truncate font-medium mt-0.5">---</p>
+                        <h2 id="player-title" class="pc-title" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
+                        <p id="player-artist" class="pc-artist">---</p>
                     </div>
                 </div>
 
