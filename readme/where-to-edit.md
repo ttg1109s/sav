@@ -58,7 +58,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Muốn sửa... | Vào file... |
 |---|---|
 | Giao diện danh sách, modal sửa bài, menu upload | `components/playlist-view.js`; cụm `playlist` |
-| Nạp file nhạc / thư mục | `core/playlist/loader.js` (`handleAudioFiles()`), kiểm file `core/upload-validation.js` |
+| Nạp file nhạc / thư mục | `event/workflow/playlist.js` (`uploadSongs()`), thời lượng `event/workflow/audio-duration.js`, kiểm file `core/upload-validation.js` (`validateFileType()`), menu "Thêm nhạc" `core/playlist/loader.js` |
 | Dựng node danh sách, cuộn tới bài hiện tại | `core/playlist/render.js`, `event/workflow/playlist-render.js` |
 | Thứ tự, xáo trộn, lặp | `core/playlist/order.js`, `event/workflow/playlist-order.js`; state `service/state/shuffle-repeat.js` |
 | Phạm vi folder ↔ playlist | `core/playlist/scope.js`, `event/workflow/playlist-scope.js` |

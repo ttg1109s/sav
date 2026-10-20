@@ -84,7 +84,7 @@ trong code là:
 | File | Gắn gì | Lý do |
 |---|---|---|
 | `event/tab.js` | `beforeunload` trên `window` | Lifecycle trình duyệt |
-| `core/playlist/loader.js`, `core/playlist/render.js` | Sự kiện media một lần (dò `duration`) | Đọc metadata, không phải tương tác người dùng |
+| `core/playlist/render.js` — `attachCoverFallback()` | `error` 1 lần của `<img>` bìa dựng động (node Playlist, #record-art) — callback chỉ `eventBus.send` | Ảnh lỗi -> đĩa than mặc định, không phải tương tác người dùng |
 | `core/modal-choice-ui.js` — `modalChoice()` | Click nút/overlay của mọi modal động | Hạ tầng dùng chung, xem 3 điều kiện ngay dưới |
 | `core/dynamic-object-ui.js` | Sự kiện của đối tượng TẠO ĐỘNG (danh sách nơi dùng ngay dưới) | Giang chốt phương án (y) 13/10/2026, xem mục ngay dưới |
 
@@ -103,6 +103,7 @@ ngoại lệ này. Nơi dùng (thêm chỗ mới = cập nhật bảng này):
 | `event/workflow/recorder.js` — `_measureLatency` | ScriptProcessorNode | `audioprocess` (luồng) |
 | `event/workflow/video-thumb-extract.js` — `_waitVideoEvent`, `extract` | `<video>` tạm | `seeked`, `error`, `loadedmetadata` (1 lần) |
 | `event/workflow/video-preview.js` — `_loadVideoEditorScriptOnce` (qua `loadScriptFile()`) | `<script>` tạm + `window` `error` trong lúc nạp | `load`/`error` (1 lần) |
+| `event/workflow/audio-duration.js` — `read` (nạp nhạc mới, quét file lỗi Song) | `<audio>` tạm (`createMetadataProbeAudioElement()`) | `loadedmetadata`, `error` (1 lần) |
 | `event/workflow/file-manager-storage.js` — `_probeVideoBlob` (quét file lỗi) | `<video>` tạm (`createMetadataProbeVideoElement()`) | `loadedmetadata`, `error` (1 lần) |
 | `event/workflow/streaming-zip.js` — `_ensureZipJs` (qua `loadScriptFile()`) | `<script>` zip.js dự phòng | `load`/`error` (1 lần) |
 | `event/workflow/streaming-zip.js` — `_writeViaWorker` | Worker OPFS zip (Path B) | `message`, `error` (luồng) |

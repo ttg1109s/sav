@@ -320,7 +320,7 @@ giống bản chất `t()`.
 - **Core KHÔNG hậu tố `-ui` KHÔNG được gọi `iconSvg()`** — nếu cần icon, phần HTML đó là template → dời về
   `components/*.js` (Rule 5d). Vd 07/10/2026: nút 3 chấm / dòng "Chi tiết" / tick chọn nhiều của Playlist dời từ
   `core/playlist/{render,actions,selection}.js` sang `components/playlist-view.js`
-  (`renderSongActionMenuButtonHtml`/`renderSongInfoRowHtml`/`renderSelectionIndicatorCheckHtml`).
+  (`renderSongActionMenuButtonHtml`/`renderSongInfoRowHtml`/`renderSelectionIndicatorHtml`).
 - **Icon MỚI:** thêm vào `ICON_REGISTRY` (tên theo Heroicons v1 nếu trùng hình, `body` = phần bên trong `<svg>`),
   KHÔNG viết `<svg>` inline. Đồ hoạ không phải icon (spinner, vòng điểm, biểu đồ, con trỏ karaoke...) giữ inline.
 - Tên không có trong kho → `console.warn('[iconSvg] ...')` + trả chuỗi rỗng (không ném lỗi).

@@ -423,8 +423,8 @@ của group.
 195. `core/playlist/order.js`
 196. `core/playlist/render.js`
 197. `core/playlist/loader.js`
-198. `core/playlist/actions.js` — cần: `event/store.js` (EventStore); `core/playlist/render.js` (attachCoverFallback); `core/dom-refs.js` (songEditCoverPreview)
-199. `core/playlist/main.js` — cần: `service/state.js` (appState); `core/dom-refs.js` (genericDrawerBody)
+198. `core/playlist/actions.js` — cần: `event/store.js` (EventStore — tạo `playlistStore` lúc nạp)
+199. `core/playlist/main.js` — không chạy gì lúc nạp (đồng bộ Kiểu xem/Nguồn lúc boot: `workflowPlaylist.syncPlaylistSettingsUI()`)
 200. `core/playlist/filter.js`
 201. `core/playlist/filter-presets.js`
 201a. `core/playlist/filter-rule-ui.js` — MỚI 13/10/2026 (DOM hàng rule filter — plan-debt-domains đợt 4)
@@ -545,6 +545,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 285. `event/router/playlist-filter-presets.js` — cần: `event/bus.js` (eventBus)
 286. `event/listener/playlist-filter-presets.js` — cần: `core/dom-refs.js` (genericDrawerBody)
 286a. `event/workflow/timeout.js` — MỚI 19/10/2026 (đợt 17b: `workflowTimeout.race()`/`heartbeat()` qua taskManager)
+286a2. `event/workflow/audio-duration.js` — MỚI 20/10/2026 (đợt 18a: `workflowAudioDuration.read()` đọc thời lượng file nhạc qua `<audio>` tạm); lúc chạy: `core/dynamic-object-ui.js`, `core/playlist/loader.js` (resolveProbedAudioDuration), `service/blob-url.js`
 286b. `event/workflow/streaming-zip.js` — MỚI 19/10/2026 (đợt 17b: điều phối zip OPFS Path A/B, `workflowStreamingZip`); lúc chạy: `core/streaming-zip.js`, `core/dynamic-object-ui.js`, `event/workflow/timeout.js`
 287. `event/workflow/zip-download.js` — cần: `core/upload-validation.js` (MEDIA_FILE_MAX_BYTES)
 288. `event/router/zip-download.js` — cần: `event/bus.js` (eventBus)
@@ -915,6 +916,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `assets/icon/icons.js` | index, subtitle-editor, video-editor | `20261007svg1` |
 | `components/loading-shield.js` | index, video-editor | `20260910v1` |
 | `core/dropdown-menu.js` | index, video-editor | `20260921v7` |
+| `core/dynamic-object-ui.js` | index, video-editor | `20261020w18a` |
 | `core/file-manager/folder.js` | index, video-editor | `20261006db2` |
 | `core/file-manager/image.js` | index, video-editor | `20261014w11` |
 | `core/file-manager/video.js` | index, video-editor | `20261013w7` |
@@ -930,7 +932,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `core/ui-theme/light.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/morphin.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/registry.js` | index, subtitle-editor, video-editor | `20261014w8` |
-| `core/upload-validation.js` | index, subtitle-editor, video-editor | `20261013w7` |
+| `core/upload-validation.js` | index, subtitle-editor, video-editor | `20261020w18a` |
 | `core/video-player-capture.js` | index, video-editor | `20261007sg1` |
 | `event/bus.js` | index, subtitle-editor, video-editor | `20260703v1` |
 | `event/virtual-machine-state.js` | index, video-editor | `20260701v1` |
@@ -941,7 +943,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `event/workflow/video-thumb-extract.js` | index, video-editor | `20261006r6` |
 | `lang/lang.js` | index, subtitle-editor, video-editor | `20260731v1` |
 | `lang/patch/patch-app-panel-nav.js` | index, subtitle-editor, video-editor | `20261014w8` |
-| `lang/patch/patch-common.js` | index, subtitle-editor, video-editor | `20261013w7` |
+| `lang/patch/patch-common.js` | index, subtitle-editor, video-editor | `20261020w18a` |
 | `lang/patch/patch-file-manager.js` | index, subtitle-editor, video-editor | `20261007fi2` |
 | `lang/patch/patch-playlist.js` | index, subtitle-editor, video-editor | `20261013w7` |
 | `lang/patch/patch-settings-misc.js` | index, subtitle-editor, video-editor | `20261006r4` |
@@ -951,7 +953,7 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `lang/patch/patch-visualizer.js` | index, subtitle-editor, video-editor | `20261014w12` |
 | `service/blob-url.js` | index, video-editor | `20260803v1` |
 | `service/component-dynamic.js` | index, video-editor | `20260803v1` |
-| `service/db.js` | index, subtitle-editor, video-editor | `20261013w7` |
+| `service/db.js` | index, subtitle-editor, video-editor | `20261020w18a` |
 | `service/operation.js` | index, video-editor | `20260701v1` |
 | `service/song-key-cipher.js` | index, subtitle-editor, video-editor | `20260710v1` |
 | `service/state.js` | index, subtitle-editor, video-editor | `20261001aa1` |
