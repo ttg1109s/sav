@@ -49,6 +49,15 @@ const routerTheme = (() => {
             case 'theme.playerControlOpacity.input':
                 workflowTheme.setPlayerControlOpacity(msg.payload.value);
                 break;
+            case 'theme.playerControlCover.change':
+                workflowTheme.setPlayerControlCover(msg.payload.checked);
+                break;
+            case 'theme.playerControlSubtitle.click':
+                workflowTheme.setPlayerControlSubtitlePlacement(msg.payload.placement);
+                break;
+            case 'theme.playerControlSubtitleGap.input':
+                workflowTheme.setPlayerControlSubtitleGap(msg.payload.value);
+                break;
             default:
                 console.warn(`[routerTheme] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
