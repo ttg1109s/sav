@@ -557,11 +557,11 @@ const workflowVideoPlayer = {
     },
 
     /** Ứng với 'playerControls.video.loadedmetadata' — đặt lại max thanh tiến trình + tổng thời
-     * lượng, CÙNG Ý NGHĨA `handleAudioLoadedMetadata()` nhưng đọc `bgVideoElement.duration`. */
+     * lượng, cùng ý nghĩa `workflowPlayerControls.handleAudioLoadedMetadataEvent()` nhưng đọc `bgVideoElement.duration`. */
     handleVideoLoadedMetadata() {
         progressBar.max = bgVideoElement.duration;
         durationTimeDisplay.textContent = formatTime(bgVideoElement.duration); // core/playlist/state.js
-        applyPlaybackSpeedToActiveMedia(true, false, appConfigViz.getAll().playbackSpeed); // core/player-controls.js
+        applyPlaybackSpeed(bgVideoElement, appConfigViz.getAll().playbackSpeed); // core/player-controls.js
         // Cổng seek nạp lại CÙNG video (không phải nội dung mới): chỉ cần áp lại tốc độ (`load()` reset
         // playbackRate) ở trên, KHÔNG chạy lại Point Move từ đầu.
         if (workflowPlayerControls.isHeldBySeekGate(bgVideoElement)) return; // guard — event/workflow/player-controls.js
@@ -570,7 +570,7 @@ const workflowVideoPlayer = {
 
     /** Ứng với 'playerControls.video.timeupdate' (bắn rất dày lúc đang phát) — cập nhật thanh tiến
      * trình (nếu không đang kéo tay) + hiển thị thời gian hiện tại, CÙNG Ý NGHĨA
-     * `handleAudioTimeUpdate()` nhưng đọc `bgVideoElement.currentTime` (KHÔNG xử lý phụ đề — video
+     * `workflowPlayerControls.handleAudioTimeUpdateEvent()` nhưng đọc `bgVideoElement.currentTime` (KHÔNG xử lý phụ đề — video
      * không có phụ đề). */
     handleVideoTimeUpdate() {
         // Đang kéo tay thì KHÔNG đụng cả nhãn giờ (scrub xếp hàng làm currentTime chạy sau ngón tay -> nhãn nhấp nháy giữa 2 giá trị)
@@ -583,7 +583,7 @@ const workflowVideoPlayer = {
     /** Ứng với 'playerControls.progressBar.seeking' khi `isVideoPlayerMode=true` — người dùng đang
      * kéo tay THANH SEEK — hoặc cử chỉ giữ tay seek-hold ("ngón tay ảo" trên thanh, gửi đúng message này mỗi tick,
      * event/workflow/visualizer-gesture.js). KHÁC
-     * `handleProgressBarSeeking()` (Song, chỉ đổi text) — Video có HÌNH để xem trước nên PAUSE +
+     * `workflowPlayerControls.handleSongSeeking()` (Song, chỉ hiện mốc kéo) — Video có HÌNH để xem trước nên PAUSE +
      * scrub `currentTime` NGAY theo từng nhịp kéo (trình duyệt tự decode/vẽ đúng khung dù đang
      * pause — kỹ thuật scrub chuẩn, không cần xử lý riêng "không bật âm": đang pause thì tiếng tự
      * im). Chỉ pause + ghi nhớ trạng thái trước đó ở TICK ĐẦU TIÊN của phiên kéo (isSeeking false->true) —

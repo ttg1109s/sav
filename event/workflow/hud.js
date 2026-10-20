@@ -2,8 +2,8 @@
  * event/workflow/hud.js — Workflow cụm "hud": Volume + Speed, 2 panel nổi kiểu popup hệ thống iOS
  * (components/visualizer-overlay.js) dùng chung cơ chế mở/auto-hide.
  *
- * NẠP SAU: core/hud.js, core/dom-refs.js, core/player-controls.js (applyPlaybackSpeedToActiveMedia), core/playlist/render.js
- * (resolvePlayingMediaType), event/workflow/config.js (workflowConfig.save), service/task-manager.js.
+ * NẠP SAU: core/hud.js, core/dom-refs.js, core/playlist/render.js (resolvePlayingMediaType), event/workflow/config.js
+ * (workflowConfig.save), service/task-manager.js. Lúc chạy: event/workflow/player-controls.js (applySpeedToActiveMedia).
  * NẠP TRƯỚC: event/router/hud.js.
  */
 const HUD_AUTO_HIDE_DELAY = 2500;
@@ -57,7 +57,7 @@ const workflowHud = {
         appConfigViz.mutateAll((cfg) => { cfg.playbackSpeed = speed; });
         workflowConfig.save(); // core/config.js
         const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
-        applyPlaybackSpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed); // core/player-controls.js
+        workflowPlayerControls.applySpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed); // event/workflow/player-controls.js
         HUD_SPEED_FOLLOW_UP_BY_MEDIA_TYPE[resolvePlayingMediaType(isVideoPlayerMode, isPhotoPlayerMode)](); // core/playlist/render.js
         this.syncSpeedUI(speed);
         this._scheduleAutoHide(visualizerSpeedHud, SPEED_HUD_AUTO_HIDE_TASK);

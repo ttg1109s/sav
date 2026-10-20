@@ -10,8 +10,9 @@
  * - Sân khấu Visualizer khi ra/vào Playlist (`switchToVisualizer()`/`returnToPlaylistUI()`).
  * Media đang phát cho Next/Prev: `workflowPhotoPlayer.resolveActiveMedia()` (audio/video thật hoặc đồng hồ giả Photo).
  *
- * NẠP SAU: core/player-controls.js, core/playlist/order.js, core/listen-stats.js, core/settings-panel-stack.js,
- * event/workflow/player.js (workflowPlayer.playMedia), event/workflow/media-wait.js (lúc chạy).
+ * NẠP SAU: core/player-controls.js, core/playlist/{order,state,actions}.js, core/visualizer/visualizer-display.js
+ * (updateProgressBarCSS), core/listen-stats.js, event/workflow/player.js (workflowPlayer.playMedia), event/workflow/media-wait.js
+ * (lúc chạy).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
 // ===== Cổng seek — xem `workflowPlayerControls.runGatedSeek()` =====
@@ -88,6 +89,9 @@ const MEDIA_ELEMENTS_TO_WAIT_BY_MODE = {
     song: () => (isBgVideoShown() ? [audioPlayer, bgVideoElement] : [audioPlayer]), // core/player-controls.js
 };
 
+/** Sự kiện kết thúc lượt chờ "media nạp đủ": đủ dữ liệu, hoặc lỗi/huỷ nạp/đổi nguồn (không treo). */
+const MEDIA_PLAY_THROUGH_END_EVENTS = ['canplaythrough', 'error', 'abort', 'emptied'];
+
 const workflowPlayerControls = {
 
     // ===== Sân khấu Visualizer khi ra/vào Playlist — state nội bộ (KHÔNG thuộc STATE) =====
@@ -142,10 +146,17 @@ const workflowPlayerControls = {
      * (MEDIA_ELEMENTS_TO_WAIT_BY_MODE) + mọi ảnh nền đang hiển thị. @returns {Promise<string>} tóm tắt kết quả cho log */
     async _waitCurrentMediaReady() {
         const mode = appState.get('isVideoPlayerMode') ? 'video' : (appState.get('isPhotoPlayerMode') ? 'photo' : 'song'); // chọn GIÁ TRỊ (key object map)
-        const mediaWaits = MEDIA_ELEMENTS_TO_WAIT_BY_MODE[mode]().map((el) => waitMediaCanPlayThrough(el)); // core/player-controls.js
+        const mediaWaits = MEDIA_ELEMENTS_TO_WAIT_BY_MODE[mode]().map((el) => this._waitMediaCanPlayThrough(el));
         const imageWaits = collectVisualStageImageUrls().map((url) => waitImageUrlDecoded(url)); // core/player-controls.js
         const results = await Promise.all([...mediaWaits, ...imageWaits]);
         return `${mode} [${results.join(', ') || 'không có media'}]`;
+    },
+
+    /** Chờ 1 media tĩnh nạp đủ để phát liền mạch; lỗi/huỷ/đổi nguồn cũng kết thúc lượt chờ.
+     * @param {HTMLMediaElement} mediaEl @returns {Promise<string>} 'ready' hoặc tên sự kiện kết thúc (cho log) */
+    _waitMediaCanPlayThrough(mediaEl) {
+        if (isMediaReadyToPlayThrough(mediaEl.readyState)) return Promise.resolve('ready'); // guard — core/player-controls.js
+        return workflowMediaWait.waitFirst(mediaEl, MEDIA_PLAY_THROUGH_END_EVENTS); // event/workflow/media-wait.js
     },
 
     /** Lớp cha sân khấu hình trở lại cây render (gọi lặp vô hại). 2 task Visualizer KHÔNG chạy lại ở
@@ -444,10 +455,30 @@ const workflowPlayerControls = {
      * thanh/nhãn thời gian + phụ đề không nhảy về 0:00. */
     handleAudioTimeUpdateEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return;
-        handleAudioTimeUpdate(); // core/player-controls.js
+        const isSeeking = appState.get('isSeeking');
+        this._paintSongProgress(isSeeking);
+        this._syncMediaPositionIfDue(Date.now());
         // Đang kéo (tay hoặc cử chỉ seek-hold): phụ đề đang theo mốc kéo (handleSongSeeking), không kéo về giờ đang phát.
-        if (appState.get('isSeeking')) return; // guard
+        if (isSeeking) return; // guard
         workflowSubtitleDisplay.sync(audioPlayer.currentTime); // event/workflow/subtitle-display.js
+    },
+
+    /** Thanh tiến trình + nhãn giờ theo vị trí đang phát. Đang kéo thì không ghi đè — kể cả nhãn: cử chỉ seek-hold chỉ gửi
+     * 'seeking' theo nhịp nên nhãn sẽ nhảy qua lại giữa giờ đang phát và mốc tua (cùng cách Video). @param {boolean} isSeeking */
+    _paintSongProgress(isSeeking) {
+        if (isSeeking) return; // guard
+        const positionSec = audioPlayer.currentTime;
+        setPlayerProgressUi(positionSec, formatTime(positionSec)); // core/player-controls.js + core/playlist/state.js
+        updateProgressBarCSS(); // core/visualizer/visualizer-display.js
+    },
+
+    _lastMediaPositionSyncMs: 0, // lần gần nhất đồng bộ vị trí Media Session từ 'timeupdate'
+
+    /** Đồng bộ vị trí Media Session thưa (mỗi MEDIA_POSITION_SYNC_INTERVAL_MS) thay vì mỗi 'timeupdate'. @param {number} nowMs */
+    _syncMediaPositionIfDue(nowMs) {
+        if (!isMediaPositionSyncDue(nowMs, this._lastMediaPositionSyncMs)) return; // guard — core/player-controls.js
+        updateMediaPositionState(); // core/player-controls.js
+        this._lastMediaPositionSyncMs = nowMs;
     },
 
     /** Ứng với 'playerControls.progressBar.seeking' khi Song (kéo tay hoặc cử chỉ seek-hold) — cùng cơ chế Video
@@ -456,7 +487,8 @@ const workflowPlayerControls = {
      * cổng seek tự phát lại (handleSongSeekCommit()). @param {string|number} value */
     handleSongSeeking(value) {
         this._beginSongSeekSession(appState.get('isSeeking'));
-        handleProgressBarSeeking(value); // core/player-controls.js — ghi isSeeking = true (cùng nhịp với pause: 'pause' tới sau, không xả hàng đợi)
+        setSeekingPositionUi(formatTime(value)); // core/player-controls.js + core/playlist/state.js — ghi isSeeking = true cùng nhịp với pause ('pause' tới sau, không xả hàng đợi)
+        updateProgressBarCSS(); // core/visualizer/visualizer-display.js
         workflowSubtitleDisplay.preview(Number(value)); // event/workflow/subtitle-display.js — phụ đề + karaoke theo mốc kéo
     },
 
@@ -655,9 +687,31 @@ const workflowPlayerControls = {
         eventBus.send({ router: 'playerControls', type: 'playerControls.audio.play', payload: {} });
     },
 
-    /** Ứng với 'playerControls.audio.loadedmetadata': core cập nhật thanh tiến trình/Media Session/tốc độ. */
+    /** Ứng với 'playerControls.audio.loadedmetadata': tổng thời lượng lên thanh/nhãn, Media Session, áp lại tốc độ đã lưu
+     * (`load()` của cổng seek / bài mới đưa playbackRate về mặc định). */
     handleAudioLoadedMetadataEvent() {
-        handleAudioLoadedMetadata(); // core/player-controls.js
+        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        const durationSec = audioPlayer.duration;
+        setPlayerDurationUi(durationSec, formatTime(durationSec)); // core/player-controls.js + core/playlist/state.js
+        updateMediaPositionState(); // core/player-controls.js
+        this.applySpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, appConfigViz.getAll().playbackSpeed);
+    },
+
+    /** Áp tốc độ lên media đang active (Song/Video Player). Photo không có playbackRate (nút HUD Speed cũng ẩn) — bỏ qua.
+     * Dùng chung: loadedmetadata của Song, chọn tốc độ ở HUD (event/workflow/hud.js).
+     * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode @param {number} speed */
+    applySpeedToActiveMedia(isVideoPlayerMode, isPhotoPlayerMode, speed) {
+        if (isPhotoPlayerMode) return; // guard
+        applyPlaybackSpeed(getActiveMediaElement(isVideoPlayerMode), speed); // core/player-controls.js
+    },
+
+    /** Ứng với 'playerControls.audio.error' — lỗi giải mã THẬT (file hỏng dù qua được kiểm lúc nạp) -> modal lỗi. Chỉ khi
+     * audio vẫn gắn đúng bài đang chọn: lỗi bắn trễ sau khi đã đổi sang bài khác thì bỏ qua. */
+    handleAudioErrorEvent() {
+        const { currentKey, currentObjectURL, playlistCache } = appState.get(['currentKey', 'currentObjectURL', 'playlistCache']);
+        if (!currentKey || !currentObjectURL || audioPlayer.src !== currentObjectURL) return; // guard
+        const cached = playlistCache.get(currentKey);
+        handlePlaybackError(currentKey, cached ? cached.filename : currentKey); // core/playlist/actions.js
     },
 
     /**
@@ -670,6 +724,7 @@ const workflowPlayerControls = {
     toggleShuffleAndReshuffle() {
         const isShuffleCurrent = appState.get('isShuffle');
         const next = toggleShuffle(isShuffleCurrent); // core/player-controls.js — trả giá trị MỚI
+        syncShuffleUI(next); // core/player-controls.js
 
         const activeQueueKeys = appState.get('displayOrder'); // "hiện hành" — section HOẶC top-level
         const topLevelKeys = appState.get('playlistOrder');
@@ -677,12 +732,10 @@ const workflowPlayerControls = {
         this._persistPlayerConfig(); // nhớ trạng thái Shuffle
     },
 
-    /**
-     * Ứng với 'playerControls.repeat.click' — `cycleRepeatMode()` (core) rồi lưu bền (`_persistPlayerConfig()`) — ≥2 bước
-     * nên giao cho Workflow (quy ước đầu event/router/player-controls.js).
-     */
+    /** Ứng với 'playerControls.repeat.click' — xoay vòng Repeat, đồng bộ nút, lưu bền. */
     cycleRepeatModeAndPersist() {
-        cycleRepeatMode(); // core/player-controls.js
+        const next = cycleRepeatMode(appState.get('repeatMode')); // core/player-controls.js
+        syncRepeatUI(next); // core/player-controls.js
         this._persistPlayerConfig();
     },
 

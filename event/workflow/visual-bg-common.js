@@ -1031,7 +1031,7 @@ const workflowVisualBg = {
     /** Toggle "Đồng bộ tốc độ phát" — CHỈ có ý nghĩa khi type='video' (VBG mặc định KHÔNG theo
      * `playbackSpeed` chung, VBG chạy độc lập thời gian). Lưu + áp NGAY lên `bgVideoElement` nếu VBG-
      * video đang thật sự sở hữu nó (KHÔNG đụng gì lúc đang ở Video Player mode thật — nhánh đó tự áp
-     * riêng qua `applyPlaybackSpeedToActiveMedia()`, core/player-controls.js).
+     * riêng qua `applyPlaybackSpeed()`, core/player-controls.js).
      * @param {boolean} checked */
     async changeSyncPlaybackSpeed(checked) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.videoSyncPlaybackSpeed = checked; });
