@@ -1,8 +1,8 @@
 /* sliders.css — mọi input[type=range]/input[type=color] trong app. nhóm nền TRẮNG (.ce-slider; .eq-preset-
    slider đã bỏ 07/10/2026) TÁCH RIÊNG khỏi nhóm nền TỐI (.setting-slider/.eq-slider) — track
    rgba(255,255,255,0.1) của nhóm tối gần như vô hình trên nền trắng của Generic Drawer.
-   [.setting-slider CHỈ dùng ở Volume/Speed HUD (components/visualizer-overlay.js) — track/thumb theo UI theme qua biến
-   `--viz-*` (20/10/2026); .eq-slider giữ nền tối.]
+   [.setting-slider CHỈ dùng ở Volume/Speed HUD (components/visualizer-overlay.js) — track/phần tô/thumb theo UI theme qua biến
+   `--viz-track`/`--viz-slider-*` (themeVars, assets/css/glass.css); .eq-slider giữ nền tối.]
    SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — phát hiện thêm 3 rule `.ptmove-*`
    (Point Move edit/Timing, Motion presets, sống trong Generic Drawer qua Settings > System > Motion)
    VẪN còn `rgba(255,255,255,x)` y hệt lỗi đã fix cho EQ — track/tick-label gần như vô hình trên nền
@@ -14,8 +14,8 @@
    (`var(--uitk-*, <giá trị Light cũ>)`, khai ở assets/css/glass.css — class `uitk-vars-*` do key theme `themeVars` gắn trên <body>):
    Light KHÔNG đổi gì (fallback = đúng giá trị cũ), Dark/Morphin không còn track xám nhạt + viền sky lệch tông accent tím. */
 
-input[type=range].setting-slider { -webkit-appearance: none; width: 100%; height: 4px; background: linear-gradient(to right, var(--viz-text, #f4f4f5) 0, var(--viz-text, #f4f4f5) var(--hud-fill-pct, 0%), var(--viz-track, rgba(255, 255, 255, 0.1)) var(--hud-fill-pct, 0%), var(--viz-track, rgba(255, 255, 255, 0.1)) 100%); border-radius: 2px; outline: none; }
-input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--viz-play-bg, #ffffff); cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+input[type=range].setting-slider { -webkit-appearance: none; width: 100%; height: 4px; background: linear-gradient(to right, var(--viz-slider-fill, #f4f4f5) 0, var(--viz-slider-fill, #f4f4f5) var(--hud-fill-pct, 0%), var(--viz-track, rgba(255, 255, 255, 0.1)) var(--hud-fill-pct, 0%), var(--viz-track, rgba(255, 255, 255, 0.1)) 100%); border-radius: 2px; outline: none; }
+input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--viz-slider-thumb, #ffffff); cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 
 .eq-slider-container { width: 20px; height: 100px; position: relative; display: flex; justify-content: center; align-items: center; }
 input[type=range].eq-slider { -webkit-appearance: none; width: 100px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; transform: rotate(-90deg); position: absolute; }

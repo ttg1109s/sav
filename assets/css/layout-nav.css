@@ -26,7 +26,8 @@
     #visualizer-ui, #player-container { transform: none !important; left: clamp(340px, 30vw, 460px); }
     /* Ép cả display (không chỉ opacity) — .hidden (Tailwind) có thể còn gắn từ lúc boot. */
     #visualizer-ui { display: flex !important; opacity: 1 !important; pointer-events: auto !important; }
-    #player-container { display: flex !important; }
+    /* `right: 0; width: auto` — #player-container mang `w-full` (100% màn hình), cộng `left` ở trên sẽ tràn mép phải. */
+    #player-container { display: flex !important; right: 0; width: auto; }
     #btn-back-playlist { display: none !important; }
 }
 
