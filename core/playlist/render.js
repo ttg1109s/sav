@@ -1,8 +1,55 @@
 /**
- * core/playlist/render.js — các bước ghi DOM của danh sách Playlist (hàm lá, nhận đủ qua tham số): bố cục 1 node, ảnh bìa,
- * nút Phát, lớp "đang nạp", trạng thái rỗng, cuộn, chiều cao ước lượng item. Dựng/diff danh sách theo `renderOrder` là việc
- * của event/workflow/playlist-render.js (`workflowPlaylistRender`); markup node ở components/playlist-view.js.
+ * core/playlist/render.js — phần tính + ghi DOM của danh sách Playlist (hàm lá, nhận đủ qua tham số): dữ liệu hiển thị 1
+ * node, kế hoạch diff, ảnh bìa, nút Phát, lớp "đang nạp", trạng thái rỗng, cuộn, chiều cao ước lượng item. Dựng/diff danh
+ * sách theo `renderOrder` là việc của event/workflow/playlist-render.js (`workflowPlaylistRender`); markup node ở
+ * components/playlist-view.js, thao tác node ở core/playlist/node-ui.js.
  */
+
+        /**
+         * Dữ liệu hiển thị 1 node Playlist (Song/Video/Photo dùng chung). "Đang phát" phải khớp cả key lẫn LOẠI media đang
+         * phát với Nguồn đang xem (Song/Video/Photo sinh key cùng kiểu slug tên file nên trùng key giữa 3 Nguồn là có thật).
+         * @param {string} key @param {object|undefined} cached - mục playlistCache (thiếu -> hiện key, không bìa)
+         * @param {string|null} currentKey @param {'song'|'video'|'photo'} playingMediaType @param {'song'|'video'|'photo'} activeMediaSource
+         * @param {boolean} isMediaPaused - phần tử media của loại này đang dừng
+         * @returns {{key: string, title: string, artist: string, duration: number, hasRealCover: boolean, isPlaying: boolean, isActuallyPlaying: boolean}}
+         */
+        function computeSongNodeView(key, cached, currentKey, playingMediaType, activeMediaSource, isMediaPaused) {
+            const isPlaying = key === currentKey && playingMediaType === activeMediaSource;
+            return {
+                key,
+                title: cached ? cached.tag.title : key,
+                artist: cached ? cached.tag.artist : '',
+                duration: cached ? cached.duration : 0,
+                hasRealCover: !!(cached && cached.cover),
+                isPlaying,
+                isActuallyPlaying: isPlaying && !isMediaPaused,
+            };
+        }
+
+        /**
+         * Kế hoạch diff tại chỗ theo `renderOrder` mới: node không còn hiển thị mà bài vẫn còn (`playlistOrder` — bị Search/
+         * Filter lọc tạm) -> chỉ ẩn, giữ node + ảnh bìa đã tải; bài đã xoá thật -> bỏ hẳn (giữ lại là rò object URL bìa).
+         * @param {Map<string, HTMLElement>} domNodesByKey @param {string[]} renderOrder @param {string[]} playlistOrder
+         * @returns {{hide: Array<[string, HTMLElement]>, destroy: Array<[string, HTMLElement]>, buildCount: number}} buildCount = số key cần dựng node mới
+         */
+        function planPlaylistDiff(domNodesByKey, renderOrder, playlistOrder) {
+            const renderKeySet = new Set(renderOrder);
+            const playlistOrderSet = new Set(playlistOrder);
+            const hide = [];
+            const destroy = [];
+            domNodesByKey.forEach((node, key) => {
+                if (renderKeySet.has(key)) return; // còn hiển thị
+                const bucket = playlistOrderSet.has(key) ? hide : destroy;
+                bucket.push([key, node]);
+            });
+            const buildCount = renderOrder.filter((key) => !domNodesByKey.has(key)).length;
+            return { hide, destroy, buildCount };
+        }
+
+        /** Thời gian 1 lượt dựng/tính (log chẩn đoán), làm tròn ms. @param {number} startMs @param {number} nowMs @returns {number} */
+        function computePlaylistElapsedMs(startMs, nowMs) {
+            return Math.round(nowMs - startMs);
+        }
 
         /**
          * Ảnh bìa trong node Playlist / #record-art tải lỗi (Blob ID3 hỏng, đọc nhầm định dạng, ảnh upload hỏng) -> báo bus,
@@ -39,26 +86,6 @@
             node.dataset.coverPending = 'false';
             const img = node.querySelector('img');
             if (img) img.src = url;
-        }
-
-        /**
-         * 2 bố cục node Playlist — mỗi hàm ghi đúng 1 bố cục lên `wrapper` (className + data-role + innerHTML). HTML từ
-         * renderGridSongNodeHtml()/renderListSongNodeHtml() (components/playlist-view.js); Workflow chọn hàm bằng object map.
-         * @param {HTMLElement} wrapper @param {string} html
-         */
-        function fillGridSongNode(wrapper, html) {
-            wrapper.className = `flex flex-col cursor-pointer active:scale-[0.98] transition-transform group relative w-full`;
-            wrapper.dataset.role = 'play-item';
-            wrapper.innerHTML = html;
-        }
-
-        /** Bố cục List — `data-uitk="cardHoverBg rowPressBg"` (rê chuột / nhấn giữ); nền hàng đang chọn do
-         * showSelectionIndicator() (core/playlist/selection.js) thêm/gỡ. @param {HTMLElement} wrapper @param {string} html */
-        function fillListSongNode(wrapper, html) {
-            wrapper.className = `flex items-center gap-4 px-5 py-3 transition-colors cursor-pointer w-full group`;
-            wrapper.dataset.uitk = 'cardHoverBg rowPressBg';
-            wrapper.dataset.role = 'play-item';
-            wrapper.innerHTML = html;
         }
 
         /**
@@ -128,18 +155,21 @@
         // Cuộn danh sách: gán thẳng scrollTop (không animation). Điều phối (cuộn tới bài đang phát / bài vừa sửa phụ đề):
         // event/workflow/playlist-render.js.
 
-        /** Tính scrollTop đưa `node` vào giữa khung `scrollEl` (kẹp trong [0, maxScroll]). Chỉ đo hộp của 2 phần tử nhận vào.
-         * @param {HTMLElement} scrollEl @param {HTMLElement} node @returns {number} */
-        function computePlaylistCenterScrollTop(scrollEl, node) {
+        /** scrollTop đưa `node` vào giữa khung cuộn Playlist (cha của #playlist-container, kẹp trong [0, maxScroll]) + đã ở
+         * đúng chỗ chưa (lệch < 1px). Chỉ đo hộp của 2 phần tử, không đụng phần ruột item đang bị content-visibility bỏ qua.
+         * @param {HTMLElement} container - #playlist-container @param {HTMLElement} node @returns {{top: number, isSettled: boolean}} */
+        function computePlaylistCenterScroll(container, node) {
+            const scrollEl = container.parentElement;
             const containerRect = scrollEl.getBoundingClientRect();
             const nodeRect = node.getBoundingClientRect();
             const nodeOffsetTop = (nodeRect.top - containerRect.top) + scrollEl.scrollTop;
             const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-            return Math.max(0, Math.min(maxScroll, nodeOffsetTop - (scrollEl.clientHeight / 2) + (nodeRect.height / 2)));
+            const top = Math.max(0, Math.min(maxScroll, nodeOffsetTop - (scrollEl.clientHeight / 2) + (nodeRect.height / 2)));
+            return { top, isSettled: Math.abs(top - scrollEl.scrollTop) < 1 };
         }
-        /** Đặt scrollTop của khung cuộn. */
-        function setPlaylistScrollTop(scrollEl, top) {
-            scrollEl.scrollTop = top;
+        /** Đặt scrollTop của khung cuộn Playlist. @param {HTMLElement} container - #playlist-container */
+        function setPlaylistScrollTop(container, top) {
+            container.parentElement.scrollTop = top;
         }
 
         /** Về đầu danh sách ngay — đổi Nguồn dựng lại toàn bộ nội dung, scrollTop cũ không còn nghĩa. */

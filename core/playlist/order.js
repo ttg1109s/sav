@@ -1,21 +1,10 @@
 /**
- * playlist/order.js — Thuật toán THỨ TỰ cho cả 2 khái niệm (xem state.js):
- *   - `renderOrder` (UI): sort theo mode + lọc tìm kiếm, cập nhật NGAY mọi lúc.
+ * core/playlist/order.js — thuật toán THỨ TỰ (hàm thuần, nhận đủ qua tham số) cho 2 khái niệm (xem state.js):
+ *   - `renderOrder` (UI): sort theo mode + lọc tìm kiếm (title/artist/album), cập nhật ngay mọi lúc.
  *   - `displayOrder` (hàng đợi phát): sort theo mode nhưng có "pending append" lúc đang phát.
- * Cùng dùng chung 1 hàm so sánh tên (sortKeysByMode) để 2 thứ tự nhất quán về quy tắc sắp xếp.
- *
- * Ver 8: lọc tìm kiếm thêm theo `tag.album` (trước đây chỉ title + artist) — gõ tên album vào ô
- * tìm kiếm giờ cũng ra kết quả đúng.
- *
- * SỬA TẬN GỐC (Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ trừ chỉ định cụ thể theo tài liệu")
- * — file này TRƯỚC ĐÂY có 6 hàm tự `appState.get()`/gọi core khác (`recomputeRenderOrder()`,
- * `recomputeDisplayOrder()`, `updateShuffleArray()`, `applyNewSongsToDisplayOrder()`,
- * `setDisplaySortMode()`, `setDisplayStatSortField()`, `setDisplayStatSortDirection()`) — TẤT CẢ
- * ĐÃ DỜI sang `event/workflow/playlist-order.js` (`workflowPlaylistOrder` object) theo đúng Rule 3b
- * ("Core là tầng THI HÀNH, Workflow là tầng CHUẨN BỊ"), CÙNG tiền lệ `core/playlist/bulk-actions.js`
- * đã làm với `deleteSongsBatch()` cũ. File NÀY giờ CHỈ còn hàm THUẦN thật sự — không hàm nào tự
- * `appState.get()`/`.set()`/`.mutate()` (trừ `updateShuffleArrayFromQueue()`, ĐƯỢC PHÉP ghi theo
- * Rule 2 — chỉ chặn chiều đọc), không hàm nào gọi core/nghiệp vụ nào khác của project.
+ * Cùng 1 cách sắp (workflowPlaylistOrder.sortKeys() -> sortKeysByRank()) để 2 thứ tự nhất quán. Đọc state + thứ tự
+ * gọi: event/workflow/playlist-order.js.
+ * Chỉ `updateShuffleArrayFromQueue()` ghi state (`shuffleIndices`).
  */
 
 /** Mảng key đã lọc bỏ bài lỗi (confirmedBrokenKeys) — nền chung cho cả render lẫn hàng đợi.
@@ -27,88 +16,79 @@ function liveKeys(playlistOrder, confirmedBrokenKeys) {
     return playlistOrder.filter(k => !confirmedBrokenKeys.has(k));
 }
 
+// ===================== Sắp xếp 2 trục =====================
+// Trục (1) tên/ngày: xếp hạng bằng rankKeysByName()/rankKeysByAddedAt() (Workflow chọn theo displaySortMode). Trục (2)
+// thống kê (tuỳ chọn): collectStatSortValues(). sortKeysByRank() gộp: có trục (2) thì nó là chính, bằng nhau thì theo
+// hạng trục (1); sort ổn định nên bài bằng nhau ở cả 2 trục giữ thứ tự vào.
+
+/** Hạng theo tên (`songNameIndex` — tên đã chuẩn hoá của Song/Video/Photo), so sánh tiếng Việt.
+ * @param {string[]} keys @param {Map<string, string>} songNameIndex @param {boolean} descending - true = Z-A
+ * @returns {Map<string, number>} key -> hạng */
+function rankKeysByName(keys, songNameIndex, descending) {
+    const sorted = keys.slice().sort((a, b) => {
+        const cmp = (songNameIndex.get(a) || '').localeCompare(songNameIndex.get(b) || '', 'vi');
+        return descending ? -cmp : cmp;
+    });
+    return new Map(sorted.map((key, rank) => [key, rank]));
+}
+
+/** Hạng theo ngày thêm (`addedAt` trong playlistCache, thiếu -> 0).
+ * @param {string[]} keys @param {Map} playlistCache @param {boolean} newestFirst @returns {Map<string, number>} key -> hạng */
+function rankKeysByAddedAt(keys, playlistCache, newestFirst) {
+    const sorted = keys.slice().sort((a, b) => {
+        const dateA = (playlistCache.get(a) || {}).addedAt || 0;
+        const dateB = (playlistCache.get(b) || {}).addedAt || 0;
+        return newestFirst ? dateB - dateA : dateA - dateB;
+    });
+    return new Map(sorted.map((key, rank) => [key, rank]));
+}
+
+/** Field thống kê của trục (2) -> nguồn + tên field. `stats` = mediaStatsMap (key `type:key`), `cache` = playlistCache
+ * (cùng nguồn với Filter — core/playlist/filter.js). */
+const SORT_STAT_FIELD_SPEC = {
+    count: { from: 'stats', prop: 'count' },
+    times: { from: 'stats', prop: 'totalTime' },
+    size: { from: 'cache', prop: 'size' },
+    duration: { from: 'cache', prop: 'duration' },
+};
+
 /**
- * So sánh & trả về MẢNG MỚI đã sắp theo CẢ 2 trục (mục 1b/1c, phản hồi Giang; SỬA mục 3 —
- * field/hướng tách riêng):
- *   - `statField` === 'none' -> CHỈ trục (1) quyết định — hành vi Y HỆT bản trước Sort
- *     subpanel (KHÔNG đổi kết quả cho ai chưa bật trục thống kê).
- *   - `statField` khác 'none' -> trục (2) là CHÍNH (hướng theo `statDirection`); 2 bài BẰNG
- *     NHAU thì trục (1) quyết định thứ tự giữa 2 bài đó (tie-break, ĐÚNG yêu cầu mục 1c).
- *
- * `nameCmp`/`getValue` là closure CỤC BỘ (khai báo NGAY TRONG thân hàm này, KHÔNG phải hàm
- * top-level riêng) — không "gọi core khác" nên không cần viện tới ngoại lệ Rule 3c nào.
- * @param {string[]} keys
- * @param {string} nameMode - displaySortMode hiện tại (trục 1) — `az`/`za` đọc `songNameIndex`
- *   (populate cho CẢ Song [title] lẫn Video/Photo [filename]); `newest`/`oldest` đọc `addedAt`
- *   từ `playlistCache`. 'az' là NHÁNH MẶC ĐỊNH cho mọi giá trị không khớp 'za'/'newest'/
- *   'oldest' — bao gồm luôn giá trị cũ 'default' còn sót lại (state cũ) — tự rơi về az an toàn.
- * @param {string} statField - displayStatSortField hiện tại (trục 2) — 'none'|'count'|'times'|'size'|'duration'.
- *   4 field: count/times (mediaStatsMap), size/duration (playlistCache, cùng nguồn với Filter
- *   — core/playlist/filter.js) — bài chưa có thống kê coi như 0.
- * @param {string} statDirection - displayStatSortDirection hiện tại — 'desc'|'asc'
- * @param {Map} songNameIndex @param {Map} playlistCache @param {Map} mediaStatsMap
- * @param {'song'|'video'|'photo'} mediaType - SỬA (06/10/2026, plan-media-db-split.md mục 6) — key `mediaStatsMap` giờ là
- *   `type:key` (key trùng giữa các loại không còn cộng chung); `keys` luôn cùng 1 loại (Nguồn đang xem).
+ * Giá trị trục (2) của từng key (bài chưa có thống kê -> 0). `statField` 'none' -> null (chỉ trục 1 quyết định); giá trị
+ * lạ khác 'none' -> 'duration'.
+ * @param {string[]} keys @param {string} statField @param {Map} playlistCache @param {Map} mediaStatsMap
+ * @param {'song'|'video'|'photo'} mediaType - `keys` luôn cùng 1 loại (Nguồn đang xem)
+ * @returns {Map<string, number>|null}
  */
-function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap, mediaType) {
-    // Trục (1) — tên/ngày, closure CỤC BỘ (không phải hàm top-level riêng — xem docstring).
-    const nameCmp = (nameMode === 'newest' || nameMode === 'oldest')
-        ? (a, b) => {
-            const dateA = (playlistCache.get(a) || {}).addedAt || 0;
-            const dateB = (playlistCache.get(b) || {}).addedAt || 0;
-            return nameMode === 'newest' ? dateB - dateA : dateA - dateB;
-        }
-        : (a, b) => { // 'az' (mặc định) hoặc 'za' — cùng 1 phép so sánh, chỉ đổi dấu.
-            const nameA = songNameIndex.get(a) || ''; const nameB = songNameIndex.get(b) || '';
-            const cmp = nameA.localeCompare(nameB, 'vi');
-            return nameMode === 'za' ? -cmp : cmp;
-        };
-    if (statField === 'none') return keys.slice().sort(nameCmp);
+function collectStatSortValues(keys, statField, playlistCache, mediaStatsMap, mediaType) {
+    if (statField === 'none') return null; // guard — không sắp theo thống kê
+    const spec = SORT_STAT_FIELD_SPEC[statField] || SORT_STAT_FIELD_SPEC.duration;
+    const sources = { stats: { map: mediaStatsMap, prefix: `${mediaType}:` }, cache: { map: playlistCache, prefix: '' } };
+    const { map, prefix } = sources[spec.from];
+    return new Map(keys.map((key) => [key, (map.get(prefix + key) || {})[spec.prop] || 0]));
+}
 
-    // Trục (2) — thống kê, CÙNG LÝ DO gộp thẳng thành closure cục bộ, không tách hàm riêng.
-    let getValue;
-    if (statField === 'count') getValue = (k) => (mediaStatsMap.get(`${mediaType}:${k}`) || {}).count || 0;
-    else if (statField === 'times') getValue = (k) => (mediaStatsMap.get(`${mediaType}:${k}`) || {}).totalTime || 0;
-    else if (statField === 'size') getValue = (k) => (playlistCache.get(k) || {}).size || 0;
-    else getValue = (k) => (playlistCache.get(k) || {}).duration || 0; // 'duration'
+/**
+ * Mảng MỚI đã sắp: trục (2) (nếu có, theo `statDirection`) là chính, bằng nhau thì theo hạng trục (1).
+ * @param {string[]} keys @param {Map<string, number>} nameRanks - rankKeysByName()/rankKeysByAddedAt()
+ * @param {Map<string, number>|null} statValues - collectStatSortValues() @param {'desc'|'asc'} statDirection
+ * @returns {string[]}
+ */
+function sortKeysByRank(keys, nameRanks, statValues, statDirection) {
     const desc = statDirection === 'desc';
-
     return keys.slice().sort((a, b) => {
-        const va = getValue(a); const vb = getValue(b);
+        const va = statValues ? statValues.get(a) : 0;
+        const vb = statValues ? statValues.get(b) : 0;
         const primary = desc ? vb - va : va - vb;
-        return primary !== 0 ? primary : nameCmp(a, b);
+        return primary !== 0 ? primary : nameRanks.get(a) - nameRanks.get(b);
     });
 }
 
 /**
- * MỚI (fix 03/07/2026, mục 3b yêu cầu) — bản shuffle "hiện hành", KHÔNG đụng
- * `workflowPlaylistOrder.updateShuffleArray()` (event/workflow/playlist-order.js — dùng cho mọi chỗ
- * gọi legacy: boot/thêm bài/clear storage/áp scope folder — những nơi đó LUÔN muốn shuffle TOÀN BỘ
- * top-level, đúng hành vi cũ, không liên quan section). Hàm NÀY dùng riêng cho nút Shuffle ở
- * Control Center (event/workflow/player-controls.js::toggleShuffleAndReshuffle) — nơi Shuffle phải
- * trộn ĐÚNG "hiện hành" (activeQueueKeys = displayOrder lúc đó — có thể đang là 1 section vừa
- * chọn-phát, KHÁC top-level), không phải luôn nhảy về top-level như 2 nút to "Phát"/"Trộn bài" (xem
- * event/workflow/playlist-empty-state.js, dùng top-level thật qua `workflowPlaylistOrder.
- * recomputeDisplayOrder()` + `.updateShuffleArray()`).
- *
- * QUYẾT ĐỊNH KỸ THUẬT — GIỮ TỔNG ĐỘ DÀI shuffleIndices = topLevelKeys.length (activeQueueKeys
- * luôn đứng ĐẦU, remaining nối sau) — KHÔNG rút ngắn còn mỗi activeQueueKeys, để giữ 1 mảng
- * duy nhất vừa phục vụ "hiện hành" vừa phục vụ tràn sang top-level khi cần.
- *
- * [FIX B — 13/07/2026, đã làm thật] `core/player-controls.js::playNext()`/`playPrev()` giờ
- * dùng ĐÚNG `shuffleIndices.length` làm biên (không còn `playlistOrder.length` cố định), VÀ
- * đọc `appState.sectionQueueActive` để tự giới hạn cứng trong đúng `activeQueueKeys.length`
- * đầu mảng khi có 1 section đang hiện hành — Next/Prev không còn tràn sang phần `remaining`
- * nữa. Mảng vẫn giữ NGUYÊN cấu trúc (activeQueueKeys + remaining nối sau) như thiết kế ban
- * đầu của hàm này — phần `remaining` giờ đóng vai trò lưới an toàn (nếu `sectionQueueActive`
- * lỡ lệch pha với `displayOrder` thật) hơn là "vùng sẽ tràn tới" như trước.
- *
- * Rule 1: đơn tuyến — CHỈ tính lại shuffleIndices theo 2 nhóm ưu tiên, không rẽ nhánh tiến
- * trình nào khác.
- * Rule 2: nhận activeQueueKeys/topLevelKeys/shuffleEnabled qua tham số, KHÔNG tự appState.get().
- * @param {string[]} activeQueueKeys - "hiện hành": displayOrder hiện tại (section HOẶC top-level)
- * @param {string[]} topLevelKeys - playlistOrder hiện tại (toàn bộ/theo folder, KHÔNG lọc section)
- * @param {boolean} shuffleEnabled
+ * Tính lại `shuffleIndices` theo "hiện hành": `activeQueueKeys` (displayOrder lúc đó — có thể là 1 section vừa chọn-phát)
+ * đứng đầu, phần còn lại của top-level nối sau (tổng độ dài = topLevelKeys). Shuffle bật thì trộn RIÊNG từng nhóm
+ * (Fisher-Yates) — bài top-level không chen vào giữa lúc hiện hành còn bài chưa nghe; Next/Prev giới hạn trong đúng
+ * nhóm đầu khi `sectionQueueActive`. Gọi với `activeQueueKeys = []` = trộn toàn bộ top-level.
+ * @param {string[]} activeQueueKeys @param {string[]} topLevelKeys - playlistOrder hiện tại @param {boolean} shuffleEnabled
  */
 function updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, shuffleEnabled) {
     const activeSet = new Set(activeQueueKeys);
@@ -118,14 +98,11 @@ function updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, shuffleEnabl
 
     if (shuffleEnabled) {
         appState.mutate('shuffleIndices', arr => {
-            // Trộn RIÊNG trong phạm vi activeQueueKeys.length đầu tiên...
-            for (let i = activeQueueKeys.length - 1; i > 0; i--) {
+            for (let i = activeQueueKeys.length - 1; i > 0; i--) { // nhóm hiện hành
                 const j = Math.floor(Math.random() * (i + 1));
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
-            // ...rồi trộn RIÊNG phần còn lại (remaining) — KHÔNG trộn lẫn 2 nhóm vào nhau,
-            // tránh 1 bài top-level "chen ngang" vào giữa lúc hiện hành vẫn còn bài chưa nghe.
-            for (let i = arr.length - 1; i > activeQueueKeys.length; i--) {
+            for (let i = arr.length - 1; i > activeQueueKeys.length; i--) { // phần còn lại
                 const j = activeQueueKeys.length + Math.floor(Math.random() * (i - activeQueueKeys.length + 1));
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
@@ -135,38 +112,13 @@ function updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, shuffleEnabl
 }
 
 // ===================== NEXT/PREV — bước 1 trong 1 hàng đợi =====================
-// [MỚI — plan-playmedia-reorg.md, tái tổ chức playNext()/playPrev() cũ (core/player-
-// controls.js, ĐÃ XOÁ) — chuyển từ "gộp if/else theo isShuffle" sang đúng bản chất: shuffle
-// và tuần tự KHÔNG phải 2 nghiệp vụ khác nhau, cả 2 đều là "tiến 1 bước trong 1 danh sách,
-// có xử lý chạm biên", chỉ khác NGUỒN danh sách (shuffleIndices hay displayOrder) — nguồn đó
-// do WORKFLOW chọn trước khi gọi (event/workflow/player-controls.js::goToNextTrack()/
-// goToPrevTrack()), 3 hàm dưới đây không tự biết/không cần biết list nào đang được truyền.
+// Shuffle và tuần tự cùng là "tiến 1 bước trong 1 danh sách, có xử lý chạm biên", chỉ khác nguồn danh sách
+// (shuffleIndices hay displayOrder) — Workflow chọn trước khi gọi (workflowPlayerControls.goToNextTrack()/goToPrevTrack()).
 
 /**
- * Tính chỉ số kế tiếp trong 1 danh sách (KHÔNG quan tâm list đó là shuffle hay tuần tự) theo
- * 1 hướng — thuần toán học chỉ số, tách khỏi quyết định "tại biên thì làm gì"
- * (decideBoundaryAction() ngay dưới).
- *
- * ĐỐI CHIẾU hành vi gốc (playNext()/playPrev(), core/player-controls.js bản trước reorg):
- *   - Next + shuffleIndices: biên khi `currentPos === -1 || currentPos === list.length-1`
- *   - Next + displayOrder:   biên khi `currentPos === list.length-1` (KHÔNG coi -1 riêng —
- *     nhưng do -1+1=0 nên khi ĐƯỢC wrap, kết quả trùng hệt coi -1 là biên; chỉ lệch nếu
- *     KHÔNG được wrap (dừng hẳn) VÀ currentKey không có trong displayOrder — tình huống
- *     không nên xảy ra trong luồng thật, currentKey luôn được `workflowPlayer.playMedia()`
- *     ghi khớp displayOrder/shuffleIndices trước đó)
- *   - Prev (cả 2 nguồn): biên khi `currentPos <= 0` (gồm cả -1 lẫn 0)
- * Hàm này THỐNG NHẤT coi index -1 (không tìm thấy) LÀ biên cho CẢ 4 tổ hợp — khớp CHÍNH XÁC
- * 3/4 tổ hợp gốc, lệch DUY NHẤT ở đúng tình huống hiếm đã nêu trên (next-tuần tự khi
- * currentKey lạc khỏi displayOrder, KHÔNG force, KHÔNG repeatMode=1) — ĐÃ TEST bằng bộ 98
- * tình huống (mọi vị trí biên/giữa/không-tìm-thấy × next/prev × shuffle/tuần tự ×
- * repeatMode 0/1/2 × force true/false), XÁC NHẬN đúng 94/98, 4 lệch đúng CHỈ ở tổ hợp này —
- * bản gốc "rơi" về index 0 (tác dụng phụ của phép toán -1+1=0, KHÔNG phải nhánh dừng có chủ
- * đích như shuffle), bản mới coi đây là biên rồi dừng/wrap theo decideBoundaryAction() như
- * next thường — ĐÃ BÁO Giang, xem tóm tắt cuối patch để quyết định giữ hay ép khớp tuyệt đối.
- *
- * @param {string[]} list - shuffleIndices HOẶC displayOrder, do nơi gọi tự chọn trước
- * @param {string|null} currentKey
- * @param {1|-1} direction - 1 = Next, -1 = Prev
+ * Chỉ số kế tiếp trong 1 danh sách theo 1 hướng — chỉ toán học chỉ số, quyết định tại biên ở decideBoundaryAction().
+ * Không tìm thấy `currentKey` (index -1) tính là biên cho cả Next lẫn Prev; Prev: biên khi vị trí <= 0.
+ * @param {string[]} list - shuffleIndices hoặc displayOrder @param {string|null} currentKey @param {1|-1} direction - 1 = Next, -1 = Prev
  * @returns {{index: number, atBoundary: boolean}} `index` chỉ có nghĩa khi `atBoundary===false`
  */
 function computeListStep(list, currentKey, direction) {
@@ -180,34 +132,26 @@ function computeListStep(list, currentKey, direction) {
 }
 
 /**
- * Quyết định hành động TẠI biên khi Next chạm cuối danh sách — tách khỏi việc TÍNH chỉ số
- * (computeListStep() ở trên): toán học chỉ số vs chính sách lặp lại (repeatMode) là 2 mối
- * quan tâm khác nhau. CHỈ dùng cho Next — Prev KHÔNG có khái niệm "dừng hẳn ở đầu playlist"
- * (hành vi gốc `playPrev()` CHƯA TỪNG có nhánh dừng, LUÔN wrap vô điều kiện — xem
- * `workflowPlayerControls.goToPrevTrack()`, KHÔNG gọi hàm này).
- * @param {number} repeatMode
- * @param {boolean} force
- * @returns {'wrapToStart'|'stopAtEnd'}
+ * Hành động khi Next chạm cuối danh sách (chính sách lặp lại, tách khỏi toán học chỉ số). Chỉ Next — Prev luôn wrap
+ * (workflowPlayerControls.goToPrevTrack() không gọi hàm này).
+ * @param {number} repeatMode @param {boolean} force @returns {'wrapToStart'|'stopAtEnd'}
  */
 function decideBoundaryAction(repeatMode, force) {
     return (repeatMode === 1 || force) ? 'wrapToStart' : 'stopAtEnd';
 }
 
 /**
- * Case đặc biệt CHỈ Next có — repeat-mode-2 (lặp 1 bài) mà KHÔNG force (bấm nút Next luôn
- * force=true, chỉ auto-next lúc hết bài mới force=false) -> phát lại ĐÚNG bài đang phát từ
- * đầu, không tính chỉ số gì cả, không đụng tới list nào. Giữ đúng bất đối xứng gốc — Prev
- * CHƯA TỪNG có nhánh này, KHÔNG tự thêm cho "đối xứng" giả tạo.
- * @param {number} repeatMode @param {boolean} force
- * @returns {boolean}
+ * Chỉ Next: lặp 1 bài (repeatMode 2) mà không force (bấm nút Next luôn force; chỉ auto-next lúc hết bài mới không) ->
+ * phát lại đúng bài đang phát từ đầu. Prev không có nhánh này.
+ * @param {number} repeatMode @param {boolean} force @returns {boolean}
  */
 function shouldRestartInsteadOfAdvance(repeatMode, force) {
     return !force && repeatMode === 2;
 }
 
-/** MỚI (02/10/2026, rà event-bus-flow.md mục 7 cho workflowPlaylistOrder.applyNewSongsToDisplayOrder()) — gộp 2 điều
- * kiện thành 1 giá trị trạng thái: không có bài mới -> 'resync' (chỉ đồng bộ lại nếu lệch); chưa phát gì -> 'resort'
- * (sắp lại toàn bộ ngay); đang phát -> 'append' (nối cuối + chờ resort, không làm gãy thứ tự đang nghe). Hàm THUẦN.
+/** Thêm bài mới vào hàng đợi phát (workflowPlaylistOrder.applyNewSongsToDisplayOrder()): không có bài mới -> 'resync'
+ * (chỉ đồng bộ lại nếu lệch); chưa phát gì -> 'resort' (sắp lại toàn bộ ngay); đang phát -> 'append' (nối cuối + chờ
+ * resort, không làm gãy thứ tự đang nghe).
  * @param {number} newKeyCount @param {boolean} hasCurrent @returns {'resync'|'resort'|'append'} */
 function resolveNewSongsDisplayMode(newKeyCount, hasCurrent) {
     if (newKeyCount === 0) return 'resync';
@@ -217,7 +161,7 @@ function resolveNewSongsDisplayMode(newKeyCount, hasCurrent) {
 /** Nút to "Phát" (header Playlist) — gộp các điều kiện thành 1 việc cần làm: media đang phát nằm trong danh sách đang xem
  * -> 'visualizer' (về màn Visualizer, không phát lại); đang phát 1 section con -> 'resetTopLevel'; Nguồn rỗng -> 'none';
  * còn lại -> 'play' với `key` = bài đang phát nếu cùng loại media với Nguồn đang xem (key trùng giữa các Nguồn là có
- * thật), không thì bài đầu. Hàm THUẦN.
+ * thật), không thì bài đầu.
  * @param {{isPlayingListed: boolean, sectionActive: boolean, playingMediaType: string, activeMediaSource: string,
  *          currentKey: string|null, displayOrder: string[]}} p
  * @returns {{action: 'visualizer'|'resetTopLevel'|'play'|'none', key: string|undefined}} */
@@ -229,8 +173,40 @@ function resolvePlaylistEmptyPlayAction({ isPlayingListed, sectionActive, playin
     return { action, key: resumableKey || displayOrder[0] };
 }
 
-/** Bài phát tiếp sau khi đưa hàng đợi về top-level: bài đang phát nếu còn trong hàng đợi, không thì bài đầu. Hàm THUẦN.
+/** Bài phát tiếp sau khi đưa hàng đợi về top-level: bài đang phát nếu còn trong hàng đợi, không thì bài đầu.
  * @param {string|null} currentKey @param {string[]} displayOrder @returns {string|undefined} */
 function resolveTopLevelResumeKey(currentKey, displayOrder) {
     return currentKey != null && displayOrder.includes(currentKey) ? currentKey : displayOrder[0];
+}
+
+/** Danh sách bỏ 1 key (giữ thứ tự). @param {string[]} list @param {string} key @returns {string[]} */
+function removeKeyFromList(list, key) {
+    return list.filter((k) => k !== key);
+}
+
+/** Key mới cần nối vào cuối hàng đợi phát: bỏ trùng trong `newKeys` và key đã có trong `displayOrder`.
+ * @param {string[]} displayOrder @param {string[]} newKeys @returns {string[]} */
+function pickKeysToAppend(displayOrder, newKeys) {
+    const displaySet = new Set(displayOrder);
+    return [...new Set(newKeys)].filter((k) => !displaySet.has(k));
+}
+
+/** 3 field tìm kiếm của 1 bài (chưa có cache -> chính key) + chuỗi gốc `source` để biết khi nào phải chuẩn hoá lại.
+ * @param {string} key @param {object|undefined} cached @returns {{title: string, artist: string, album: string, source: string}} */
+function resolveSearchFields(key, cached) {
+    const title = cached ? cached.tag.title : key;
+    const artist = cached ? cached.tag.artist : '';
+    const album = cached ? cached.tag.album : '';
+    return { title, artist, album, source: `${title}\n${artist}\n${album}` };
+}
+
+/** Nối 3 field đã chuẩn hoá bằng '\n' — query 1 dòng không khớp vắt qua 2 field. @param {string[]} normalizedFields @returns {string} */
+function joinSearchText(normalizedFields) {
+    return normalizedFields.join('\n');
+}
+
+/** Lọc key theo query đã chuẩn hoá: khớp nếu query nằm trong chuỗi tìm kiếm của bài.
+ * @param {string[]} keys @param {string[]} searchTexts - cùng chỉ số với `keys` @param {string} query @returns {string[]} */
+function filterKeysBySearchText(keys, searchTexts, query) {
+    return keys.filter((key, i) => searchTexts[i].includes(query));
 }
