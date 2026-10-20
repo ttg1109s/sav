@@ -50,21 +50,24 @@ function updateCanvasVisibility(canvasEl, webglCanvasEl, isVisualOff) {
     }
 }
 
-/** Màu phần đã phát của thanh tiến trình theo effect đang chạy (resolveEffectConfig(), core/custom-effect.js).
- * @param {{mode: string, solidColor: string, dynB: string}} ec @returns {string} */
+/** Màu phần đã phát của thanh tiến trình theo effect đang chạy (resolveEffectConfig(), core/custom-effect.js). Gradient có bảng
+ * 7 màu tuỳ chỉnh -> màu đầu bảng. @param {{mode: string, solidColor: string, dynB: string, gradientPalette: string[]}} ec
+ * @returns {string} */
 function computeProgressBarFillColor(ec) {
-    return ec.mode === 'solid' ? ec.solidColor : (ec.mode === 'dynamic' ? ec.dynB : '#38bdf8');
+    const gradientColor = ec.gradientPaletteRgb ? ec.gradientPalette[0] : '#38bdf8';
+    return ec.mode === 'solid' ? ec.solidColor : (ec.mode === 'dynamic' ? ec.dynB : gradientColor);
 }
 
-/** Đặt màu thanh tiến trình (biến CSS — updateProgressBarCSS() dùng lại mỗi lần vẽ). */
-function setProgressBarFillColor(progressBarEl, color) {
-    progressBarEl.style.setProperty('--progress-fill', color);
+/** Đặt màu nhấn của Bottom Player (biến CSS `--progress-fill` — track, nút kéo, quầng nút Play; sliders.css + player-control.css).
+ * @param {HTMLElement} playerEl - #player-container @param {string} color */
+function setProgressBarFillColor(playerEl, color) {
+    playerEl.style.setProperty('--progress-fill', color);
 }
 
-/** Vẽ phần đã phát của thanh tiến trình theo giá trị hiện tại (màu từ setProgressBarFillColor()). */
+/** Phần đã phát của thanh tiến trình theo giá trị hiện tại (biến `--progress-pct`, track vẽ ở sliders.css). */
 function updateProgressBarCSS() {
     const percentage = (progressBar.value / (progressBar.max || 100)) * 100;
-    progressBar.style.background = `linear-gradient(to right, var(--progress-fill, #38bdf8) 0%, var(--progress-fill, #38bdf8) ${percentage}%, rgba(255,255,255,0.2) ${percentage}%, rgba(255,255,255,0.2) 100%)`;
+    progressBar.style.setProperty('--progress-pct', `${percentage}%`);
 }
 
 /** Giá trị các toggle panel "Display" (components/settings/visualizer-display-panel.js). Thiếu field = bật.

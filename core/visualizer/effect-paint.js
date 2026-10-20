@@ -29,6 +29,19 @@ function getComputedColor(i, totalLength, dataValue) {
     else if (ec.mode === 'gradient') {
         let baseHue = (audioAnalysis.hueOffset() + (i / totalLength) * 240) % 360; // SỬA 01/10/2026: globalHueOffset dời vào service/audio-analysis.js (hot path miễn trừ — vẫn tự đọc như trước)
         let finalHue = (baseHue + (dataValue / 255) * 80) % 360;
+        // Bảng 7 màu tuỳ chỉnh (resolveEffectConfig(), core/custom-effect.js): cùng trục hue, nội suy 2 màu kề nhau trên vòng 7
+        // màu; tối hơn khi dataValue nhỏ (như lightness 40->70% của bản HSL), quầng sáng pha 35% trắng. Cùng 3 field kết quả.
+        const pal = ec.gradientPaletteRgb;
+        if (pal) {
+            const pos = ((((finalHue % 360) + 360) % 360) / 360) * pal.length;
+            const k = Math.floor(pos) % pal.length;
+            const f = pos - Math.floor(pos);
+            const a = pal[k], b = pal[(k + 1) % pal.length];
+            const shade = 0.7 + (dataValue / 255) * 0.3;
+            const r = Math.round((a.r + (b.r - a.r) * f) * shade), g = Math.round((a.g + (b.g - a.g) * f) * shade), bl = Math.round((a.b + (b.b - a.b) * f) * shade);
+            const glow = `rgb(${Math.round(r + (255 - r) * 0.35)}, ${Math.round(g + (255 - g) * 0.35)}, ${Math.round(bl + (255 - bl) * 0.35)})`;
+            return { fill: `rgba(${r}, ${g}, ${bl}, 0.9)`, fillNoAlpha: `rgb(${r}, ${g}, ${bl})`, glow };
+        }
         // FIX (16/09/2026, Giang báo "THREE.Color: Unknown color hsla(...)"): saturation/
         // lightness PHẢI là số nguyên — parser hsl()/hsla() của THREE.Color (r128) chỉ nhận
         // %-value dạng \d+ (không hỗ trợ thập phân), trong khi hue thì hỗ trợ thập phân bình
