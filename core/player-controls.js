@@ -196,10 +196,10 @@
             return img.decode().then(() => 'decoded', () => 'error');
         }
 
-        /** Nhãn tên bài + nghệ sĩ trên Bottom Player. @param {string} title @param {string} artist */
-        function setPlayerTrackLabels(title, artist) {
+        /** Nhãn Bottom Player — chuỗi rỗng thì ô đó tự ẩn (CSS `:empty`). @param {string} title @param {string} artist @param {string} album */
+        function setPlayerTrackLabels(title, artist, album) {
             playerTitle.textContent = title;
-            playerArtist.textContent = artist;
+            playerArtist.textContent = artist; playerAlbum.textContent = album;
         }
 
         /** Thông tin media trên thông báo/màn khoá (Media Session); trình duyệt không hỗ trợ thì bỏ qua.
@@ -560,4 +560,12 @@
 
         function handleProgressBarSeeking(value) {
             appState.set('isSeeking', true); currentTimeDisplay.textContent = formatTime(value); updateProgressBarCSS();
+        }
+
+        /** Nhãn Bottom Player của 1 Song từ tag: nghệ sĩ là chuỗi thay thế lúc thiếu tag ("Unknown artist"…) coi như không có.
+         * @param {{title?: string, artist?: string, album?: string}} tag @param {string[]} placeholderArtists
+         * @returns {{title: string, artist: string, album: string}} */
+        function resolveSongTrackLabels(tag, placeholderArtists) {
+            const artist = (tag.artist || '').trim();
+            return { title: tag.title || '', artist: placeholderArtists.includes(artist) ? '' : artist, album: (tag.album || '').trim() };
         }

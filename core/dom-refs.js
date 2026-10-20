@@ -113,7 +113,7 @@
         const progressBar = document.getElementById('progress-bar');
         const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (ảnh không hỗ trợ kéo tay tuỳ ý) — core/photo-player.js
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
-        const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist');
+        const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist'), playerAlbum = document.getElementById('player-album');
         const recordContainer = document.getElementById('record-container'); // khung bìa trong nút Play (#record-art dựng lại mỗi lần đổi media)
         const statBpm = document.getElementById('stat-bpm'), statNote = document.getElementById('stat-note'), statEnergy = document.getElementById('stat-energy');
         // Dải BPM/Pitch/Energy — toggle ẩn/hiện giờ nằm ở Settings (checkbox), xem

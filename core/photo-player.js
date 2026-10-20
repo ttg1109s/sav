@@ -78,10 +78,10 @@ function computePhotoPlayerSurfaceTiming(durationSec, surfaceHasContent, transit
     return { pointMoveDurationMs, advanceMs: pointMoveDurationMs + transitionMs };
 }
 
-/** Tên + Media Session của ảnh đang phát (Photo không có artist). @param {string} title */
-function applyPhotoPlayerTrackInfo(title) {
+/** Tên + album + Media Session của ảnh đang phát (Photo không có artist). @param {string} title @param {string} album */
+function applyPhotoPlayerTrackInfo(title, album) {
     playerTitle.textContent = title;
-    playerArtist.textContent = '';
+    playerArtist.textContent = ''; playerAlbum.textContent = album;
     if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: '', artwork: [] });
 }
 
