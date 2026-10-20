@@ -119,7 +119,7 @@ const SCAN_VERDICT_BY_KEPT = {
 
 /** Ảnh thumb giải mã được -> đo khung bằng đúng hàm lúc upload (cùng ngưỡng đen). */
 const THUMB_PROBE_BY_DECODED = {
-    true: (img) => classifyThumbProbe(workflowPlaylist._probeVideoFrame(img)), // core/storage-manager.js + event/workflow/playlist.js
+    true: (img) => classifyThumbProbe(workflowVideoThumbExtract.probeFrame(img)), // core/storage-manager.js + event/workflow/video-thumb-extract.js
     false: () => 'undecodable',
 };
 
@@ -438,7 +438,7 @@ const workflowFileManagerStorage = {
         const record = await getVideoRecord(key); // service/db.js
         if (precheckMediaRecordBlob(record)) return false; // core/storage-manager.js — thiếu blob
         try {
-            const { thumbBlob, thumbFullBlob, thumbFullIsBlack } = await workflowPlaylist.extractVideoThumbAndMeta(record.blob); // event/workflow/playlist.js
+            const { thumbBlob, thumbFullBlob, thumbFullIsBlack } = await workflowVideoThumbExtract.extract(record.blob); // event/workflow/video-thumb-extract.js
             await setVideoThumbnails(key, thumbBlob, thumbFullBlob, thumbFullIsBlack); // core/file-manager/video.js — đen thật thì lần quét sau bỏ qua
             eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced', payload: { type: 'video', key } }); // video đang dùng thì tự làm tươi ảnh
             return true;

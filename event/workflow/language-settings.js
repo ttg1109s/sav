@@ -34,7 +34,7 @@ const workflowLanguageSettings = {
     askDeleteLanguage(payload) {
         const { name, onConfirmSend } = payload;
         modalChoice(
-            tFormat('settingsLanguage.delete.confirm', { name }),
+            tFormat('settingsLanguage.delete.confirm', { name: escapeHtml(name) }), // core/modal-choice-ui.js — tên lấy từ gói ngôn ngữ nạp vào
             [
                 { label: t('settingsLanguage.delete.label'), className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnDestructiveBg btnDestructiveHoverBg textOnAccent', onClick: onConfirmSend }
             ],

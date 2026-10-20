@@ -1,8 +1,7 @@
 /**
  * event/workflow/video-thumb-extract.js — Workflow DÙNG CHUNG đọc kích thước/thời lượng + chụp 2 thumbnail của 1 file
  * video (khung đầu full-res + thumb vuông). File riêng (không nằm trong playlist.js) vì trang video-editor.html cần
- * đúng hàm này lúc Lưu nhưng không nạp được cả workflowPlaylist. Public: `extract(file)`, `probeFrame(source)`
- * (workflowPlaylist.extractVideoThumbAndMeta()/_probeVideoFrame() gọi sang đây).
+ * đúng hàm này lúc Lưu nhưng không nạp được cả workflowPlaylist. Public: `extract(file)`, `probeFrame(source)`.
  * Dùng ở: index.html (upload video, Scan & fix video thumbnails) + video-editor.html (Lưu).
  *
  * `<video>` tạm + sự kiện của nó đi qua core/dynamic-object-ui.js (ngoại lệ chính thức — đối tượng tạo động).
@@ -57,7 +56,7 @@ const workflowVideoThumbExtract = {
     },
 
     /** Vẽ khung hình HIỆN TẠI của `source` (`<video>`, hoặc `<img>` đã decode — dùng cho scan thumb cũ,
-     * xem workflowFileManagerStorage._classifyThumbBlob(), qua workflowPlaylist._probeVideoFrame()) xuống canvas nhỏ rồi đo. `drawn=false` khi không vẽ được gì
+     * xem workflowFileManagerStorage._classifyThumbBlob()) xuống canvas nhỏ rồi đo. `drawn=false` khi không vẽ được gì
      * (drawImage ném lỗi, hoặc mọi pixel alpha=0 — theo spec `drawImage()` không vẽ gì nếu video chưa có
      * khung); `isBlack=true` khi ≥ VIDEO_BLACK_FRAME_RATIO số pixel có luma ≤ VIDEO_BLACK_PIXEL_LUMA.
      * Không đọc được pixel (getImageData lỗi) -> coi như vẽ được + không đen (không đủ dữ kiện để từ chối). */
@@ -115,7 +114,7 @@ const workflowVideoThumbExtract = {
         });
     },
 
-    /** KHUNG ĐẦU TIÊN của video — đúng thứ player sẽ hiện lúc bắt đầu phát (xem docstring extractVideoThumbAndMeta()).
+    /** KHUNG ĐẦU TIÊN của video — đúng thứ player sẽ hiện lúc bắt đầu phát (xem docstring extract()).
      * Đường chính: `requestVideoFrameCallback` — play() từ t=0 (không seek), callback bắn khi khung đầu THẬT SỰ
      * được present; chụp NGAY trong callback rồi pause(). Khung có `mediaTime` > VIDEO_FIRST_FRAME_MAX_MEDIA_TIME_SEC
      * không còn là khung đầu -> bỏ. Đường dự phòng (không có rVFC / hết giờ / khung không vẽ được hoặc đen):
