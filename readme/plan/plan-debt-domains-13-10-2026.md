@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
 Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
-(sau đợt 19a): **538 FAIL / 63 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+(sau đợt 19b): **509 FAIL / 60 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -91,7 +91,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 16 ✓ | 3 | Config | `core/config.js` | 32 | đã xong | R3a 11 · R3b 16 · TM-core 2 |
 | 17a/17b ✓ | 3 | Storage + Zip | 17a: `core/storage-manager.js`, `event/workflow/file-manager-storage.js` · 17b: `core/streaming-zip.js`, `event/workflow/zip-download.js`, `core/video-editor/opfs-temp.js` | 60 | đã xong | R3a 19 · R5a 10 · Timer 8 · R3b 6 |
 | 18a ✓ /b ✓ /c ✓ | 4 | Playlist | 18a ✓ core: `core/playlist/{actions,main,loader,render,selection}.js`, `core/{song-search,upload-validation}.js` · 18b ✓: `event/workflow/{playlist-render,playlist-order,playlist-scope}.js` · 18c ✓: `event/workflow/playlist.js` (upload / xoá-xuất / còn lại) | 96 (+1 rAF) — 18a xong 39, 1 dời 19a; 18b xong 22; 18c xong 34 | 565 | WF-get 27 · R3a 19 · WF-DOM 15 · R2 7 · R3b 7 |
-| 19a ✓ /19b | 4 | Player / điều khiển phát | 19a ✓: `core/player-controls.js`, `event/listener/video-player.js` · 19b: `event/workflow/{player,player-controls,media-in-use}.js` | 62 (+1 từ 18a) — 19a xong 31 | 503 | R3a 13 · WF-§7 12 · R2 9 · WF-get 9 · L-đọcState 5 |
+| 19a ✓ /19b ✓ | 4 | Player / điều khiển phát | 19a ✓: `core/player-controls.js`, `event/listener/video-player.js` · 19b ✓: `event/workflow/{player,player-controls,media-in-use}.js` | 62 (+1 từ 18a) — 19a xong 31, 19b xong 29 | 503 | R3a 13 · WF-§7 12 · R2 9 · WF-get 9 · L-đọcState 5 |
 | 20 | 4 | Video Player | `core/video-player.js`, `event/workflow/{video-player,video-motion-surface,video-frame-capture,video-thumb-extract}.js` | 52 (+4 rAF) | 451 | WF-DOM 16 · WF-media 10 · WF-§7 7 |
 | 21a/21b | 4 | Visual Background | 21a: `core/visual-bg-common.js`, `event/workflow/visual-bg-common.js`, `event/listener/visual-bg.js` · 21b: `event/workflow/visual-bg-{video,photo,photo-motion}.js` | 67 | 384 | WF-DOM 24 · WF-§7 20 · WF-tính 7 |
 | 22a/22b | 4 | Motion | 22a: `core/motion-presets.js`, `event/workflow/motion-presets.js` · 22b: 3 runner `event/workflow/motion-*-runner.js` | 56 | 328 | WF-DOM 22 · R3a 21 · WF-tính 11 |
@@ -102,7 +102,7 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 
 Còn 565 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18a, 18b, 18c; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3; đợt 26 +1 dòng `number-countup.js` mode `'interval'` phát hiện ở đợt 14; đợt 19a +1 dòng `handlePlaybackError` dời từ 18a). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
 
-20/10/2026 (ngoài đợt — Cut MP3 · Bottom Player · bảng 7 màu): −17 dòng → **548 FAIL**; phần màu effect của 23a đã làm (xoá `getActiveEffectConfig()`, `effect-paint.js` sạch) — xem sổ, mục Tổng quan. Cùng ngày rà lại mục 5 theo phán quyết "khác thuật toán = khác tiến trình" + ghi lamejs: +21 → 569. Đợt 19a: −31 → **538 FAIL**.
+20/10/2026 (ngoài đợt — Cut MP3 · Bottom Player · bảng 7 màu): −17 dòng → **548 FAIL**; phần màu effect của 23a đã làm (xoá `getActiveEffectConfig()`, `effect-paint.js` sạch) — xem sổ, mục Tổng quan. Cùng ngày rà lại mục 5 theo phán quyết "khác thuật toán = khác tiến trình" + ghi lamejs: +21 → 569. Đợt 19a: −31 → 538; đợt 19b: −29 → **509 FAIL**.
 
 ### Ghi chú theo đợt
 
@@ -149,10 +149,7 @@ Còn 565 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 
   `workflowSettingsMisc`; boot phải chạy với config cũ, hỏng, thiếu field.
 - **17a** — `file-manager-storage.js`: `clearAllStoredData`, `executeScanBroken`, 3 hàm `execute*Broken`, `_runStorageActionForSource` (K2/K3, chọn hàm theo Nguồn -> map theo `mediaType`); core `video.js`/`image.js` còn tự đọc DB (`computeVideoStats`/`computeImageStats` -> Workflow đọc cả lô bằng `getAll*Records()`, core chỉ cộng).
 - **18c ✓** — Xong 20/10/2026: `event/workflow/playlist.js` chỉ còn chuẩn bị + điều phối (xoá/sửa/upload/xuất/Nguồn/cấu hình); tính toán ở core thuần (`core/playlist/{actions,loader,main,order,bulk-actions}.js`, `core/file-manager/folder.js`), markup tab Chi tiết + danh sách lỗi upload ở components/playlist-view.js. Kèm **sửa XSS** (HTML trong tag mp3/tên file/lý do lỗi/tên gói ngôn ngữ/phụ đề chạy trong modal hoặc DOM). Core MỚI `setMediaSessionMetadata()` (core/player-controls.js) — `workflowPlayer`/`workflowVideoPlayer`/`core/photo-player.js` còn tự ghi `navigator.mediaSession.metadata`, chuyển sang hàm này khi dọn miền chứa nó (19b, 20; `photo-player.js` khi đụng tới). Chi tiết: sổ, mục 1.
-- **19b** — `goToNextTrack()`/`restartCurrentTrack()` còn dùng "media giả" Photo (`PHOTO_PLAYER_CLOCK_MEDIA` — repeat-one,
-  dừng ở cuối playlist, icon "Phát lại"): khi tách map theo loại media, gọi thẳng `workflowPhotoPlayer.seekClock()/setPaused()`
-  rồi xoá media giả + `resolveActiveMedia()` (Giang chốt 14/10: nợ 2 method này dọn đúng đợt 19b).
-  `player.js::playMedia()` là cổng phát duy nhất: phân luồng theo loại media (map theo `mediaType` + K4 cho "đang Photo mode mà bài không phải ảnh"), "cùng key = bật/tắt" giữ 1 nhánh map riêng, dọn object URL cũ (K6), bước tuỳ chọn (Game gate, mediaSession, báo VBG…). **Thứ tự các bước giữ nguyên tuyệt đối** (đã có bug lịch sử do đổi thứ tự). `player-controls.js::runGatedSeek`: mỗi lối `abort → return false` là guard, giữ; chỉ tách nhánh Song / không Song + bước phát lại theo `shouldPlay`. `goToNextTrack`/`goToPrevTrack`: K3.
+- **19b ✓** — Xong 20/10/2026: 3 Workflow chỉ còn chuẩn bị + điều phối. Next/Prev/Phát lại/Play rẽ bằng map theo core thuần (`resolveNextTrackAction`/`resolveWrapQueueMode`/`resolveWrapKey`, core/playlist/order.js); Photo đi thẳng `seekClock()/setPaused()`, xoá media giả + `resolveActiveMedia()`. Cổng seek: lối huỷ giữa chừng qua `_isSeekGateInterrupted()` + `resolveSeekGateStatus()`, play() cuối cổng tách `_resumePlaybackAfterGate()`, media/gain qua core. `playMedia()`: map theo loại item, luồng Song tách 6 method, thứ tự bước giữ nguyên; K6; Media Session qua `setMediaSessionMetadata()`. `workflowMediaInUse`: `computeMediaInUse()` + ghi `cover` qua `mutate`. Nơi gọi khác chỉ đổi theo API (`recomputeDisplayOrder()` trả displayOrder, `mountRecordArt()` trả phần tử). Chi tiết: sổ, mục 1.
 - **20** — `swapBgVideoSource`: K6 cho 3 URL; mỗi hook/cờ (`onLayerBFilled`/`runTransition`, `isTransition`/`isSurfaceEntry`/`hideVideoUntilReady`/`skipAutoplay`) 1 method có guard, gọi đúng thứ tự cũ; "transition hook có / không" -> K3. `playVideoByKey`, `showStaticBgThumb`, `clearBgVideoSource`, `startFromPlaylist`: K2/K3.
 - **21a** — Dead code ghi từ đợt 19a: 4 key lang `visualBgSettingsDrawer.{blockedDeleteInUse,blockedByVideoPlaying,blockedByVisualBgOn,keptDeleteInUse}` (lang/patch/patch-subtitle-settings.js, block VBG đã gỡ) — xoá cùng đợt. `visual-bg-common.js::loadPersistedSettingsOnBoot` gần như toàn K5 -> core thuần `sanitizeVisualBgConfig(saved, defaults)`; `_tickGradientMovement` là hot path (K8). Test boot với config VBG cũ/hỏng/thiếu field.
 - **18–22** — Giữ yêu cầu "không đổi hành vi"; mỗi lượt test máy đủ Next/Prev/auto-next cả 3 loại media, seek khi đang phát/dừng, khoá màn hình + Media Session.
@@ -216,6 +213,7 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 | 18b ✓ — Playlist render / order / scope (+ sortKeysByMode, 1 bug escape tên) | Xong 20/10/2026 (`sav-14-debt-wave18b-patch.zip`, áp SAU patch đợt 18a), chờ test máy — 621 → 599 |
 | 18c ✓ — `event/workflow/playlist.js` (+ XSS tag mp3 / tên file / phụ đề) | Xong 20/10/2026 (`sav-14-debt-wave18c-patch.zip`, áp SAU patch đợt 18b), chờ test máy — 599 → 565 |
 | 19a ✓ — `core/player-controls.js` · Listener Video Player | Xong 20/10/2026 (`sav-14-debt-wave19a-patch.zip`, áp lên bản sav-14-clear-debt hiện tại), chờ test máy — 569 → 538 |
-| Còn lại 19b–26 | Chưa làm |
+| 19b ✓ — `event/workflow/{player,player-controls,media-in-use}.js` (+ xoá media giả Photo) | Xong 20/10/2026 (`sav-14-debt-wave19b-patch.zip`, áp SAU patch đợt 19a), chờ test máy — 538 → 509 |
+| Còn lại 20–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
