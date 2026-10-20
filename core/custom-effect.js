@@ -325,7 +325,7 @@ const CUSTOM_EFFECT_FIELDS = {
  *     vẫn được đọc. */
 const CUSTOM_EFFECT_COLOR_FIELDS = ['mode', 'solidColor', 'dynA', 'dynB', 'gradientPalette'];
 
-/** Bảng 7 màu của mode 'gradient' (music-driven) — `gradientPalette` rỗng = màu mặc định (dải hue liên tục, getComputedColor(),
+/** Bảng 7 màu của mode 'gradient' (music-driven) — `gradientPalette` rỗng = màu mặc định (dải hue liên tục, computeGradientHslEffectColor(),
  * core/visualizer/effect-paint.js); đủ 7 màu = nội suy lần lượt 7 màu này trên cùng trục hue. Ô màu ở Drawer hiện bảng dưới khi
  * chưa tuỳ chỉnh; sửa 1 ô thì 6 ô còn lại lấy đúng giá trị đang hiện. */
 const CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE = 7;
@@ -358,13 +358,6 @@ function resolveEffectConfig(customEffect, type) {
         ? palette.map((c) => ({ r: parseInt(c.slice(1, 3), 16), g: parseInt(c.slice(3, 5), 16), b: parseInt(c.slice(5, 7), 16) }))
         : null;
     return merged;
-}
-
-/** Config effect ĐANG CHẠY (cfg.type) — còn dùng bởi core vẽ (core/visualizer/effect-paint.js, visualizer-display.js)
- * và 2 Workflow; nợ Rule 3a/3b gỡ cùng các core đó (đợt 23a). */
-function getActiveEffectConfig() {
-    const cfg = appConfigViz.getAll();
-    return resolveEffectConfig(cfg.customEffect, cfg.type);
 }
 
 /** Field `field` của effect `type` lưu RIÊNG theo style đang chọn (`byStyle[style]`) hay chung cả group.
@@ -415,6 +408,18 @@ function replaceGradientPaletteColor(palette, index, hex) {
     if (!Number.isInteger(index) || index < 0 || index >= CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE) return null;
     const base = palette.length === CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE ? palette : CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE;
     return base.map((c, i) => (i === index ? hex.toLowerCase() : c));
+}
+
+/** Giá trị hiển thị hàng "Bảng 7 màu" ở Drawer — chưa tuỳ chỉnh thì hiện CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE.
+ * @param {string[]} palette - gradientPalette (resolveEffectConfig() đã chuẩn hoá: rỗng hoặc đủ 7 màu)
+ * @returns {{colors:string[], isCustom:boolean, statusKey:string}} */
+function computeGradientPaletteView(palette) {
+    const isCustom = palette.length === CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE;
+    return {
+        colors: isCustom ? palette : CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE,
+        isCustom,
+        statusKey: isCustom ? 'customEffectDrawer.gradientPalette.statusCustom' : 'customEffectDrawer.gradientPalette.statusDefault',
+    };
 }
 
 /** Ô màu solid: đủ dạng #RRGGBB chưa (ô chữ gõ dở thì chưa áp). @param {string} value @returns {boolean} */

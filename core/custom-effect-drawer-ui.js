@@ -20,10 +20,15 @@ function syncCustomEffectColorModeRows(bodyEl, mode) {
     });
 }
 
-/** Bảng 7 màu vừa được tuỳ chỉnh: bật nút Reset + đổi dòng trạng thái. @param {HTMLElement} bodyEl @param {string} statusText */
-function markCustomEffectGradientPaletteCustom(bodyEl, statusText) {
+/** Điền hàng "Bảng 7 màu": màu 7 ô (trừ ô đang được chạm), dòng trạng thái, nút Reset bật khi đã tuỳ chỉnh.
+ * @param {HTMLElement} bodyEl @param {{colors:string[], isCustom:boolean}} view - computeGradientPaletteView() @param {string} statusText */
+function fillCustomEffectGradientPaletteUi(bodyEl, view, statusText) {
+    bodyEl.querySelectorAll('[data-ce-palette-index]').forEach((input) => {
+        const color = view.colors[Number(input.dataset.cePaletteIndex)];
+        if (color && document.activeElement !== input) input.value = color;
+    });
     const resetBtn = bodyEl.querySelector('#ce-gradient-palette-reset');
-    if (resetBtn) { resetBtn.disabled = false; resetBtn.classList.remove('opacity-40'); }
+    if (resetBtn) { resetBtn.disabled = !view.isCustom; resetBtn.classList.toggle('opacity-40', !view.isCustom); }
     const statusEl = bodyEl.querySelector('#ce-gradient-palette-status');
     if (statusEl) statusEl.textContent = statusText;
 }

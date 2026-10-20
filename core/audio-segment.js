@@ -1,6 +1,6 @@
 /**
- * core/audio-segment.js — Core THUẦN xử lý 1 ĐOẠN audio PCM đã giải mã sẵn (gộp mono, cắt đoạn,
- * tính peaks để vẽ waveform, đóng gói WAV PCM 16-bit) — tuân Rule 1-5 (core-function-conventions.md).
+ * core/audio-segment.js — Core xử lý audio của Subtitle Editor: giải mã Blob audio qua AudioContext tạm (`decodeAudioArrayBuffer`)
+ * và các hàm THUẦN trên PCM đã giải mã (gộp mono, cắt đoạn, peaks để vẽ waveform, đóng gói WAV PCM 16-bit).
  *
  * MỚI (30/09/2026, Giang báo "mini waveform ở kr subtitle không load được" + "play của word chỉ
  * được play ở mini waveform"). Nguyên tắc "tua vít": file này CHỈ là cơ chế — không biết ai dùng
@@ -86,4 +86,23 @@ function encodeMonoWavPcm16(samples, sampleRate) {
         offset += 2;
     }
     return buffer;
+}
+
+/** Giải mã 1 file audio ở `sampleRate` (WebView cũ không nhận option -> sample rate mặc định của máy). AudioContext tạm do
+ * chính hàm tạo và đóng ngay khi xong (kể cả lỗi); `decodeAudioData` dạng callback cho Safari cũ, dạng Promise cho bản mới.
+ * Lỗi giải mã / không có Web Audio -> reject. @param {ArrayBuffer} arrayBuffer @param {number} sampleRate
+ * @returns {Promise<AudioBuffer>} */
+async function decodeAudioArrayBuffer(arrayBuffer, sampleRate) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) throw new Error('Trình duyệt không có Web Audio API.');
+    let ctx;
+    try { ctx = new Ctx({ sampleRate }); } catch (e) { ctx = new Ctx(); }
+    try {
+        return await new Promise((resolve, reject) => {
+            const maybePromise = ctx.decodeAudioData(arrayBuffer, resolve, reject);
+            if (maybePromise && typeof maybePromise.then === 'function') maybePromise.then(resolve, reject);
+        });
+    } finally {
+        if (typeof ctx.close === 'function') ctx.close().catch(() => {});
+    }
 }

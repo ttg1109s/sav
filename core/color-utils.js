@@ -22,6 +22,12 @@
             return `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
         }
 
+        /** Nội suy 2 màu {r,g,b} theo `factor` (0-1) -> {r,g,b} (không làm tròn). @param {{r:number,g:number,b:number}} a
+         * @param {{r:number,g:number,b:number}} b @param {number} factor @returns {{r:number,g:number,b:number}} */
+        function interpolateRgb(a, b, factor) {
+            return { r: a.r + (b.r - a.r) * factor, g: a.g + (b.g - a.g) * factor, b: a.b + (b.b - a.b) * factor };
+        }
+
         /** Sơn `#visualizer-solid-bg` (nền màu màn Visualizer, chủ sở hữu duy nhất). Video VBG đang che kín (toggle tổng bật,
          * type video, còn ≥1 item sống) -> ép đen; còn lại gradient hoặc màu đặc theo `colorMode` (gradient đi `background-image`).
          * @param {object} cfg visualBgConfig @param {string} gradientCss buildVisualBgGradientCss() của cfg (Workflow tính sẵn) */

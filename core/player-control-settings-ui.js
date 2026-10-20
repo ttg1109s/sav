@@ -15,8 +15,9 @@ function wirePlayerControlSettings(rootEl) {
 }
 
 /**
- * Vá TẠI CHỖ (không dựng lại — gọi được lúc đang kéo slider): nút kiểu nền đang chọn, số %, slider (trừ khi đang được chạm),
- * ẩn/hiện hàng độ đục, khung xem trước. Trả phần tử cụm để Workflow áp lại UI theme cho `data-uitk` vừa đổi; không có cụm -> null.
+ * Vá TẠI CHỖ (không dựng lại — gọi được lúc đang kéo slider; cũng là bước điền slot ngay sau khi dựng): nút kiểu nền đang
+ * chọn, số %, slider (trừ khi đang được chạm), ẩn/hiện hàng độ đục, khung xem trước (kiểu nền, độ đục, màu effect). Trả phần
+ * tử cụm để Workflow áp lại UI theme cho `data-uitk` vừa đổi; không có cụm -> null.
  * @param {HTMLElement} rootEl @param {ReturnType<typeof computePlayerControlView>} view @returns {HTMLElement|null}
  */
 function patchPlayerControlSettings(rootEl, view) {
@@ -34,10 +35,12 @@ function patchPlayerControlSettings(rootEl, view) {
     if (input && document.activeElement !== input && Number(input.value) !== view.opacityPct) input.value = String(view.opacityPct);
     const opacityRow = cluster.querySelector('#player-control-opacity-row');
     if (opacityRow) opacityRow.classList.toggle('hidden', !view.showOpacity);
-    const preview = cluster.querySelector('[data-pc-preview-surface]');
-    if (preview) {
-        preview.dataset.pcStyle = view.style;
-        preview.style.setProperty('--pc-alpha', String(view.alpha));
+    const preview = cluster.querySelector('[data-pc-preview]');
+    if (preview) preview.style.setProperty('--progress-fill', view.accentColor);
+    const surface = cluster.querySelector('[data-pc-preview-surface]');
+    if (surface) {
+        surface.dataset.pcStyle = view.style;
+        surface.style.setProperty('--pc-alpha', String(view.alpha));
     }
     return cluster;
 }

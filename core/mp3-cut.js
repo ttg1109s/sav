@@ -188,3 +188,9 @@ function encodeMp3FromPcm16(pcm) {
     if (tail.length > 0) chunks.push(tail);
     return chunks;
 }
+
+/** Tên file của đoạn cắt: "<tên bài> [cut <đầu> - <cuối>].mp3", thay `:`/`,` (không hợp lệ trên 1 số hệ file) bằng `-`.
+ * @param {string} baseTitle @param {string} startStr - secToStr() @param {string} endStr @returns {string} */
+function buildCutMp3FileName(baseTitle, startStr, endStr) {
+    return `${baseTitle} [cut ${startStr} - ${endStr}].mp3`.replace(/[:,]/g, '-');
+}

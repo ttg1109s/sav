@@ -1,5 +1,5 @@
 /**
- * Tính màu sắc theo dữ liệu tần số (getComputedColor) & cập nhật bảng thống kê BPM / Pitch / Energy.
+ * Cập nhật bảng thống kê BPM / Pitch / Energy.
  *
  * [SỬA — 01/10/2026] Các số liệu chung (beatScale/smoothedEnergy/energy/flux/beat/BPM) nay tính trên phổ PHÂN TÍCH cố định
  * (`analysisSpectrumArray`, analyserPitch FFT 2048) thay vì phổ vẽ `vizDataArray` (fftSize đổi theo effect) — cùng 1 bài
@@ -51,9 +51,6 @@
             if (!isPlaying) return current;
             return (current + 0.5 + (beatScale * 5)) % 360;
         }
-
-        // (getComputedColor() / getActiveBlurMult() — DỜI 01/10/2026 sang core/visualizer/effect-paint.js: tính màu/blur của
-        // effect, không phải phân tích audio.)
 
         // (detectMusicTransition() / isPhraseBoundary() — DỜI 01/10/2026 sang core/visualizer/beat-window.js: phân tích cấu
         // trúc nhạc trên lịch sử flux theo beat mà effect/Game TỰ tích luỹ — task phân tích không dùng.)

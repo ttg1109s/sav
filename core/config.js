@@ -18,7 +18,7 @@
 
         /**
          * Custom Effect: key = group (khớp cfg.type: bar/lighting/rain/shape/vortex/connector), mỗi group mang bộ config riêng.
-         * 4 field màu (mode/solidColor/dynA/dynB) có ở mọi group (getComputedColor(), core/audio-analysis.js); blur chỉ ở group
+         * 5 field màu (mode/solidColor/dynA/dynB/gradientPalette) có ở mọi group (luật màu: core/visualizer/effect-paint.js); blur chỉ ở group
          * thật sự đọc nó (CUSTOM_EFFECT_NO_BLUR, core/custom-effect.js). Style con đang chọn lưu ở field riêng của group
          * (GROUP_STYLE_FIELD); field nhiều style cùng dùng lưu riêng theo style trong `byStyle[style]` — giá trị dưới đây là
          * mặc định (CUSTOM_EFFECT_PER_STYLE_FIELDS + resolveEffectConfig(), core/custom-effect.js).
