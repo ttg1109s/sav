@@ -1,145 +1,39 @@
 /**
- * Component: Playlist View (màn hình danh sách bài hát)
- * Biến này chứa chuỗi HTML, được components/app-mount.js chèn vào DOM lúc khởi động.
- *
- * FIX (04/07/2026, mục 1b/4 phản hồi Giang) — `position: absolute` -> `fixed`. Nguyên nhân bug
- * "bàn phím trượt lên làm khuyết mất 1 phần Playlist UI" (Settings drawer KHÔNG bị, cùng bug):
- * `#drawer-settings` vốn đã dùng `fixed` (containing block = viewport, KHÔNG đổi theo bàn phím);
- * `#playlist-view` dùng `absolute` (containing block = `body`/`html`, mà chiều cao đó CÓ THỂ bị
- * trình duyệt tính lại khi bàn phím ảo mở trên 1 số thiết bị/trình duyệt) — đổi sang `fixed` cho
- * ĐÚNG BẰNG hành vi đã chứng minh ổn định của Settings drawer.
- *
- * VIẾT LẠI THÊM (04/07/2026, mục 4) — bỏ class Tailwind `transition-transform duration-500` khỏi
- * template (chuyển hẳn qua CSS riêng `#playlist-view` ở assets/css/style.css, dùng chung 1 chỗ với
- * `#visualizer-ui`/`#player-container` cho cơ chế slide NGANG mới — khác hẳn `-translate-y-full`
- * dọc cũ). Responsive: mobile/tablet slide ngang (pager 2 trang); desktop (>=1024px) hiện SONG
- * SONG vĩnh viễn, Playlist làm cột trái 420px cố định — xem chi tiết đầy đủ trong file CSS đó.
- *
- * === VIẾT LẠI (07/07/2026, phản hồi Giang — gộp Playlist+Settings chung 1 container cuộn ngang) ===
- * `#playlist-view` KHÔNG còn tự định vị (`fixed inset-0 z-[60] bg-[#000000]` ĐÃ BỎ) — giờ chỉ là 1
- * "trang" bên trong `#side-left-container` (component MỚI, xem components/app-view-stack.js),
- * cuộn ngang qua lại với `#drawer-settings` bằng `scrollTo()` (core/player-controls.js). 2 div nền
- * (`#playlist-bg` + lớp phủ đen 40%) ĐÃ DỜI ra `#side-left-container` (dùng CHUNG cho cả Playlist
- * lẫn Settings — đúng yêu cầu "ảnh set chung cho container") — `updatePlaylistBg()`
- * (core/color-utils.js) KHÔNG cần sửa gì (vẫn `document.getElementById('playlist-bg')`, chỉ khác
- * vị trí vật lý trong DOM, ID giữ nguyên).
+ * components/playlist-view.js — template màn Playlist (`TPL_PLAYLIST_VIEW`, components/app-mount.js chèn lúc khởi động) +
+ * các hàm render nhỏ dùng lúc dựng item / modal Chi tiết. `#playlist-view` là 1 "trang" trong `#side-left-container`
+ * (components/app-view-stack.js), nền ảnh dùng chung đặt ở container đó.
  */
 const TPL_PLAYLIST_VIEW = `
     <div id="playlist-view" class="flex flex-col overflow-hidden">
         <div class="px-5 pt-4 pb-3 z-20 relative shrink-0" data-uitk="panelFlushBg glassTunable">
-            <!-- Hàng 1: logo header bên trái (tĩnh, full text) + cụm icon góc phải (Thêm nhạc +
-                 Cài đặt + Đổi giao diện). -->
+            <!-- Hàng 1: logo + cụm icon (Chọn nhiều, Thêm, Cài đặt, Khởi động lại). -->
             <div class="flex justify-between items-center gap-5 mb-3" data-uitk="textPrimary">
-                <!-- Logo (06/10/2026: "Audivis", trước là "Audio Visualizer") — không khung/nền/viền, in đậm, 1 màu (theo theme).
-                     LỊCH SỬ (giữ lại vì vẫn còn liên quan touch-action bên dưới) — bản CŨ (trước
-                     "thiết kế lại theo hướng simple") có animation thu/mở "SAV" <-> tên đầy đủ khi
-                     hover/tap, và từng dính bug "bấm logo không ăn, có lúc còn bị zoom vào trang":
-                     div chữ thường không có touch-action riêng khiến WebKit mobile hiểu lầm 1 chạm
-                     là "double-tap vào đoạn văn bản" rồi tự ZOOM trang vào đúng vùng đó, làm lệch
-                     toạ độ chạm các lần sau — GIỮ touch-action: manipulation ở div dưới đây để
-                     phòng đúng bug đó tái diễn, dù giờ logo không còn animation/tương tác gì nữa. -->
-                <!-- SỬA (Giang yêu cầu "thiết kế lại theo hướng simple... logo ở header playlist
-                     chuyển sang dạng full text, không animation") — BỎ HẲN toàn bộ cơ chế thu/mở
-                     khi hover (desktop)/tap (mobile) mô tả ở lịch sử comment phía trên (matchMedia
-                     hover:hover, mouseenter/mouseleave, click toggle, touch-action fix double-tap-
-                     zoom...) — logo giờ LUÔN hiện ĐẦY ĐỦ "Audio Visualizer" tĩnh, không còn trạng
-                     thái thu gọn "AV" nào nữa nên không còn gì để toggle. KHÔNG tô màu (CHỐT sau —
-                     Giang chỉ ra hiểu sai, xem SỬA ngay dưới) — animation reveal "A(udio) V
-                     (isualizer)" ĐÃ CHUYỂN hẳn sang preloader (index.html) thay vì bỏ hẳn.
-                     touch-action: manipulation GIỮ LẠI dù không còn bấm được — vẫn phòng đúng bug
-                     "double-tap-zoom" cũ (WebKit hiểu lầm double-tap vào đoạn văn bản tĩnh là zoom
-                     trang), bug đó không liên quan gì tới việc phần tử có tương tác hay không.
-                     core/sav-logo.js + cụm event/{workflow,router,listener}/sav-logo.js (đọc/toggle
-                     '.sav-logo-expand', hasRealHoverDevice()...) giờ MỒ CÔI — không còn phần tử
-                     '.sav-logo-expand' nào để chúng thao tác — ĐÃ NGỪNG NẠP 4 file đó trong
-                     index.html (CHƯA xoá file khỏi dự án, chỉ ngừng dùng, chờ Giang quyết định dọn
-                     hẳn hay không). id="sav-logo" GIỮ NGUYÊN tên (định danh kỹ thuật, không phải
-                     chữ hiển thị) dù không còn ai gọi tới qua JS nữa. -->
-                <!-- SỬA (Giang chỉ ra hiểu sai lượt trước — "chưa từng bảo tô màu A/V", "tách
-                     A/udio V/isualizer nghĩa là CHUYỂN animation cũ của header sang cho preloader,
-                     header không dùng nó nữa") — bỏ hẳn 2 span màu đã thêm sai, header giờ CHỈ còn
-                     text tĩnh trơn 1 màu (data-uitk="textPrimary" ở div cha đã lo màu chữ theo
-                     theme), không có gì để phân biệt "A"/"V" với phần còn lại nữa — animation
-                     reveal đã chuyển hẳn sang preloader (index.html, xem @keyframes
-                     app-preloader-expand-*). -->
-                <!-- SỬA (06/10/2026, Giang yêu cầu "đổi toàn bộ tên app thành Audivis") — chữ logo đổi thành tên
-                     app mới.
-                     SỬA LẦN 2 (06/10/2026, Giang: "bỏ hiệu ứng bung chữ ở preload, bung chữ khi touch/hover ở header
-                     logo") — hiệu ứng "Audivis" -> "Audio Visualizer" CHUYỂN từ preloader VỀ LẠI header: NẠP LẠI cụm
-                     savLogo (core/sav-logo.js + event/{workflow,router,listener}/sav-logo.js — hover chuột thật =
-                     bung/thu theo mouseenter/mouseleave, cảm ứng = chạm logo bung/thu, chạm chỗ khác tự thu). Core giờ
-                     chỉ bật/tắt class .sav-logo-expanded trên div này; toàn bộ chuyển động là CSS transition
-                     (assets/css/misc.css): chèn "o " sau "Audi", "v" thường -> "V" hoa (2 span chồng vai), chèn
-                     "ualizer" sau "Vis". Div là "block whitespace-nowrap" (KHÔNG còn "flex items-baseline") — span
-                     inline-block overflow:hidden trong flex sẽ lệch baseline. touch-action: manipulation GIỮ (chống
-                     double-tap-zoom của WebKit, xem lịch sử phía trên). -->
+                <!-- Logo "Audivis": hover chuột thật / chạm -> bung "Audio Visualizer" (cụm savLogo bật/tắt .sav-logo-expanded, chuyển động là CSS — assets/css/misc.css). touch-action: manipulation chống WebKit hiểu nhầm double-tap thành zoom trang. -->
                 <div id="sav-logo" class="block whitespace-nowrap shrink-0 select-none leading-none font-extrabold text-base" style="touch-action: manipulation;">Audi<span class="sav-logo-expand sav-logo-expand-1">o </span><span class="sav-logo-swap-out">v</span><span class="sav-logo-swap-in">V</span>is<span class="sav-logo-expand sav-logo-expand-2">ualizer</span></div>
                 <div class="flex items-center gap-5 shrink-0">
-                <!-- XOÁ (09/09/2026, Giang yêu cầu "loại bỏ nút icon visualizer playing ở header,
-                     gộp vào nút Phát") — #btn-return-visual (icon "chấm tròn" nhấp nháy, bấm quay
-                     lại Visualizer khi đang phát) ĐÃ BỎ HẲN khỏi header. Chức năng gộp vào
-                     #btn-playlist-empty-play (Hàng 3 bên dưới) — xem
-                     updatePlayButtonPlayingState() (core/playlist/render.js) + router
-                     event/router/playlist-empty-state.js. -->
-                <!-- #btn-open-file-manager ĐÃ XOÁ (CHỐT 03/07/2026, plan-v12-multimedia-decisions.md
-                     mục 1a) — File Manager giờ mở từ Settings (section mới), không còn icon riêng
-                     ở header Playlist nữa. -->
                 <button id="btn-toggle-selection" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="playlistView.selection.toggleTitle" title="${t('playlistView.selection.toggleTitle')}">
                     ${iconSvg('check-circle', 'h-6 w-6')}
                 </button>
-                <!-- SỬA (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource")
-                     — nút "Thêm..." giờ DÙNG CHUNG cho cả 3 Nguồn (Song/Video/Photo), LUÔN hiện,
-                     KHÔNG còn toggle 'hidden' theo Nguồn nữa (trước đây mỗi Nguồn có nút/label
-                     riêng — Video từng có <label id="btn-upload-video"> tách hẳn khỏi nút này, ĐÃ
-                     XOÁ). #upload-action-menu (2 lựa chọn: file rời/thư mục — xem template bên
-                     dưới) mở ra là 1 khung DUY NHẤT cho cả 3 Nguồn; "accept" của 2 input BÊN TRONG
-                     đổi động theo Nguồn (switchSource(), event/workflow/playlist.js::_applyUploadInputAccept()) —
-                     KHÔNG còn 2 input riêng theo từng Nguồn. -->
+                <!-- Nút "Thêm" dùng chung 3 Nguồn — mở #upload-action-menu. -->
                 <button id="btn-upload-audio" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="playlistView.btnUploadAudio.title" title="${t('playlistView.btnUploadAudio.title')}">
                     ${iconSvg('upload', 'h-6 w-6')}
                 </button>
                 <button id="btn-settings-playlist" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="playlistView.btnSettings.title" title="${t('playlistView.btnSettings.title')}">
                     ${iconSvg('cog', 'h-6 w-6')}
                 </button>
-                <!-- MỚI (20/09/2026, Giang yêu cầu — "Reset app chuyển lên nav icon header cạnh các nút
-                     setting, upload") — nút KHỞI ĐỘNG LẠI app (trước là 1 trong 3 lựa chọn modalChoice
-                     "Reset app" ở Settings, nay Settings > Troubleshooting chỉ còn Restore default settings +
-                     Clear app cache). id "setting-restart-app" GIỮ đúng id mà core/dom-refs.js ("btnRestartApp")
-                     + event/listener/settings-misc.js đã có sẵn từ trước -> tự nối vào router 'settingsMisc'
-                     .restartApp.click (modal xác nhận "askRestartApp()" -> executeRestartApp()), KHÔNG cần
-                     listener/router mới. Tooltip dùng lại key 'appSettings.resetApp.restartApp.label'. -->
+                <!-- Khởi động lại app — id dùng chung với core/dom-refs.js (btnRestartApp) + event/listener/settings-misc.js. -->
                 <button id="setting-restart-app" class="transition-colors" data-uitk="hoverAccentText" data-i18n-title="appSettings.resetApp.restartApp.label" title="${t('appSettings.resetApp.restartApp.label')}">
                     ${iconSvg('refresh', 'h-6 w-6')}
                 </button>
-                <!-- "Đổi giao diện" (Grid/List) đã dồn vào Settings (section "Danh sách phát &
-                     Nền") — không còn icon riêng ở header, theo yêu cầu dọn header gọn lại. -->
                 </div>
             </div>
 
-            <!-- Hàng 2 (SỬA, phản hồi Giang mục 4 — bỏ heading "Bài hát" cạnh trái, thanh tìm kiếm
-                 giờ chiếm TRỌN chiều ngang): heading cũ chỉ đúng ngữ cảnh Song, không còn hợp lý khi
-                 Playlist dùng chung cho cả Video (đổi Nguồn qua Settings) — bỏ hẳn thay vì đổi chữ
-                 theo nguồn, đơn giản hơn và khớp đúng yêu cầu "search full width". -->
+            <!-- Hàng 2: ô tìm kiếm full ngang. -->
             <div class="mb-3">
-                <!-- SỬA (06/09/2026, Giang yêu cầu — "đưa badge tên thư mục vào trong khung của
-                     search") — TRƯỚC ĐÂY input tự có border/nền riêng (khung tròn của CHÍNH nó),
-                     icon kính lúp/nút X là 2 overlay absolute ĐÈ LÊN input đó, badge nằm THÀNH 1
-                     hàng RIÊNG NGAY DƯỚI (mt-2, ngoài khung input). Giờ khung tròn (bg/border/
-                     rounded/padding) CHUYỂN sang chính div NGOÀI này (focus-within thay focus vì
-                     tiêu điểm giờ nằm ở input con, không phải div cha) — icon/badge/input/nút X
-                     xếp NGANG HÀNG trong CÙNG 1 flex container, input tự bỏ hết border/nền riêng
-                     (bg-transparent border-none, chỉ còn flex-1 min-w-0 để co giãn) — badge (nếu
-                     đang Scope) NẰM THẬT SỰ bên trong khung viền đó, không phải 1 hàng tách biệt
-                     nữa. Mọi id/JS wiring (playlistSearchInput/playlistSearchClear/
-                     playlistActiveFolderBadge/...) GIỮ NGUYÊN — chỉ đổi vị trí/lớp CSS bọc ngoài. -->
+                <!-- Khung tròn ở div ngoài (focus-within); kính lúp, badge folder, input, nút X xếp ngang trong cùng khung. -->
                 <div class="relative flex items-center gap-2 w-full rounded-2xl pl-3.5 pr-3 py-2.5 transition-colors border" data-uitk="searchBoxSurface inputFocusWithinBorder">
                     ${iconSvg('search', 'h-4 w-4 pointer-events-none shrink-0', 'data-uitk="textMutedIcon"')}
-                    <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 3 — SỬA VỊ TRÍ cùng đợt
-                         này) — badge tên folder đang Scope, THAY HẲN UI khoá select "Nguồn" ở
-                         Settings → Playlist (mục 3.1) — ẩn mặc định (class hidden), hiện/đổi tên qua
-                         PlaylistMain.updateActiveFolderBadge() (core/playlist/main.js), gọi từ mọi
-                         nơi scope thật sự đổi (xem event/workflow/playlist-scope.js
-                         applyFolderScope()/applyAllSongsScope()). -->
+                    <!-- Badge folder đang Scope — ẩn mặc định; hiện/đổi tên: applyActiveFolderBadge() (core/playlist/main.js). -->
                     <div id="playlist-active-folder-badge" class="hidden shrink-0 min-w-0">
                         <div class="inline-flex items-center gap-1 max-w-[110px] text-xs font-medium pl-2 pr-1 py-0.5 rounded-full" data-uitk="accentBadge">
                             <span id="playlist-active-folder-badge-name" class="truncate"></span>
@@ -155,9 +49,7 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Hàng 3: Phát | Trộn bài. "Sắp xếp" + "Kiểu xem" (Grid/List) đã dồn vào Settings
-                 (section "Danh sách phát & Nền", xem js/components/settings/playlist-background.js)
-                 — không còn icon riêng ở đây, theo yêu cầu dọn header gọn lại. -->
+            <!-- Hàng 3: Phát | Trộn bài (Sắp xếp / Kiểu xem nằm trong Settings). -->
             <div class="flex gap-3">
                 <button id="btn-playlist-empty-play" class="flex-1 min-w-0 active:scale-95 transition-transform py-3 rounded-2xl flex items-center justify-center gap-1.5 font-semibold text-[14px]" data-uitk="cardBg cardBorder cardHoverBg textPrimary" data-playing="false">
                     ${iconSvg('play-circle', 'h-5 w-5 shrink-0')}
@@ -179,10 +71,7 @@ const TPL_PLAYLIST_VIEW = `
                 ${iconSvg('search', 'h-12 w-12 opacity-50')}
                 <p class="text-sm" data-i18n="playlistView.empty.noSearchResults">${t('playlistView.empty.noSearchResults')}</p>
             </div>
-            <!-- Lớp "đang nạp danh sách": phủ lên vùng list lúc khởi động đọc record từ IndexedDB, fade
-                 out khi DOM list dựng xong. Mục đích: tránh nháy "Chưa có bài hát nào" trong lúc đang
-                 đọc dữ liệu. Logic ở event/workflow/app-boot.js (nhánh Song): keys<=0 -> hiện
-                 #playlist-empty; else -> hiện lớp này (cập nhật "x / y bài") rồi fade out sau khi render. -->
+            <!-- Lớp "đang nạp danh sách": phủ vùng list lúc boot đọc IndexedDB (tránh nháy "Chưa có bài"), mờ dần khi list dựng xong — event/workflow/app-boot.js. -->
             <div id="playlist-loading-list" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 transition-opacity duration-300" style="opacity:0;" data-uitk="panelFlushBg textSecondary">
                 <svg class="animate-spin h-10 w-10" data-uitk="accentTextSoft" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <p id="playlist-loading-text" class="text-sm font-medium tracking-wide">${t('playlistView.loading.generic')}</p>
@@ -190,12 +79,7 @@ const TPL_PLAYLIST_VIEW = `
             <div id="playlist-container" class="flex flex-col pb-32"></div>
         </div>
 
-        <!-- Thanh hành động "chọn nhiều" (ver 12 "Multi Media") — ẩn mặc định (class hidden), hiện
-             qua workflow toggleSelectionMode() khi selectionMode=true. z-20: nổi trên
-             #playlist-container (z-10 mặc định của flex-grow cha) nhưng vẫn dưới mọi modal
-             (z-[110]+). ĐÚNG layout bác chốt: trái = nhãn số lượng, phải = 1 nút 3 chấm mở dropup
-             4 hành động (KHÔNG phải 4 nút rời) — xem #selection-more-menu bên dưới, dùng lại đúng
-             pattern định vị/đóng của #song-action-menu + #song-action-overlay. -->
+        <!-- Thanh hành động "chọn nhiều" — ẩn mặc định, hiện khi selectionMode=true (workflowPlaylist.toggleSelectionMode()). Trái: số lượng; phải: nút 3 chấm mở dropup. z-20: trên #playlist-container, dưới mọi modal. -->
         <div id="selection-action-bar" class="hidden absolute bottom-0 inset-x-0 z-20 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-2" data-uitk="modalCardBg dividerBorder">
             <span id="selection-count-label" class="text-sm font-semibold" data-uitk="textPrimary"></span>
             <button id="btn-selection-more" class="p-1.5 rounded-full transition-colors" data-uitk="cardHoverBg textPrimary" data-i18n-title="playlistView.selection.moreTitle" title="${t('playlistView.selection.moreTitle')}">
@@ -204,11 +88,7 @@ const TPL_PLAYLIST_VIEW = `
         </div>
     </div>
 
-    <!-- Dropup 4 hành động "chọn nhiều" — CÙNG PATTERN #song-action-menu (menu dùng chung, JS định
-         vị lại mỗi lần mở), CHỈ khác: luôn mở PHÍA TRÊN #btn-selection-more (nút nằm sát đáy màn
-         hình trong thanh hành động), xem openSelectionMoreMenu() (core/playlist/selection.js).
-         Dùng CHUNG #song-action-overlay để đóng khi bấm ra ngoài (thêm 1 listener riêng, không đổi
-         2 listener cũ đã có — xem event/listener/playlist.js). -->
+    <!-- Dropup hành động "chọn nhiều" — luôn mở phía trên #btn-selection-more (openSelectionMoreMenu(), core/playlist/selection.js); đóng bằng #song-action-overlay. -->
     <div id="selection-more-menu" class="hidden fixed z-[115] w-52 rounded-xl shadow-2xl overflow-hidden" data-uitk="modalCardBg modalCardBorder">
         <button data-menu-action="play" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors" data-uitk="cardHoverBg textPrimary">
             ${iconSvg('play-circle', 'h-4 w-4 shrink-0', 'data-uitk="accentTextSoft"')}
@@ -226,31 +106,14 @@ const TPL_PLAYLIST_VIEW = `
             ${iconSvg('trash', 'h-4 w-4 shrink-0')}
             <span data-i18n="playlistView.selection.btnDelete">${t('playlistView.selection.btnDelete')}</span>
         </button>
-        <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist, Batch 5) — chỉ hiện khi đang Scope 1
-             folder (mặc định class hidden, tự gỡ/thêm class qua openSelectionMoreMenu(),
-             core/playlist/selection.js) — gỡ khỏi RIÊNG folder này, KHÁC hẳn "delete" ngay trên
-             (không đụng bản ghi gốc/thư viện, xem event/workflow/playlist.js
-             removeSelectedSongsFromFolder()). -->
+        <!-- Chỉ hiện khi đang Scope 1 folder — gỡ khỏi riêng folder này, không đụng bản ghi thư viện. -->
         <button data-menu-action="removeFromFolder" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('folder-remove', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:amber"')}
             <span data-i18n="playlistView.selection.btnRemoveFromFolder">${t('playlistView.selection.btnRemoveFromFolder')}</span>
         </button>
     </div>
 
-    <!-- Modal: Sửa thông tin bài hát (title/artist/album + ảnh bìa) — 2 tab trong cùng 1 modal:
-         "Thông tin" (text fields cũ) và "Ảnh bìa" (upload/xem trước/xóa cover, mới ở ver 8).
-         Card dùng .glass-modal (kính mờ "nét" — nền đậm hơn .glass-panel để chữ/control nổi rõ
-         trên mọi ảnh nền playlist, viền sáng + glow nhẹ) thay cho nền đặc bg-[#0f172a] trước đây. -->
-    <!-- Modal: Chi tiết bài hát (đổi tên từ "Sửa thông tin", yêu cầu Giang 11/07/2026 — modal vẫn
-         giữ NGUYÊN 3 tab Chi tiết/Sửa/Ảnh bìa, chỉ đổi tên hiển thị ngoài + tiêu đề cho khớp đúng ý
-         nghĩa "xem chi tiết" là chính, sửa chỉ là 1 trong các việc có thể làm bên trong).
-         FIX (11/07/2026, yêu cầu Giang) — ĐỔI items-center -> items-start + pt-16: modal cũ
-         canh GIỮA màn hình theo chiều dọc — 3 tab (Chi tiết/Sửa/Ảnh bìa) có chiều cao nội dung
-         KHÁC NHAU, mỗi lần đổi tab modal đổi cao/thấp làm card "nhảy" CẢ 2 HƯỚNG trên/dưới (canh
-         giữa co giãn đối xứng quanh tâm) — UX giật, khó theo dõi. Neo modal theo mép TRÊN cố định:
-         đổi tab chỉ làm mép DƯỚI di chuyển, mép trên luôn đứng yên tại 1 vị trí — cảm giác ổn định
-         hơn hẳn. overflow-y-auto phòng khi nội dung + khoảng đệm trên vượt quá chiều cao màn hình
-         thấp. -->
+    <!-- Modal Chi tiết / Sửa thông tin (3 tab Chi tiết / Sửa / Ảnh bìa). Neo mép trên (items-start + pt-16) để đổi tab chỉ mép dưới di chuyển; overflow-y-auto cho màn thấp. -->
     <div id="song-edit-modal" class="fixed inset-0 z-[120] backdrop-blur-sm hidden flex items-start justify-center px-5 pt-16 pb-8 overflow-y-auto" data-uitk="overlayBg">
         <div class="rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden" data-uitk="modalCardBg modalCardBorder">
             <div class="flex items-center gap-2.5 px-5 pt-5 pb-3 border-b" data-uitk="dividerBorder">
@@ -260,13 +123,7 @@ const TPL_PLAYLIST_VIEW = `
                 <h3 class="text-base font-bold" data-uitk="modalTitleText" data-i18n="playlistView.songEdit.title">${t('playlistView.songEdit.title')}</h3>
             </div>
 
-            <!-- SỬA (10/07/2026, gộp #song-info-modal cũ vào làm tab ĐẦU — phản hồi Giang): 3 tab
-                 "Chi tiết" (đọc-thôi, MẶC ĐỊNH/đầu tiên) / "Sửa" (title/artist/album, SỬA được) /
-                 "Ảnh bìa" — pill switcher như cũ, chỉ thêm 1 nút. -->
-            <!-- SỬA 21/09/2026 — HTML tĩnh KHÔNG còn nút nào mang sẵn kiểu "đang chọn" (trước đây nút Chi tiết cứng
-                 modalCardBg + textPrimary + shadow -> đụng class bật/tắt bằng JS, chữ trắng trên nền trắng). Cả 3 nút giống hệt
-                 nhau, aria-selected do setSongEditTab() (core/playlist/actions.js) đặt mỗi lần mở/đổi tab; kiểu chọn nằm ở
-                 key theme segmentTabActive. -->
+            <!-- Cả 3 nút giống nhau — aria-selected do setSongEditTab() (core/playlist/actions.js) đặt, kiểu chọn ở key theme segmentTabActive. -->
             <div class="flex gap-1 px-5 pt-4">
                 <div class="flex w-full p-1 rounded-xl gap-1" role="tablist" data-uitk="cardBg cardBorder">
                     <button data-edit-tab="details" role="tab" aria-selected="false" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all" data-uitk="textSecondary segmentTabActive">
@@ -284,15 +141,10 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Tab 1 (MẶC ĐỊNH/đầu): Chi tiết — gộp từ #song-info-modal cũ (title/artist/album/
-                 duration/lượt nghe/thời gian đã nghe, đọc-thôi) — populate qua JS
-                 (event/workflow/playlist.js::openSongEditModal(), dùng renderSongInfoRowHtml()). -->
+            <!-- Tab 1 (mặc định): Chi tiết — chỉ đọc, nội dung do workflowPlaylist.openSongEditModal() điền (renderSongInfoRowHtml()). -->
             <div id="song-edit-tab-details" class="flex flex-col p-5"></div>
 
-            <!-- Tab 2: Sửa — ĐỔI TÊN từ "Thông tin" (tab đầu cũ) — 2 nhóm LOẠI TRỪ NHAU tuỳ media
-                 type (SỬA phản hồi Giang 28/07/2026, "video/song modal": Song = 3 field title/
-                 artist/album như cũ; Video = CHỈ 1 ô tên hiển thị, KHÔNG có 3 tag) — JS
-                 (event/workflow/playlist.js::openSongEditModal()) tự ẩn/hiện ĐÚNG 1 group. -->
+            <!-- Tab 2: Sửa — 3 nhóm loại trừ theo loại media (Song: title/artist/album; Video, Photo: tên hiển thị + album), toggleSongEditFieldGroups(). -->
             <div id="song-edit-tab-fields" class="hidden flex-col gap-3 p-5">
                 <div id="song-edit-fields-song-group" class="flex flex-col gap-3">
                     <div class="flex flex-col gap-1.5">
@@ -317,9 +169,6 @@ const TPL_PLAYLIST_VIEW = `
                         </div>
                     </div>
                 </div>
-                <!-- SỬA (Giang yêu cầu — "bổ sung field album edit ở details của video/photo") —
-                     TRƯỚC ĐÂY nhóm Video CHỈ 1 ô "Tên hiển thị" — THÊM ô Album (record.album, MỚI —
-                     core/playlist/actions.js::applyVideoEditAndSave()). -->
                 <div id="song-edit-fields-video-group" class="hidden flex-col gap-3">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[11px] font-semibold uppercase tracking-wide ml-0.5" data-uitk="textSecondary" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
@@ -336,12 +185,7 @@ const TPL_PLAYLIST_VIEW = `
                         </div>
                     </div>
                 </div>
-                <!-- MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nhóm field
-                     Photo: mirror ô "Tên hiển thị" của nhóm Video ngay trên + THÊM 1 hàng duration
-                     (nút mở time-picker thay vì input số tay — Giang chỉ định "dùng time picker,
-                     có min nhưng không max", xem event/workflow/playlist.js::
-                     openPhotoEditDurationPicker()). SỬA (Giang yêu cầu — thêm field Album) — thêm
-                     ô Album, CÙNG lý do nhóm Video ngay trên. -->
+                <!-- Nhóm Photo: tên hiển thị + album + thời lượng (nút mở time-picker — workflowPlaylist.openPhotoEditDurationPicker()). -->
                 <div id="song-edit-fields-photo-group" class="hidden flex-col gap-3">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[11px] font-semibold uppercase tracking-wide ml-0.5" data-uitk="textSecondary" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
@@ -368,15 +212,7 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Tab 3: Ảnh bìa.
-                 SỬA (06/10/2026, Giang yêu cầu):
-                   3a. Bỏ hẳn khối gợi ý "Accepts PNG, JPG or WEBP..." (key 'coverHint' xoá theo).
-                   3b. "Choose photo" -> "Choose", "Remove cover" -> "Remove", 2 nút nằm CÙNG 1 hàng.
-                   3c. "Choose" xổ dropdown 2 lựa chọn: Photo (picker ảnh thư viện) + Video thumbnail (lấy thumb
-                       cover của 1 video làm ảnh bìa).
-                 SỬA LẦN 2 (06/10/2026, Giang: "nút Choose xổ xuống dropdown chứ không phải như hiện tại") — bỏ khối
-                 menu INLINE (đẩy layout xuống) của lượt trước; giờ dùng dropdown nổi DÙNG CHUNG core/dropdown-menu.js
-                 (openDropdownMenu, neo theo nút) — xem event/workflow/playlist.js::openCoverChooseMenu(). -->
+            <!-- Tab 3: Ảnh bìa — "Choose" xổ dropdown nổi Photo / Video thumbnail (workflowPlaylist.openCoverChooseMenu()), "Remove" cùng hàng. -->
             <div id="song-edit-tab-cover" class="hidden flex-col gap-4 p-5">
                 <div class="flex items-center gap-4">
                     <div class="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg" data-uitk="cardBorder cardBg">
@@ -405,20 +241,7 @@ const TPL_PLAYLIST_VIEW = `
     </div>
 
 
-    <!-- Menu nhỏ cho nút "Thêm..." (góc phải Playlist) — DÙNG CHUNG cho cả 3 Nguồn (Song/Video/
-         Photo, phản hồi Giang "1 khung, không nhân bản"): 2 lựa chọn — chọn từng file rời, hoặc
-         chọn cả 1 thư mục (toàn bộ media trong thư mục đó + thư mục con được nạp 1 lượt). Cùng
-         cơ chế định vị "fixed, JS đặt lại vị trí ngay dưới nút bấm" như #song-action-menu — dùng
-         CHUNG #song-action-overlay để đóng khi bấm ra ngoài (chỉ 1 trong 2 menu hiện tại 1 lúc).
-         "accept" của 2 input dưới đây LÀ GIÁ TRỊ MẶC ĐỊNH lúc mới nạp trang (khớp Song, Nguồn mặc
-         định) — đổi ĐỘNG theo Nguồn ngay khi Nguồn đổi (kể cả lúc khôi phục Nguồn đã lưu bền lúc
-         boot), xem event/workflow/playlist.js::_applyUploadInputAccept(). 2 mục là <label> BỌC
-         TRỰC TIẾP <input type="file"> ẩn bên trong — giống đúng pattern đã dùng ổn định ở
-         setting-bg-upload/setting-video-upload. Một số trình duyệt/WebView (đặc biệt chạy qua
-         file://, hoặc Android WebView cũ) CHẶN HOÀN TOÀN việc input[type=file] phản hồi với
-         .click() gọi gián tiếp qua JS (không lỗi, không event, im lặng "treo" mãi chờ change
-         không bao giờ tới) — chỉ click NATIVE thật (chuột/chạm) lên label/input mới chắc chắn
-         hoạt động trên mọi nền tảng. -->
+    <!-- Menu nhỏ của nút "Thêm" (dùng chung 3 Nguồn): chọn file rời hoặc cả thư mục. Định vị fixed ngay dưới nút, đóng bằng #song-action-overlay. "accept" dưới đây là mặc định của Song, đổi theo Nguồn ở workflowPlaylist._applyUploadInputAccept(). 2 mục là <label> bọc thẳng <input type="file"> — vài trình duyệt/WebView (file://, Android WebView cũ) im lặng bỏ qua input.click() gọi bằng JS, chỉ click thật lên label/input mới chắc chạy. -->
     <div id="upload-action-menu" class="hidden fixed z-[115] w-52 rounded-xl shadow-2xl overflow-hidden" data-uitk="modalCardBg modalCardBorder">
         <label class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors cursor-pointer" data-uitk="cardHoverBg textPrimary">
             ${iconSvg('document-text', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:sky"')}
@@ -432,98 +255,49 @@ const TPL_PLAYLIST_VIEW = `
         </label>
     </div>
 
-    <!-- #video-upload-menu (dropdown 1 lựa chọn "Thêm video" cũ, ver12 Batch 6 mục 7) VÀ sau đó
-         <label id="btn-upload-video"> (FIX 28/07/2026, thay dropdown bằng input trực tiếp) đều ĐÃ
-         XOÁ (phản hồi Giang "1 khung, không nhân bản") — Video giờ dùng CHUNG #upload-action-menu
-         ở trên với Song/Photo, không còn input/nút riêng nào nữa. -->
 
-    <!-- Menu 3 chấm dùng chung cho mọi bài hát (info / sửa / xuất file / xóa) — chỉ 1 phần tử duy
-         nhất trong DOM, được JS định vị lại (position: fixed) ngay dưới nút "..." vừa bấm mỗi lần
-         mở, thay vì nhân bản dropdown riêng cho từng item trong danh sách (đỡ tốn DOM + dễ quản lý
-         khi danh sách dài). Đóng khi bấm ra ngoài hoặc chọn 1 hành động. -->
+    <!-- Menu 3 chấm dùng chung cho mọi mục — 1 phần tử duy nhất, JS định vị lại (fixed) dưới nút vừa bấm; mục nào hiện do openSongActionMenu() (core/playlist/actions.js). -->
     <div id="song-action-overlay" class="hidden fixed inset-0 z-[110]"></div>
     <div id="song-action-menu" class="hidden fixed z-[115] w-48 rounded-xl shadow-2xl overflow-hidden" data-uitk="modalCardBg modalCardBorder">
-        <!-- SỬA (11/07/2026, yêu cầu Giang): đổi tên "Edit info" -> "Details" (menu này giờ mở
-             thẳng modal Chi tiết, mặc định tab đọc-thôi trước — xem song-edit-modal) — đổi luôn
-             icon bút sửa -> icon info-circle cho khớp ý nghĩa mới, ĐỒNG BỘ với icon header modal +
-             icon tab "Chi tiết" bên trong (cùng path). -->
         <button id="song-menu-btn-edit" data-menu-action="edit" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors" data-uitk="cardHoverBg textPrimary">
             ${iconSvg('information-circle', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:emerald"')}
             <span data-i18n="playlistView.songMenu.edit">${t('playlistView.songMenu.edit')}</span>
         </button>
-        <!-- MỚI (10/07/2026) — mở Subtitle Editor (trang riêng, subtitle-editor.html?song=<mã hoá>)
-             — message RIÊNG (data-menu-action="editSubtitles"), CÙNG PRECEDENT với addToFolder bên
-             dưới, xem event/listener/playlist.js + event/workflow/playlist.js::
-             openSubtitleEditorForSongMenu(). SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d,
-             phản hồi Giang) — thêm id "song-menu-btn-edit-subtitles" để JS ẩn khi item là Video
-             ("openSongActionMenu()", core/playlist/actions.js — phụ đề không áp dụng cho Video). -->
         <button id="song-menu-btn-edit-subtitles" data-menu-action="editSubtitles" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('translate', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:yellow"')}
             <span data-i18n="playlistView.songMenu.editSubtitles">${t('playlistView.songMenu.editSubtitles')}</span>
         </button>
-        <!-- SỬA (Batch 6, mục 6d, phản hồi Giang) — id "song-menu-btn-restore" để JS ẩn khi Video
-             (xuất file kèm tag ID3 — không áp dụng, Video không có 3 tag). -->
         <button id="song-menu-btn-restore" data-menu-action="restore" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('upload', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:amber"')}
             <span data-i18n="playlistView.songMenu.export">${t('playlistView.songMenu.export')}</span>
         </button>
-        <!-- XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") —
-             "song-menu-btn-set-bg-video"/data-menu-action="setAsBgVideo" đã bỏ hẳn khỏi dropdown.
-             TỰ AUDIT LẠI lúc xoá: workflowFileManagerVideo.setVideoAsBackground() (core nghiệp vụ)
-             tưởng còn picker "Use background video" dùng — THỰC RA KHÔNG, picker đó tự inline logic
-             riêng — đã XOÁ THẲNG hàm này (0 lời gọi) cùng 2 lang key liên quan. -->
-        <!-- MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — "Sửa video"
-             (mở Video Editor) — THAY 1 trong 2 lựa chọn từng có ở dropdown tile "File Manager →
-             Video" (đã xoá hẳn cùng lúc xoá panel đó). ẨN MẶC ĐỊNH (class "hidden"), JS
-             ("openSongActionMenu()") chỉ HIỆN khi item đang mở menu là Video — tái dùng nguyên
-             navigateToVideoEdit(), KHÔNG viết lại, chỉ đổi nơi gọi. -->
+        <!-- Ẩn mặc định — chỉ hiện với Video. -->
         <button id="song-menu-btn-edit-video" data-menu-action="editVideoFile" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('crop', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:violet"')}
             <span data-i18n="playlistView.songMenu.editVideoFile">${t('playlistView.songMenu.editVideoFile')}</span>
         </button>
-        <!-- MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
-             image -> mở openImagePreview()") — mirror ĐÚNG khuôn song-menu-btn-edit-video ngay
-             trên (ẩn mặc định, JS chỉ hiện khi item đang mở menu là Photo — xem
-             openSongActionMenu(), core/playlist/actions.js) — mở modal xem/sửa ảnh (zoom/crop/
-             rotate) đã có sẵn từ trước (workflowFileManagerPhoto.openImagePreview()), CHỈ đổi điểm
-             vào (trước đây click thẳng vào ảnh mở luôn, giờ click ảnh = phát, mở qua dropdown này
-             thay). -->
+        <!-- Ẩn mặc định — chỉ hiện với Photo. -->
         <button id="song-menu-btn-edit-image" data-menu-action="editImage" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('photograph', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:violet"')}
             <span data-i18n="playlistView.songMenu.editImage">${t('playlistView.songMenu.editImage')}</span>
         </button>
-        <!-- XOÁ (06/10/2026, Giang yêu cầu "xoá action view thumb full res ở video playlist") — nút
-             #song-menu-btn-view-video-thumb ("View full thumbnail") bỏ hẳn cùng toàn bộ đường đi của nó. -->
-        <!-- MỚI (mục 1d, CHỐT 03/07/2026) — dùng data-menu-action="addToFolder" RIÊNG, KHÔNG đi
-             qua handleSongActionMenuSelect() (đã có sẵn 4 nhánh if/else — thêm nhánh thứ 5 vào đó
-             sẽ buộc phải đưa NGUYÊN hàm cũ về đủ 4 rule, tốn công hơn hẳn tính năng này). Xử lý ở
-             1 nhánh message RIÊNG (event/router/playlist.js: 'playlist.actionMenu.addToFolder'),
-             không đụng hàm cũ. -->
         <button data-menu-action="addToFolder" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('folder', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:sky"')}
             <span data-i18n="playlistView.songMenu.addToFolder">${t('playlistView.songMenu.addToFolder')}</span>
         </button>
-        <!-- MỚI (06/09/2026, hợp nhất Folder vào Playlist — "mọi item trong Playlist thêm action Gỡ
-             khỏi thư mục khi đang Scope 1 folder") — mặc định class hidden, JS chỉ hiện khi đang
-             Scope (xem openSongActionMenu(), core/playlist/actions.js) VÀ folder đó không phải
-             Read-only (mục 4b). Gỡ khỏi RIÊNG folder này, KHÁC hẳn "delete" ngay dưới (không đụng
-             bản ghi gốc/thư viện, xem event/workflow/playlist.js removeSongFromFolderMenu()). -->
+        <!-- Ẩn mặc định — chỉ hiện khi đang Scope 1 folder không Read-only; gỡ khỏi riêng folder này, không đụng bản ghi thư viện. -->
         <button id="song-menu-btn-remove-from-folder" data-menu-action="removeFromFolder" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="cardHoverBg textPrimary dividerBorder">
             ${iconSvg('folder-remove', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:amber"')}
             <span data-i18n="playlistView.songMenu.removeFromFolder">${t('playlistView.songMenu.removeFromFolder')}</span>
         </button>
-        <!-- SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — id "song-menu-delete-
-             label" để JS ("openSongActionMenu()") đổi chữ "Xoá bài hát"/"Xoá video" đúng ngữ cảnh
-             item đang mở menu — nhãn tĩnh cũ luôn nói "song" kể cả khi đang xoá Video. -->
+        <!-- Nhãn đổi theo loại mục (Xoá bài hát / video / ảnh). -->
         <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors border-t" data-uitk="menuDestructiveItem dividerBorder">
             ${iconSvg('trash', 'h-4 w-4 shrink-0')}
             <span id="song-menu-delete-label" data-i18n="playlistView.songMenu.delete">${t('playlistView.songMenu.delete')}</span>
         </button>
     </div>
 
-    <!-- Modal: Bài hát lỗi lúc phát (audioPlayer báo 'error' thật khi decode) — hỏi Giữ lại (chuyển
-         vào danh sách chờ ở Quản lý dung lượng, không hiện trong playlist nữa) hay Xóa luôn khỏi
-         IndexedDB ngay. -->
+    <!-- Modal: bài hát lỗi lúc phát (decode thật thất bại) — Giữ lại (ẩn khỏi playlist, còn trong Quản lý lưu trữ) hay Xoá luôn. -->
     <div id="playback-error-modal" class="fixed inset-0 z-[125] backdrop-blur-sm hidden flex items-center justify-center px-5" data-uitk="overlayBg">
         <div class="rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4" data-uitk="modalCardBg modalCardBorder">
             <div class="flex items-center gap-2">
@@ -540,47 +314,52 @@ const TPL_PLAYLIST_VIEW = `
     </div>
 `;
 
-// ===================== Template nhỏ dùng lúc render item (MỚI 07/10/2026, rà soát SVG — Rule 5d) =====================
-// 3 template dưới đây TRƯỚC ĐÂY nằm trong core/playlist/{render,actions,selection}.js (file core KHÔNG hậu tố -ui
-// mà lại dựng HTML/icon). Dời về đây để core chỉ còn logic; icon lấy qua iconSvg() (core/theme/icon-svg-ui.js).
-// Đều là HÀM (gọi lúc render) — không nội suy lúc nạp file.
+// ===================== Template nhỏ dùng lúc render item =====================
+// Hàm (gọi lúc render), không nội suy lúc nạp file; icon qua iconSvg() (core/ui-theme/icon-svg-ui.js).
 
-/** Nút 3 chấm mỗi item playlist — gọi từ event/workflow/playlist-render.js::_buildSongNode (DỜI từ core/playlist/render.js). */
+/** Nút 3 chấm mỗi item playlist — event/workflow/playlist-render.js::buildSongNode(). Luôn hiện (không phụ thuộc hover —
+ * cảm ứng không có hover thật). `onDarkBg` (Grid): nút nằm trong vòng tròn tối đè ảnh bìa -> icon sáng cố định; List: màu
+ * icon theo key theme `iconBtnMuted`. */
 function renderSongActionMenuButtonHtml(key, onDarkBg) {
-    // FIX (11/07/2026, phản hồi Giang — "thiếu dấu ba chấm như trước đây mỗi song item"):
-    // NGUYÊN NHÂN THẬT (đợt trước đoán SAI là do màu/nền — Giang xác nhận không liên quan):
-    // 2 chỗ GỌI hàm này (dòng ~104/118 bên dưới) bọc nút trong
-    // `opacity-0 group-hover:opacity-100` — CHỈ hiện khi HOVER CHUỘT THẬT. Cảm ứng KHÔNG
-    // CÓ hover thật — trước đây WebKit "giả lập" hover khi chạm (đúng bug "hover kẹt" đã
-    // sửa ở index.html qua `tailwind.config.future.hoverOnlyWhenSupported`), nên NÚT NÀY
-    // TỪNG hiện ra được là NHỜ chính cái bug đó — sửa xong bug hover kẹt (đúng), tác dụng
-    // phụ là nút này mất luôn khả năng hiện trên cảm ứng (chưa từng có cách hiện HỢP LỆ).
-    // Đã xoá `opacity-0 group-hover:opacity-100` ở 2 nơi gọi — LUÔN hiện, không phụ thuộc
-    // hover.
-    // SỬA (09/09/2026, Giang yêu cầu "bỏ vòng tròn bao quanh, sửa màu") — bỏ hẳn nền tròn mờ
-    // riêng của CHÍNH nút này (`rounded-full bg-black/30`) — Grid view vẫn có vòng tròn
-    // riêng BỌC NGOÀI (`bg-black/40`, event/workflow/playlist-render.js dòng ~79, KHÔNG phải
-    // ở đây) nên vẫn đủ tương phản trên ảnh bìa bất kỳ. Màu icon giờ tách theo `onDarkBg`
-    // (tham số MỚI — nơi gọi tự truyền `appState.get('isGridView')`): List view (false) nút
-    // nằm trực tiếp trên nền sáng -> icon tối; Grid view (true) nút nằm trong vòng tròn tối
-    // ở trên -> icon vẫn phải sáng.
-    const colorCls = onDarkBg ? 'text-white/70 hover:text-white' : ''; // trên nền tối cố định (vòng tròn đen đè ảnh bìa) — không theo theme
-    const themeKeyAttr = onDarkBg ? '' : ' data-uitk="iconBtnMuted"'; // SỬA 21/09/2026 — nền theo theme: màu icon/hover là key theme, không còn text-slate-400/700 cứng
+    const colorCls = onDarkBg ? 'text-white/70 hover:text-white' : '';
+    const themeKeyAttr = onDarkBg ? '' : ' data-uitk="iconBtnMuted"';
     return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full transition-colors z-10 ${colorCls}"${themeKeyAttr} title="${t('playlistView.songMenu.title')}">
         ${iconSvg('dots-vertical', 'h-5 w-5')}
     </button>`;
 }
 
-/** 1 dòng tab "Chi tiết" của song-edit-modal — gọi từ event/workflow/playlist.js (DỜI từ core/playlist/actions.js). */
 /**
- * SỬA (09/09/2026, Giang yêu cầu "xoá box bao quanh, làm phẳng") — TRƯỚC ĐÂY mỗi dòng là 1
- * "card" riêng (nền + viền + bo góc, data-uitk="cardBg cardBorder") — bỏ hẳn, giờ chỉ còn 1
- * hàng phẳng (icon tròn màu + label + giá trị), phân tách bằng đường viền mảnh phía dưới
- * (border-b, trừ dòng CUỐI qua CSS `:last-child` ngay dưới) thay vì khối riêng biệt.
+ * Nội dung 1 node Playlist bố cục Grid — core/playlist/render.js::fillGridSongNode() gán vào node. `loading="lazy"` +
+ * `decoding="async"`: item đang bị `content-visibility: auto` bỏ qua hoặc ẩn vì Search không tải ảnh bìa tới khi lại gần
+ * khung nhìn; decode không chặn main thread.
+ * @param {{coverSrcAttr:string, isPlaying:boolean, eqIconHtml:string, menuBtnHtml:string, title:string, secondLineHtml:string}} view
  */
-// SỬA 23/09/2026 (rà soát theme) — tham số thứ 2 giờ là TÊN HUE trong bảng `iconTone` (core/ui-theme/*.js) thay vì chuỗi class
-// cứng `bg-X-100 text-X-600` (ô pastel chói trên nền Dark/Morphin). Light giữ đúng màu cũ.
-function renderSongInfoRowHtml(iconName, hue, label, value) { // iconName: tên icon trong assets/icon/icons.js (SỬA 07/10/2026)
+function renderGridSongNodeHtml(view) {
+    return `
+                <div class="w-full aspect-square relative mb-2.5">
+                    <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
+                    ${view.isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${view.eqIconHtml}</div>` : ''}
+                    <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${view.menuBtnHtml}</div>
+                </div>
+                <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${view.title}</h3>
+                <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${view.secondLineHtml}</p>`;
+}
+
+/** Nội dung 1 node Playlist bố cục List — core/playlist/render.js::fillListSongNode(). @param {object} view - cùng shape renderGridSongNodeHtml() */
+function renderListSongNodeHtml(view) {
+    return `
+                <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
+                <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
+                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${view.isPlaying ? 'accentText' : 'textPrimary'}">${view.title}</h3>${view.isPlaying ? view.eqIconHtml : ''}</div>
+                    <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${view.secondLineHtml}</p>
+                </div>
+                <div class="flex">${view.menuBtnHtml}</div>`;
+}
+
+/** 1 dòng phẳng tab "Chi tiết" của song-edit-modal (icon tròn màu + nhãn + giá trị, viền mảnh dưới trừ dòng cuối) —
+ * event/workflow/playlist.js. `hue`: tên hue trong bảng `iconTone` (core/ui-theme/*.js); `iconName`: tên trong
+ * assets/icon/icons.js. */
+function renderSongInfoRowHtml(iconName, hue, label, value) {
     return `
         <div class="flex items-center gap-3 py-2.5 border-b last:border-b-0" data-uitk="dividerBorder">
             <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0" data-uitk="iconTone:${hue}">
@@ -591,8 +370,8 @@ function renderSongInfoRowHtml(iconName, hue, label, value) { // iconName: tên 
         </div>`;
 }
 
-/** Icon tick bên trong vòng "đã chọn" (chế độ chọn nhiều) — core/playlist/selection.js::showSelectionIndicator() gán vào
- * `innerHTML` của vòng nó tự tạo (DỜI chuỗi SVG khỏi core, 07/10/2026). */
-function renderSelectionIndicatorCheckHtml() {
-    return iconSvg('check', 'h-4 w-4');
+/** Vòng "đã chọn" có tick (chế độ chọn nhiều) — core/playlist/selection.js::showSelectionIndicator() chèn vào node.
+ * @param {string} selectedClass - class nền + chữ theo theme (btnPrimaryPillBg + textOnAccent), Workflow tra sẵn */
+function renderSelectionIndicatorHtml(selectedClass) {
+    return `<div data-role="selection-indicator" class="absolute top-2 left-2 z-10 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors border-transparent ${selectedClass}">${iconSvg('check', 'h-4 w-4')}</div>`;
 }
