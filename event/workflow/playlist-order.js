@@ -77,7 +77,8 @@ const workflowPlaylistOrder = {
     },
 
     /** displayOrder = top-level (bài hợp lệ) sắp theo cài đặt, xoá pending. Dùng khi đổi kiểu sắp xếp / chạm biên. Mọi
-     * section đang phát (playSelectedSongs(), event/workflow/playlist.js) coi như kết thúc -> sectionQueueActive=false. */
+     * section đang phát (playSelectedSongs(), event/workflow/playlist.js) coi như kết thúc -> sectionQueueActive=false.
+     * @returns {string[]} displayOrder mới */
     recomputeDisplayOrder() {
         const s = appState.get(['playlistOrder', 'confirmedBrokenKeys', ...PLAYLIST_SORT_STATE_KEYS]);
         const sorted = this.sortKeys(liveKeys(s.playlistOrder, s.confirmedBrokenKeys), s); // core/playlist/order.js
@@ -87,6 +88,7 @@ const workflowPlaylistOrder = {
         console.log(`writer: "workflowPlaylistOrder.recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
         appState.set('sectionQueueActive', false);
         console.log(`writer: "workflowPlaylistOrder.recomputeDisplayOrder", page: "sectionQueueActive", content: "false"`);
+        return sorted;
     },
 
     /** Reset shuffleIndices theo TOÀN BỘ top-level (boot / thêm bài / dọn lưu trữ / áp Scope) — Shuffle bật thì trộn. Khác

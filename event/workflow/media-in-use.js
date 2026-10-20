@@ -1,6 +1,5 @@
 /**
- * event/workflow/media-in-use.js — Workflow "mediaInUse": REQUEST TRUNG TÂM nạp lại media đang được dùng (MỚI 06/10/2026,
- * plan-media-db-split.md mục 7, Giang chốt).
+ * event/workflow/media-in-use.js — Workflow "mediaInUse": REQUEST TRUNG TÂM nạp lại media đang được dùng.
  *
  * VÌ SAO: app phát/hiện media qua blob URL tạo từ Blob trong IndexedDB. Khi NỘI DUNG file của chính media đó bị thay
  * (upload ghi đè trùng tên, Video editor "Ghi đè", sửa ảnh "Ghi đè", sửa thumbnail video), Blob cũ có thể bị WebKit bỏ
@@ -9,13 +8,13 @@
  *
  * QUY ƯỚC: nơi thay file ghi DB xong CHỈ bắn `eventBus.send({ router: 'mediaInUse', type: 'mediaInUse.contentReplaced',
  * payload: { type, key } })` — không tự kiểm ai đang dùng. Workflow này TỰ đọc state để biết media đó đang được dùng ở
- * đâu, rồi TỰ quyết định gọi đúng hàm nạp lại của workflow chủ quản:
- *   - node Playlist (đang xem đúng Nguồn, có trong playlistCache) -> trỏ `cached.cover` sang thumb mới + vẽ lại node;
- *   - Player chính (đúng key + đúng loại đang phát) -> workflowPlayer / workflowVideoPlayer / workflowPhotoPlayer;
- *   - Visual Background (không ở Player Video/Photo, VBG đúng type, đúng item đang chạy) -> workflowVisualBg.
+ * đâu (core thuần `computeMediaInUse()`), rồi gọi đúng hàm nạp lại của workflow chủ quản:
+ *   - node Playlist -> trỏ `cover` của mục playlistCache sang thumb mới + vẽ lại node;
+ *   - Player chính -> workflowPlayer / workflowVideoPlayer / workflowPhotoPlayer;
+ *   - Visual Background -> workflowVisualBg.
  * Media không được dùng ở đâu -> không làm gì. Rẽ nhánh bằng object map (readme/event-bus-flow.md mục 7).
  *
- * NẠP SAU: service/db.js, core/playlist/render.js (resolvePlayingMediaType), event/workflow/player.js, video-player.js,
+ * NẠP SAU: service/db.js, core/playlist/render.js (resolvePlayingMediaType, computeMediaInUse), event/workflow/player.js, video-player.js,
  * photo-player.js, visual-bg-*.js, playlist-render.js (chỉ cần lúc chạy). NẠP TRƯỚC: event/router/media-in-use.js.
  */
 
@@ -28,7 +27,7 @@ const MEDIA_IN_USE_RUN_IF = {
 /** Player chính đã THẬT SỰ nạp media chưa — Song: `playingMediaType` mặc định 'song' kể cả khi chưa phát gì, nên kiểm thêm
  * audioPlayer đã có nguồn; Video/Photo: đã ở đúng mode là đã nạp. */
 const MEDIA_IN_USE_MAIN_PLAYER_LOADED = {
-    song: () => !!appState.get('currentObjectURL'),
+    song: (s) => !!s.currentObjectURL,
     video: () => true,
     photo: () => true,
 };
@@ -66,27 +65,32 @@ const workflowMediaInUse = {
      * @param {'song'|'video'|'photo'} type @param {string} key
      */
     async handleContentReplaced(type, key) {
-        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
-        const isPhotoPlayerMode = appState.get('isPhotoPlayerMode');
-        const playingMediaType = resolvePlayingMediaType(isVideoPlayerMode, isPhotoPlayerMode); // core/playlist/render.js
-        const usage = {
-            playlistNode: appState.get('activeMediaSource') === type && appState.get('playlistCache').has(key),
-            mainPlayer: appState.get('currentKey') === key && playingMediaType === type && MEDIA_IN_USE_MAIN_PLAYER_LOADED[type](),
-            visualBg: !isVideoPlayerMode && !isPhotoPlayerMode
-                && appConfigVisualBg.getAll().type === type && MEDIA_IN_USE_VBG_CURRENT_KEY[type]() === key,
-        };
+        const s = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'activeMediaSource', 'playlistCache', 'currentKey', 'currentObjectURL']);
+        const usage = computeMediaInUse({ // core/playlist/render.js
+            type, key,
+            activeMediaSource: s.activeMediaSource,
+            isCached: s.playlistCache.has(key),
+            currentKey: s.currentKey,
+            playingMediaType: resolvePlayingMediaType(s.isVideoPlayerMode, s.isPhotoPlayerMode), // core/playlist/render.js
+            isMainPlayerLoaded: MEDIA_IN_USE_MAIN_PLAYER_LOADED[type](s),
+            isVideoPlayerMode: s.isVideoPlayerMode,
+            isPhotoPlayerMode: s.isPhotoPlayerMode,
+            visualBgType: appConfigVisualBg.getAll().type,
+            visualBgCurrentKey: MEDIA_IN_USE_VBG_CURRENT_KEY[type](),
+        });
         console.log(`[workflowMediaInUse] ${type} "${key}" vừa thay nội dung — đang dùng ở: playlist=${usage.playlistNode}, player=${usage.mainPlayer}, vbg=${usage.visualBg}`);
         await MEDIA_IN_USE_RUN_IF[usage.playlistNode](() => this._refreshPlaylistNode(type, key));
         await MEDIA_IN_USE_RUN_IF[usage.mainPlayer](MEDIA_IN_USE_MAIN_PLAYER_RELOAD[type]);
         await MEDIA_IN_USE_RUN_IF[usage.visualBg](MEDIA_IN_USE_VBG_RELOAD[type]);
     },
 
-    /** Trỏ `cached.cover` sang thumb MỚI (Blob cũ có thể đã chết) rồi vẽ lại đúng node đó. */
+    /** Trỏ `cover` của mục playlistCache sang thumb MỚI (Blob cũ có thể đã chết) rồi vẽ lại đúng node đó. */
     async _refreshPlaylistNode(type, key) {
         const record = await getMediaRecord(type, key); // service/db.js
         const cached = appState.get('playlistCache').get(key);
         if (!record || !cached) return; // guard: vừa bị xoá / đổi Nguồn giữa chừng
-        cached.cover = MEDIA_IN_USE_PLAYLIST_COVER_OF[type](record);
+        const cover = MEDIA_IN_USE_PLAYLIST_COVER_OF[type](record);
+        appState.mutate('playlistCache', (m) => { m.get(key).cover = cover; });
         console.log(`writer: "workflowMediaInUse._refreshPlaylistNode", page: "playlistCache", content: "${key}.cover -> thumb mới"`);
         workflowPlaylistRender.refreshSongNode(key); // event/workflow/playlist-render.js
     },

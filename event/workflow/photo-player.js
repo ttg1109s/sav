@@ -12,8 +12,8 @@
  * thu hồi URL ảnh chính; file này chỉ giữ URL thumb của #record-art. Đồng hồ bị GIỮ (`photoPlayerClockHeld`) từ lúc đổi
  * ảnh tới khi surface báo `onShown` (Giang chốt "Transition xong mới đếm").
  *
- * `PHOTO_PLAYER_CLOCK_MEDIA` là "media giả" cho Next/Prev (workflowPlayerControls.goToNextTrack()/restartCurrentTrack(), qua
- * `resolveActiveMedia()`): `currentTime = 0`, `play()`, `pause()` đi vào đúng các method của file này.
+ * Next/Prev của Playlist (workflowPlayerControls: lặp 1 ảnh, dừng ở cuối playlist, icon "Phát lại") gọi thẳng `seekClock()`/
+ * `setPaused()` của file này.
  *
  * NẠP SAU: core/photo-player.js, core/record-art-ui.js, components/bottom-player.js, core/media-element-ui.js,
  * core/file-manager/image.js (DURATION_MIN_SEC), service/blob-url.js, event/workflow/visual-bg-common.js. Gọi lúc chạy:
@@ -196,12 +196,6 @@ const workflowPhotoPlayer = {
         appState.set('photoPlayerEnded', false, { skipCheck: true });
     },
 
-    /** Media đang phát cho Next/Prev: đồng hồ giả của Photo, hoặc audio/video thật. Chọn giá trị.
-     * @param {boolean} isVideoPlayerMode @param {boolean} isPhotoPlayerMode */
-    resolveActiveMedia(isVideoPlayerMode, isPhotoPlayerMode) {
-        return isPhotoPlayerMode ? PHOTO_PLAYER_CLOCK_MEDIA : getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
-    },
-
     /** Task mỗi PHOTO_PLAYER_TICK_INTERVAL_MS: cập nhật nhãn giờ, chạm thời lượng thì báo hết ảnh. */
     _tick() {
         const clock = appState.get(PHOTO_PLAYER_CLOCK_KEYS);
@@ -299,12 +293,4 @@ const workflowPhotoPlayer = {
         revokeBlobUrl(this._thumbObjectUrl); // service/blob-url.js — null vô hại
         this._thumbObjectUrl = null;
     },
-};
-
-// "Media giả" của Photo cho Next/Prev — chỉ 3 thành viên nơi gọi dùng (workflowPlayerControls: repeat-one, dừng ở cuối
-// playlist, icon "Phát lại").
-const PHOTO_PLAYER_CLOCK_MEDIA = {
-    set currentTime(sec) { workflowPhotoPlayer.seekClock(sec); },
-    play() { workflowPhotoPlayer.setPaused(false); },
-    pause() { workflowPhotoPlayer.setPaused(true); },
 };
