@@ -2,11 +2,10 @@
  * Component: Bottom Player (thanh điều khiển phát nhạc ở dưới cùng) — components/app-mount.js chèn lúc khởi động.
  *
  * Bố cục 1 cột mọi khổ màn (assets/css/player-control.css, `.pc-layout`; màn rộng chỉ giới hạn bề ngang + căn giữa):
- *   [phụ đề — chỉ khi Settings > Theme > Player control chọn "Inside"] · nghệ sĩ 25% | tên media 50% | album 25% (thiếu tag thì
- *   ô trống chữ) · thanh tiến trình · giờ đang phát | tổng · Shuffle · Prev · Play · Next · Repeat.
+ *   nghệ sĩ 25% | tên media 50% | album 25% (thiếu tag thì ô trống chữ) · thanh tiến trình · giờ đang phát | tổng ·
+ *   Shuffle · Prev · Play · Next · Repeat. Phụ đề neo phía trên thanh (core/player-control-style.js::dockSubtitleDisplay()).
  * Ảnh bìa (#record-container) nằm TRONG nút Play/Pause — hiện/ẩn theo `data-pc-cover` của `.pc-surface`; nốt nhạc bay
- * (core/visualizer/draw/flying-note-ui.js) cũng sinh từ đây. #pc-sub-slot là chỗ neo #subtitle-display khi chọn "Inside"
- * (core/player-control-style.js::dockSubtitleDisplay()).
+ * (core/visualizer/draw/flying-note-ui.js) cũng sinh từ đây.
  * Màu chữ/nút theo UI theme qua `data-uitk` (key `pc*`, core/ui-theme/*.js); bề mặt theo biến `--viz-*`. Shuffle/Repeat bật =
  * `aria-pressed="true"` (core/player-controls.js) — Shuffle đổi icon theo `aria-pressed` bằng CSS (`.pc-icon-on/off`).
  */
@@ -16,7 +15,6 @@ const TPL_BOTTOM_PLAYER = `
     <div id="player-container" class="fixed bottom-0 left-0 w-full z-40 pointer-events-auto flex flex-col hidden">
         <div id="player-panel" class="pc-surface group" data-pc-style="glass" data-pc-cover="on">
             <div class="pc-layout">
-                <div id="pc-sub-slot" class="pc-sub-slot"></div>
                 <!-- Nghệ sĩ 25% · tên 50% · album 25% cố định; thiếu tag thì ô chỉ trống chữ. Ghi qua setPlayerTrackLabels(). -->
                 <div class="pc-info-row">
                     <p id="player-artist" class="pc-artist" data-uitk="pcText"></p>
