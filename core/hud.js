@@ -90,6 +90,6 @@ function syncSpeedHudUI(sliderEl, valueLabelEl, optionEls, badgeEl, view) {
         sliderEl.style.setProperty('--hud-fill-pct', `${view.fillPercent}%`); // tô theo UI theme — .setting-slider, sliders.css
     }
     if (valueLabelEl) valueLabelEl.textContent = view.label;
-    optionEls.forEach((el) => el.classList.toggle('viz-chip-active', parseFloat(el.dataset.speedOption) === view.speed)); // assets/css/glass.css
+    optionEls.forEach((el) => el.setAttribute('aria-pressed', String(parseFloat(el.dataset.speedOption) === view.speed))); // màu bật: key vizChip (aria-pressed:)
     if (badgeEl) badgeEl.textContent = view.label;
 }

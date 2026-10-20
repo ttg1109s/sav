@@ -104,11 +104,8 @@
         
         const playPauseBtn = document.getElementById('play-pause-btn'), iconPlay = document.getElementById('icon-play'), iconPause = document.getElementById('icon-pause');
         const btnPrev = document.getElementById('btn-prev'), btnNext = document.getElementById('btn-next');
-        // SỬA (05/09/2026, yêu cầu Giang "bỏ đánh dấu 1 đi, dùng icon repeat nhưng có số 1 ở
-        // giữa") — `repeatBadge` (span góc riêng, `#repeat-badge`) ĐÃ XOÁ khỏi HTML — thay bằng
-        // `repeatOneDigit` (`#repeat-one-digit`, phần tử `<text>` NẰM TRONG SVG icon repeat,
-        // components/visualizer-overlay.js) — ẩn/hiện qua class y hệt bản cũ, xem
-        // core/player-controls.js::syncRepeatUI().
+        // Shuffle/Repeat ở Bottom Player (components/bottom-player.js); `repeatOneDigit` = path số "1" nằm trong SVG icon repeat —
+        // xem core/player-controls.js::syncRepeatUI().
         const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
         const btnRestartTrack = document.getElementById('btn-restart-track'); // MỚI 25/09/2026 — Control Center "Phát lại từ đầu" (components/visualizer-overlay.js)
         const playerPanel = document.getElementById('player-panel'); // bề mặt Bottom Player (kiểu nền/độ đục — core/player-control-style.js)

@@ -139,9 +139,10 @@ function setPlayerZoomButtonVisible(visible) {
     if (btnPlayerZoom) btnPlayerZoom.classList.toggle('hidden', !visible);
 }
 
-/** Trạng thái sáng của icon kính lúp (đang ở Zoom mode) — cùng class `viz-cc-active` của Shuffle. @param {boolean} active */
+/** Trạng thái sáng của icon kính lúp (đang ở Zoom mode) — `aria-pressed`, màu bật do key `vizCcItem` (variant `aria-pressed:`).
+ * @param {boolean} active */
 function setPlayerZoomButtonActive(active) {
-    if (btnPlayerZoom) btnPlayerZoom.classList.toggle('viz-cc-active', active);
+    if (btnPlayerZoom) btnPlayerZoom.setAttribute('aria-pressed', String(active));
 }
 
 /** Ép hiện nút mở Control Center trong lúc Zoom mode (vuốt rìa trên đã bị tắt cùng mọi cử chỉ — đây là lối DUY

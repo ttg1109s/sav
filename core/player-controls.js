@@ -354,12 +354,11 @@
          *          random lại shuffleIndices hay không (Rule 3: core-gọi-core hợp lệ vì workflow
          *          THẬT SỰ dùng giá trị trả về).
          */
-        /** Đồng bộ class/màu nút Shuffle theo ĐÚNG state hiện có — TÁCH từ toggleShuffle() (phần
-         * "đồng bộ UI", KHÔNG đụng phần đảo cờ), phản hồi Giang mục 3 ("nhớ trạng thái shuffle/
-         * repeat/stats") — cần "set thẳng" UI về giá trị ĐÃ LƯU lúc boot, không thể gọi
-         * toggleShuffle() cho việc này vì hàm đó LUÔN đảo ngược giá trị hiện tại. */
+        /** Đồng bộ trạng thái nút Shuffle (Bottom Player) theo ĐÚNG state hiện có — "set thẳng" (lúc boot khôi phục giá trị đã
+         * lưu), khác toggleShuffle() luôn đảo ngược. Chỉ ghi `aria-pressed`; màu bật do key `pcToggleBtn` (variant `aria-pressed:`,
+         * core/ui-theme/*.js) — không đổi class/key nên không cần áp lại theme. @param {boolean} isShuffleNow */
         function syncShuffleUI(isShuffleNow) {
-            btnShuffle.classList.toggle('viz-cc-active', isShuffleNow); // màu nhấn theo UI theme — assets/css/glass.css
+            btnShuffle.setAttribute('aria-pressed', String(isShuffleNow));
         }
 
         function toggleShuffle(isShuffleCurrent) {
@@ -374,15 +373,11 @@
          * Xoay vòng 3 trạng thái Repeat (tắt -> lặp danh sách -> lặp 1 bài) + đồng bộ class/badge.
          * Ứng với msg.type 'playerControls.repeat.click'.
          */
-        /** Đồng bộ class/badge nút Repeat theo ĐÚNG state hiện có — TÁCH từ cycleRepeatMode(),
-         * CÙNG LÝ DO syncShuffleUI() ngay trên (phản hồi Giang mục 3). */
-        /** SỬA (05/09/2026, yêu cầu Giang "bỏ đánh dấu 1 đi, dùng icon repeat nhưng có số 1 ở
-         * giữa") — trước đây bật/tắt `repeatBadge` (span góc riêng NGOÀI icon, `#repeat-badge`) —
-         * giờ bật/tắt `repeatOneDigit` (`#repeat-one-digit`, phần tử `<text>` NẰM TRONG chính SVG
-         * icon repeat, components/visualizer-overlay.js) — cùng cơ chế ẩn/hiện qua class `hidden`,
-         * chỉ đổi phần tử đích. */
+        /** Đồng bộ nút Repeat (Bottom Player) theo ĐÚNG state hiện có — cùng lý do syncShuffleUI(). `aria-pressed` bật khi
+         * 1 = lặp danh sách / 2 = lặp 1 bài; số "1" (`#repeat-one-digit`, path nằm trong SVG icon repeat) chỉ hiện ở mode 2.
+         * @param {0|1|2} repeatModeNow */
         function syncRepeatUI(repeatModeNow) {
-            btnRepeat.classList.toggle('viz-cc-active', repeatModeNow !== 0); // 1 = lặp danh sách, 2 = lặp 1 bài — màu nhấn theo UI theme
+            btnRepeat.setAttribute('aria-pressed', String(repeatModeNow !== 0));
             repeatOneDigit.classList.toggle('hidden', repeatModeNow !== 2);
         }
 
