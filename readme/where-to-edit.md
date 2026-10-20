@@ -82,8 +82,8 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 
 | Muốn sửa... | Vào file... |
 |---|---|
-| Nút phát, Next/Prev, tua, tốc độ, Media Session | `components/bottom-player.js`, `core/player-controls.js`, `event/workflow/player-controls.js`, `event/workflow/player.js`; cụm `playerControls` |
-| Giao diện Bottom Player (bố cục, thanh tiến trình, kiểu nền/độ đục — Settings > Theme > Player control) | `components/bottom-player.js`, `assets/css/player-control.css`, `assets/css/sliders.css` (`.music-slider`), `core/player-control-style.js`, `core/player-control-settings-ui.js`, `event/workflow/theme.js` |
+| Nút phát, Next/Prev, Shuffle/Repeat, tua, tốc độ, Media Session | `components/bottom-player.js`, `core/player-controls.js`, `event/workflow/player-controls.js`, `event/workflow/player.js`; cụm `playerControls` |
+| Giao diện Bottom Player (bố cục, thanh tiến trình, kiểu nền/độ đục — Settings > Theme > Player control) | `components/bottom-player.js`, `assets/css/player-control.css`, màu chữ/nút: key `pc*` ở `core/ui-theme/{light,dark,morphin}.js`, `assets/css/sliders.css` (`.music-slider`), `core/player-control-style.js`, `core/player-control-settings-ui.js`, `event/workflow/theme.js` |
 | Cut MP3 (Subtitle Editor) | `core/mp3-cut.js`, `event/workflow/subtitle-editor.js::cutMp3FromRegion()` |
 | Bảng 7 màu của mode gradient (Custom Effect) | `core/custom-effect.js` (`gradientPalette`), `core/visualizer/effect-paint.js` (`computeGradientPaletteRgb`), `event/workflow/visualizer-render.js` (`VIZ_COLOR_RULE_BY_KEY`), `components/custom-effect-drawer.js`, `event/workflow/custom-effect.js` |
 | Audio graph, EQ | `core/audio-engine.js`, `event/workflow/audio-engine.js`, state `service/state/audio-engine.js`; preset EQ `components/eq-presets-drawer.js`, `core/eq-presets.js`, cụm `eqPresets` |
@@ -132,7 +132,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Shape clock: vạch phút sáng, nền mặt số, quả lắc | `stepClockTickGlow`, `paintClockBackground` (`core/visualizer/groups/shape/clock.js`) + `_syncClockBackground` (`event/workflow/visualizer/shape.js`); chọn ảnh `pickImageField()` (`event/workflow/custom-effect.js`) |
 | Auto-switch | `core/auto-switch-visual.js` (`resolveAutoSwitchSyncPhase()`), `event/workflow/auto-switch-visual.js` (`syncPlayState()` dùng VMState), state `service/state/auto-switch.js`, drawer `components/settings/visualizer-auto-switch-drawer.js`; cụm `autoSwitchVisual` |
 | Visualizer Screen (hiển thị, ẩn UI) | `components/settings/visualizer-display-panel.js`, `core/visualizer/visualizer-display.js`, `core/visualizer-ui-visibility.js`, `event/workflow/visualizer-display.js`; cụm `visualizerDisplay` |
-| Overlay, Control Center | `components/visualizer-overlay.js`, `core/visualizer-control-center.js`; cụm `visualizerControlCenter` |
+| Overlay, Control Center | `components/visualizer-overlay.js`, `core/visualizer-control-center.js`; cụm `visualizerControlCenter`; màu: key `viz*` ở `core/ui-theme/{light,dark,morphin}.js` |
 | Cử chỉ trên màn Visualizer | `core/visualizer-gesture.js`, `event/workflow/visualizer-gesture.js`; cài đặt `components/gesture-settings-drawer.js` + `core/gesture-settings-ui.js`, cụm `gestureSettings`, `visualizerGesture` |
 | HUD (tốc độ, âm lượng…) | `core/hud.js`; cụm `hud` |
 | Dựng canvas | `core/canvas-scene-setup.js`; màu `core/color-utils.js` |

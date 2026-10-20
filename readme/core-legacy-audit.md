@@ -63,6 +63,7 @@
 Đơn vị: hàm ngoài cùng ở core/workflow (mỗi method của object workflow tính riêng; bỏ arrow trong bảng object map), từng `case` ở router, từng lệnh gắn sự kiện ở listener. Dòng code = dòng có mã thật (không tính dòng trống, dòng chỉ có comment). Không gồm `components/`, `service/`, `core/workers/`.
 - Cập nhật 20/10/2026 (**Cut MP3 · Bottom Player · bảng 7 màu**, kèm phán quyết "khác thuật toán = khác tiến trình"): **Màu effect** — `getComputedColor()`/`getActiveBlurMult()` (core tự đọc `frameEffectConfig`, gọi `getActiveEffectConfig()`/`interpolateColor()`, rẽ 3 luật màu trong 1 hàm) thay bằng 1 core thuần mỗi luật (`computeUniformEffectColor`, `computeGradientHslEffectColor`, `computeGradientPaletteRgb` + `computePaletteEffectColor`, `computeEffectBlurMult`; khoá luật `resolveEffectColorRule()`), Workflow chọn luật 1 lần/frame bằng map `VIZ_COLOR_RULE_BY_KEY` (event/workflow/visualizer-render.js), 24 nơi vẽ gọi `workflowVisualizerRender.colorAt()`; xoá `getActiveEffectConfig()` (2 Workflow gọi `currentEffectConfig()`). Cửa sổ Rain glass: `resolveRainCityLitColor()` (rẽ 3 luật) tách `resolveRainCityLitColorHsl()`/`resolveRainCityLitColorFromRgb()` + `interpolateRgb()` (core/color-utils.js), Workflow chọn bằng `RAIN_CITY_LIT_COLOR_BY_RULE`. Harness so với bản cũ: 28.000 lượt (4 mode, màu effect + cửa sổ, blur) khớp tuyệt đối. **Subtitle Editor** — `cutMp3FromRegion` hết ghi DOM + rAF thô (`setSubtitleToolButtonBusy()`, `taskManager.onceFrame`), `_encodeMp3FromRegion` thay bằng core/mp3-cut.js (cắt theo frame / mã hoá lại), giải mã AudioContext sang core `decodeAudioArrayBuffer()` (core/audio-segment.js — hết `ctx.close()` trong Workflow), `_showCutResultModal`/`_insertCutBlobAsNewSong` gộp `get([…])`, tên file qua `buildCutMp3FileName()`. **#record-art** Song/Video dựng qua `mountRecordArt()` + `renderRecordArtHtml(isPaused)` (hết markup + `innerHTML` trong Workflow; sửa kèm bug cover Song không quay). Mục 5 bỏ 4 dòng CORE-1 đã loại sai theo phán quyết trên (effect-paint.js:28/29/48, glass.js:105). Tổng 565 → 548 (58 → 57 file).
 - Cập nhật 20/10/2026 (**rà lại mục 5 theo phán quyết "khác thuật toán = khác tiến trình"** + ghi lamejs): quét AST lại toàn bộ `core/` (172 file, trừ `core/workers/`) — 393 nhánh ≥2 vế (if/else, else-if, ternary) mà các vế khác hình dạng tính toán, review tay từng nhánh. **20 FAIL mới** vào mục 4.1 Rule 1 (contain/cover ×3, chọn ngẫu nhiên/kế tiếp, `parseFloat`/`parseInt`, popup combo, nhãn layer theo loại, lấy giá trị + luật so của Filter, hạt karaoke reveal/vanish ×2, card phụ đề theo mode, xuất stream/buffer ×2, hình trục Dot + khép kín/mở ×4, MAX/nội suy dải Mirror, răng cóc Clock); 16 nhánh đã có dòng FAIL sẵn; 357 nhánh PASS — mục 5 thay 660 dòng CORE-1 cũ (vị trí mốc 07/10, đã lệch) bằng 357 dòng vị trí hiện tại, mỗi dòng ghi tiêu chí A/B/C-D/E. Nhánh 1 vế (guard, bật/tắt 1 bước) không chịu ảnh hưởng của phán quyết — giữ kết luận cũ, bỏ liệt kê. **Rule 3d** — `core/mp3-cut.js::encodeMp3FromPcm16` (lamejs) tự nhận wrapper, chưa audit → FAIL (mục 4.1 mới). Tổng 548 → 569.
+- Cập nhật 20/10/2026 (**theme key cho UI phía Visualizer + Shuffle/Repeat xuống Bottom Player**): bản trước tô Bottom Player / nút tròn / Control Center / HUD bằng biến CSS `--viz-*` qua `themeVars` — sai phạm vi key đó (chỉ dành cho phần CSS thuần). Chuyển sang key `viz*`/`pc*` (`data-uitk`, cùng bộ ở 3 theme); `themeVars` chỉ còn bề mặt Bottom Player (nhân `--pc-alpha`) + track/thumb slider. Trạng thái bật (Shuffle, Repeat, kính lúp, mốc tốc độ) đổi từ bật/tắt class trong core sang ghi `aria-pressed` (`syncShuffleUI`/`syncRepeatUI`/`setPlayerZoomButtonActive`/`syncSpeedHudUI`) — màu bật nằm trong key (variant `aria-pressed:`), không cần áp lại theme. Không phát sinh FAIL mới; dòng `core/player-controls.js` (và các file khác vừa sửa) dời số dòng theo vị trí mới. Tổng giữ 569.
 
 ## 2. Cách chấm
 
@@ -166,15 +167,15 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/loading-shield-util.js:18` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:390` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:391` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:515` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:515` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:528` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:528` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:528` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:529` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:546` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:385` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:386` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:510` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:510` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:523` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:523` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:523` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:524` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:541` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
 | `core/playlist/actions.js:168` | `handlePlaybackError` | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có | Đợt 19a (dời từ 18a): nơi gọi duy nhất là core `handleAudioError` (core/player-controls.js) — đổi API cùng lúc dời hàm đó ra Workflow |
 | `core/video-player.js:86` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
 | `core/video-player.js:98` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
@@ -226,17 +227,17 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/motion-presets.js:335` | `sanitizePointMove` | gọi sanitizePointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/motion-presets.js:336` | `sanitizePointMove` | gọi sanitizePointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/player-controls.js:307` | `applyPlaybackSpeedToActiveMedia` | gọi getActiveMediaElement() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/player-controls.js:368` | `toggleShuffle` | gọi syncShuffleUI() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/player-controls.js:391` | `cycleRepeatMode` | gọi syncRepeatUI() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/player-controls.js:514` | `handleAudioLoadedMetadata` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:514` | `handleAudioLoadedMetadata` | gọi updateMediaPositionState() (cùng file) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:515` | `handleAudioLoadedMetadata` | gọi applyPlaybackSpeedToActiveMedia() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/player-controls.js:529` | `handleAudioError` | gọi handlePlaybackError() (core/playlist/actions.js) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:546` | `handleAudioTimeUpdate` | gọi updateProgressBarCSS() (core/visualizer/visualizer-display.js) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:546` | `handleAudioTimeUpdate` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:547` | `handleAudioTimeUpdate` | gọi updateMediaPositionState() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/player-controls.js:566` | `handleProgressBarSeeking` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:566` | `handleProgressBarSeeking` | gọi updateProgressBarCSS() (core/visualizer/visualizer-display.js) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:367` | `toggleShuffle` | gọi syncShuffleUI() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
+| `core/player-controls.js:386` | `cycleRepeatMode` | gọi syncRepeatUI() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
+| `core/player-controls.js:509` | `handleAudioLoadedMetadata` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:509` | `handleAudioLoadedMetadata` | gọi updateMediaPositionState() (cùng file) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:510` | `handleAudioLoadedMetadata` | gọi applyPlaybackSpeedToActiveMedia() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
+| `core/player-controls.js:524` | `handleAudioError` | gọi handlePlaybackError() (core/playlist/actions.js) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:541` | `handleAudioTimeUpdate` | gọi updateProgressBarCSS() (core/visualizer/visualizer-display.js) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:541` | `handleAudioTimeUpdate` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:542` | `handleAudioTimeUpdate` | gọi updateMediaPositionState() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
+| `core/player-controls.js:561` | `handleProgressBarSeeking` | gọi formatTime() (core/playlist/state.js) | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:561` | `handleProgressBarSeeking` | gọi updateProgressBarCSS() (core/visualizer/visualizer-display.js) | FAIL | Máy quét | Có |  |
 | `core/slider-input-modal.js:146` | `openSliderInputModal` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Không |  |
 | `core/subtitle/subtitles-ui.js:102` | `buildLineCard` | gọi secToStr() (core/subtitle/subtitles.js) | FAIL | Máy quét | Có |  |
 | `core/subtitle/subtitles-ui.js:103` | `buildLineCard` | gọi secToStr() (core/subtitle/subtitles.js) | FAIL | Máy quét | Có |  |
@@ -275,7 +276,7 @@ _Đã dọn hết 19/10/2026 (plan-debt-domains đợt 16, 17a)._
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/custom-effect.js:368` | `getActiveEffectConfig` | appConfigViz.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Không | Giữ lại ở đợt 3 (13/10/2026): cùng lý do dòng Rule 3a của hàm này — gỡ cùng đợt 23a |
-| `core/player-controls.js:515` | `handleAudioLoadedMetadata` | appConfigViz.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Có |  |
+| `core/player-controls.js:510` | `handleAudioLoadedMetadata` | appConfigViz.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/visual-bg-common.js:231` | `getVisualBgFillStyle` | appConfigVisualBg.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Không |  |
 
 #### Rule 3d — wrapper thư viện ngoài chưa audit (1)
@@ -290,8 +291,8 @@ _Đã dọn hết 19/10/2026 (plan-debt-domains đợt 16, 17a)._
 |---|---|---|---|---|---|---|
 | `core/loading-shield-util.js:25` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/loading-shield-util.js:52` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:390` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
-| `core/player-controls.js:566` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:385` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
+| `core/player-controls.js:561` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/rubik-math.js:13` |  | appState.mutate() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/video-player.js:27` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Không |  |
 | `core/video-player.js:32` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Không |  |
@@ -887,8 +888,8 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | CORE-1 (REVIEW 20/10) | `core/custom-effect.js:463` | `replaceCustomLampField` E — switch A/B / cập nhật đúng 1 đối tượng |
 | CORE-1 (REVIEW 20/10) | `core/debug-console.js:94` | `computeDebugConsoleListPlan` B — bước tuỳ chọn (áp hoặc không 1 phép) |
 | CORE-1 (REVIEW 20/10) | `core/debug-console.js:95` | `computeDebugConsoleListPlan` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/dom-refs.js:384` |  A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/dom-refs.js:384` |  A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/dom-refs.js:381` |  A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/dom-refs.js:381` |  A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:18` | `resolveElementStyleFieldValue` B — bước tuỳ chọn (áp hoặc không 1 phép) |
 | CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:50` | `sizeValue` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:87` | `_parseValueUnit` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
