@@ -176,6 +176,26 @@ const workflowCustomEffect = {
         this._syncProgressBarForDynB(field);
     },
 
+    /** 1 ô của bảng 7 màu (mode gradient) — bảng đang mặc định thì 6 ô còn lại lấy màu mặc định đang hiện. Thanh tiến trình
+     * lấy màu đầu bảng. @param {number} index @param {string} value */
+    setGradientPaletteColor(index, value) {
+        if (!isCustomEffectHexColor(value)) return; // core/custom-effect.js
+        const palette = replaceGradientPaletteColor(this._openConfig().gradientPalette, index, value); // core
+        if (!palette) return;
+        this._writeField(this._openType, 'gradientPalette', palette);
+        workflowConfig.save();
+        markCustomEffectGradientPaletteCustom(genericDrawerBody, t('customEffectDrawer.gradientPalette.statusCustom')); // core/custom-effect-drawer-ui.js
+        workflowVisualizerDisplay.syncProgressBarColor();
+    },
+
+    /** Reset bảng 7 màu về mặc định (dải hue gốc) — vẽ lại body để 7 ô hiện lại màu mặc định. */
+    resetGradientPalette() {
+        this._writeField(this._openType, 'gradientPalette', []);
+        workflowConfig.save();
+        this._rerenderBody();
+        workflowVisualizerDisplay.syncProgressBarColor();
+    },
+
     /** Thanh tiến trình mode dynamic chỉ dùng dynB (computeProgressBarFillColor(), core/visualizer/visualizer-display.js). */
     _syncProgressBarForDynB(field) {
         if (field !== 'dynB') return;

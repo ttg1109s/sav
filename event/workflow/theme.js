@@ -9,8 +9,10 @@
  *   - Video nền chỉ phát ở màn App Panel khi tab đang hiện (`syncBackgroundVideoPlayback()`).
  *   - Picker media: `workflowGenericDrawerHelpers.mountMediaPicker()` (updateInPlace, đang đứng trong Settings); chọn
  *     xong/đóng thì dựng lại màn Theme.
+ *   - Player control: kiểu nền + độ đục của Bottom Player (`syncPlayerControlStyle()`, core/player-control-style.js).
  *
  * NẠP SAU: core/config.js, core/color-utils.js, core/theme-background.js, core/theme-background-ui.js,
+ * core/player-control-style.js, core/player-control-settings-ui.js, core/custom-effect.js,
  * core/visualizer/visualizer-display.js, core/loading-shield-util.js, components/media-gallery.js, core/dom-refs.js.
  * Lúc chạy: event/workflow/{generic-drawer-helpers,playlist-scope,file-manager-photo,photo-gallery-window,
  * video-gallery-window,app-settings,ui-theme}.js.
@@ -186,6 +188,38 @@ const workflowTheme = {
     _forceGlassRepaint() {
         const glassEls = suspendGlassBackdrop(); // core/color-utils.js
         taskManager.onceFrame(() => restoreGlassBackdrop(glassEls), 1); // core/color-utils.js
+    },
+
+    // ===================== Player control (Bottom Player) =====================
+
+    /** Ứng với 'theme.playerControlStyle.click'. @param {string} style */
+    setPlayerControlBgStyle(style) {
+        setPlayerControlBgStyleConfig(style); // core/player-control-style.js
+        workflowConfig.save();
+        this.syncPlayerControlStyle();
+    },
+
+    /** Ứng với 'theme.playerControlOpacity.input' — gọi liên tục lúc kéo. @param {string} value */
+    setPlayerControlOpacity(value) {
+        setPlayerControlOpacityConfig(value); // core/player-control-style.js
+        workflowConfig.save();
+        this.syncPlayerControlStyle();
+    },
+
+    /** Giá trị hiển thị Player control theo config hiện tại (kèm màu effect đang chạy cho khung xem trước). */
+    getPlayerControlView() {
+        const cfg = appConfigViz.getAll();
+        const accentColor = computeProgressBarFillColor(resolveEffectConfig(cfg.customEffect, cfg.type)); // core/visualizer/visualizer-display.js + core/custom-effect.js
+        return computePlayerControlView(cfg, accentColor); // core/player-control-style.js
+    },
+
+    /** Áp kiểu nền + độ đục lên Bottom Player, vá cụm Player control nếu màn Theme đang mở. Gọi lúc boot (app-boot.js) và sau mỗi
+     * lần đổi. */
+    syncPlayerControlStyle() {
+        const view = this.getPlayerControlView();
+        paintPlayerControlSurface(playerPanel, view); // core/player-control-style.js + core/dom-refs.js
+        const cluster = patchPlayerControlSettings(genericDrawerBody, view); // core/player-control-settings-ui.js
+        if (cluster) applyUiThemeToDom(cluster, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     },
 
     /** Vá 3 card ở màn Theme (nếu đang mở) rồi áp lại UI theme cho cụm (key theme của card vừa đổi). @param {ThemeBgCardsView} cards */

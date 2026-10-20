@@ -17,6 +17,7 @@ const workflowAppBoot = {
         await workflowConfig.loadOnBoot(); // event/workflow/config.js
         // Nền App Panel + nền màu Visualizer theo config vừa nạp (media nền đã resolve/fallback trong loadOnBoot()).
         workflowTheme.repaintAppBackground(); // event/workflow/theme.js
+        workflowTheme.syncPlayerControlStyle(); // kiểu nền + độ đục Bottom Player
         workflowVisualBg.paintSolidBg(); // event/workflow/visual-bg-common.js
         workflowAutoSwitchVisual.syncLockedControls(); // event/workflow/auto-switch-visual.js — khoá đổi hiệu ứng tay theo Auto-Switch đã lưu
         workflowHud.syncSpeedUI(appConfigViz.getAll().playbackSpeed); // event/workflow/hud.js — badge tốc độ trên nút Speed

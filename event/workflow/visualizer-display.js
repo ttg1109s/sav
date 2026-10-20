@@ -73,6 +73,6 @@ const workflowVisualizerDisplay = {
     syncProgressBarColor() {
         const cfg = appConfigViz.getAll();
         const color = computeProgressBarFillColor(resolveEffectConfig(cfg.customEffect, cfg.type)); // core/visualizer/visualizer-display.js + core/custom-effect.js
-        setProgressBarFillColor(progressBar, color);
+        setProgressBarFillColor(playerContainer, color); // core/dom-refs.js — biến CSS cho cả thanh tiến trình lẫn nút Play
     },
 };

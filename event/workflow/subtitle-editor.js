@@ -18,9 +18,20 @@
  *
  * NẠP SAU: core/subtitle/subtitles.js, core/subtitle/subtitles-ui.js, core/time-picker-modal.js
  * (openTimePickerModal() dùng chung),
- * service/db.js, lang/lang.js, WaveSurfer.js (CDN) + Regions plugin (CDN).
+ * service/db.js, lang/lang.js, WaveSurfer.js (CDN) + Regions plugin (CDN), core/mp3-cut.js (Cut MP3).
  */
+
+// Cut MP3: sample rate giải mã khi nguồn KHÔNG phải MP3 (phải mã hoá lại) — 44.1 kHz chuẩn lamejs/MPEG1.
+const SUBTITLE_CUT_MP3_DECODE_SAMPLE_RATE = 44100;
+
+/** Cut MP3 theo nguồn (khoá = indexMp3Frames() có lập được bảng frame không): MP3 -> ghép frame gốc; khác -> mã hoá lại. */
+const SUBTITLE_CUT_MP3_BY_SOURCE = {
+    true: (bytes, index, startSec, endSec) => workflowSubtitleEditor._cutMp3Lossless(bytes, index, startSec, endSec),
+    false: (bytes, index, startSec, endSec) => workflowSubtitleEditor._cutMp3Reencode(startSec, endSec),
+};
+
 const workflowSubtitleEditor = {
+    _cutMp3Busy: false, // đang cắt — chặn bấm chồng
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
         const encoded = new URLSearchParams(window.location.search).get('song');
@@ -784,23 +795,31 @@ const workflowSubtitleEditor = {
         return source;
     },
 
-    /** Giải mã file gốc ở KARAOKE_DECODE_SAMPLE_RATE rồi gộp mono — AudioContext tạm, đóng ngay sau khi
-     * xong. Lỗi bất kỳ -> null (nơi gọi tự lùi về PCM của waveform chính). @param {Blob} blob */
+    /** Giải mã file gốc ở KARAOKE_DECODE_SAMPLE_RATE rồi gộp mono. Lỗi -> null (nơi gọi lùi về PCM của waveform chính).
+     * @param {Blob} blob */
     async _decodeKaraokeSourceHiRes(blob) {
+        const audioBuffer = await this._decodeBlobAudio(blob, KARAOKE_DECODE_SAMPLE_RATE);
+        if (!audioBuffer) return null;
+        return { samples: mixAudioBufferToMono(audioBuffer), sampleRate: audioBuffer.sampleRate }; // core/audio-segment.js
+    },
+
+    /** Giải mã 1 Blob audio ở `sampleRate` (WebView cũ không nhận option -> sample rate mặc định của máy) — AudioContext
+     * tạm, đóng ngay sau khi xong. Lỗi bất kỳ -> null. @param {Blob} blob @param {number} sampleRate
+     * @returns {Promise<AudioBuffer|null>} */
+    async _decodeBlobAudio(blob, sampleRate) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) return null;
         let ctx = null;
         try {
             const freshBlob = await rematerializeBlob(blob); // service/db.js — CÙNG lý do _initWaveform() (bug round-trip Blob qua IndexedDB)
             const arrayBuffer = await freshBlob.arrayBuffer();
-            try { ctx = new Ctx({ sampleRate: KARAOKE_DECODE_SAMPLE_RATE }); } catch (e) { ctx = new Ctx(); } // WebView cũ không nhận option sampleRate
-            const audioBuffer = await new Promise((resolve, reject) => {
+            try { ctx = new Ctx({ sampleRate }); } catch (e) { ctx = new Ctx(); }
+            return await new Promise((resolve, reject) => {
                 const maybePromise = ctx.decodeAudioData(arrayBuffer, resolve, reject); // dạng callback cho Safari cũ, dạng Promise cho bản mới
                 if (maybePromise && typeof maybePromise.then === 'function') maybePromise.then(resolve, reject);
             });
-            return { samples: mixAudioBufferToMono(audioBuffer), sampleRate: audioBuffer.sampleRate }; // core/audio-segment.js
         } catch (err) {
-            console.warn('[subtitle-editor] karaoke: giải mã riêng file gốc thất bại:', err);
+            console.warn('[subtitle-editor] giải mã riêng file gốc thất bại:', err);
             return null;
         } finally {
             if (ctx && typeof ctx.close === 'function') ctx.close().catch(() => {});
@@ -1512,77 +1531,46 @@ const workflowSubtitleEditor = {
 
     // ============================== Toolbar: tool "Cut MP3" ==============================
 
-    /** Bấm "Cut" — cắt ĐÚNG đoạn appState.get('_region') hiện tại thành 1 file .mp3 thật, xong hiện modal 3
-     * lựa chọn (modalChoice() có sẵn, core/modal-choice-ui.js) Huỷ/Tải xuống/Chèn. Tự khoá nút trong
-     * lúc mã hoá (đề phòng bấm chồng — mã hoá lamejs chạy đồng bộ, chặn main thread 1 lúc tuỳ độ
-     * dài vùng chọn). */
+    /** Bấm "Cut" — cắt đúng vùng chọn thành file .mp3 rồi hiện modal Tải xuống/Chèn. Khoá nút suốt lúc cắt (chống bấm
+     * chồng). Nguồn đọc từ FILE GỐC của bài, không từ PCM 8000 Hz của waveform. */
     async cutMp3FromRegion() {
-        if (!appState.get('_region') || !appState.get('_wavesurfer')) return;
-        if (btnCutMp3.dataset.busy === '1') return;
-        btnCutMp3.dataset.busy = '1';
-        btnCutMp3.classList.add('opacity-40', 'pointer-events-none');
+        const s = appState.get(['_region', '_record']);
+        if (!s._region || !s._record || !s._record.blob || this._cutMp3Busy) return;
+        this._cutMp3Busy = true;
+        setSubtitleToolButtonBusy(btnCutMp3, true); // core/subtitle/subtitles-ui.js
         try {
-            // Nhường 1 khung hình cho trình duyệt VẼ XONG trạng thái "đang xử lý" (mờ nút) TRƯỚC
-            // khi bắt đầu việc mã hoá đồng bộ nặng — không làm vậy, nút sẽ trông như "không phản
-            // hồi" suốt lúc mã hoá vì main thread bận, không kịp repaint.
-            await new Promise((resolve) => requestAnimationFrame(resolve));
-            const blob = await this._encodeMp3FromRegion(appState.get('_region').start, appState.get('_region').end);
-            this._showCutResultModal(blob);
+            // Chờ trình duyệt vẽ xong trạng thái mờ nút trước việc nặng (giải mã/mã hoá chặn main thread).
+            await new Promise((resolve) => { taskManager.onceFrame(resolve, 2, 'subtitleCutMp3Paint'); });
+            const bytes = new Uint8Array(await (await rematerializeBlob(s._record.blob)).arrayBuffer()); // service/db.js
+            const index = indexMp3Frames(bytes); // core/mp3-cut.js — null = nguồn không phải MP3
+            const cut = await SUBTITLE_CUT_MP3_BY_SOURCE[!!index](bytes, index, s._region.start, s._region.end);
+            this._showCutResultModal(cut);
         } catch (err) {
             console.error('[subtitle-editor] Cắt MP3 thất bại:', err);
             await alertModal(t('subtitleEditor.cutMp3.error')); // core/modal-choice-ui.js
         } finally {
-            btnCutMp3.dataset.busy = '0';
-            btnCutMp3.classList.remove('opacity-40', 'pointer-events-none');
+            this._cutMp3Busy = false;
+            setSubtitleToolButtonBusy(btnCutMp3, false);
         }
     },
 
-    /** Cắt [startSec, endSec] từ AudioBuffer ĐÃ GIẢI MÃ SẴN của chính WaveSurfer
-     * (getDecodedData() — cùng nguồn dữ liệu với waveform đang hiển thị, không tự decodeAudioData()
-     * lại từ đầu tốn công) rồi mã hoá bằng lamejs (CDN, subtitle-editor.html) -> Blob 'audio/mpeg'.
-     * lamejs cần PCM 16-bit int — tự convert từ Float32Array (-1..1) của Web Audio API. Block size
-     * 1152 = đúng 1 khung MPEG Layer III chuẩn (xem ví dụ chính thức của lamejs). */
-    async _encodeMp3FromRegion(startSec, endSec) {
-        const buffer = appState.get('_wavesurfer').getDecodedData();
-        if (!buffer) throw new Error('getDecodedData() null — chưa có dữ liệu audio đã giải mã.');
-
-        const sampleRate = buffer.sampleRate;
-        const startSample = Math.max(0, Math.floor(startSec * sampleRate));
-        const endSample = Math.min(buffer.length, Math.ceil(endSec * sampleRate));
-        const sliceLength = endSample - startSample;
-        if (sliceLength <= 0) throw new Error('Vùng chọn rỗng, không có gì để cắt.');
-
-        const channels = Math.min(buffer.numberOfChannels, 2); // lamejs chỉ hỗ trợ mono/stereo
-        const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128); // 128kbps — đủ dùng cho đoạn cắt ngắn
-        const blockSize = 1152;
-        const mp3Chunks = [];
-
-        const chanData = [];
-        for (let c = 0; c < channels; c++) {
-            const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1)).subarray(startSample, endSample);
-            const int16 = new Int16Array(sliceLength);
-            for (let i = 0; i < sliceLength; i++) {
-                const s = Math.max(-1, Math.min(1, src[i]));
-                int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-            }
-            chanData.push(int16);
-        }
-
-        for (let i = 0; i < sliceLength; i += blockSize) {
-            const left = chanData[0].subarray(i, i + blockSize);
-            const encoded = channels === 2
-                ? mp3encoder.encodeBuffer(left, chanData[1].subarray(i, i + blockSize))
-                : mp3encoder.encodeBuffer(left);
-            if (encoded.length > 0) mp3Chunks.push(encoded);
-        }
-        const finalChunk = mp3encoder.flush();
-        if (finalChunk.length > 0) mp3Chunks.push(finalChunk);
-
-        return new Blob(mp3Chunks, { type: 'audio/mpeg' });
+    /** Nguồn MP3: ghép nguyên frame gốc, không mã hoá lại. @returns {{blob: Blob, durationSec: number}} */
+    _cutMp3Lossless(bytes, index, startSec, endSec) {
+        const cut = buildMp3FrameCut(bytes, index, startSec, endSec); // core/mp3-cut.js
+        return { blob: new Blob([cut.bytes], { type: 'audio/mpeg' }), durationSec: cut.durationSec };
     },
 
-    /** Modal 3 lựa chọn sau khi cắt xong — modalChoice() (core/modal-choice-ui.js). */
-    _showCutResultModal(blob) {
+    /** Nguồn khác MP3: giải mã ở SUBTITLE_CUT_MP3_DECODE_SAMPLE_RATE (không phải 8000 Hz của waveform) rồi mã hoá lamejs.
+     * @returns {Promise<{blob: Blob, durationSec: number}>} */
+    async _cutMp3Reencode(startSec, endSec) {
+        const audioBuffer = await this._decodeBlobAudio(appState.get('_record').blob, SUBTITLE_CUT_MP3_DECODE_SAMPLE_RATE);
+        if (!audioBuffer) throw new Error('Không giải mã được file gốc để mã hoá MP3.');
+        const pcm = sliceAudioBufferToPcm16(audioBuffer, startSec, endSec); // core/mp3-cut.js
+        return { blob: new Blob(encodeMp3FromPcm16(pcm), { type: 'audio/mpeg' }), durationSec: pcm.durationSec }; // core/mp3-cut.js
+    },
+
+    /** Modal 3 lựa chọn sau khi cắt xong — modalChoice() (core/modal-choice-ui.js). @param {{blob: Blob, durationSec: number}} cut */
+    _showCutResultModal(cut) {
         const startStr = secToStr(appState.get('_region').start); // core
         const endStr = secToStr(appState.get('_region').end); // core
         const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
@@ -1591,8 +1579,8 @@ const workflowSubtitleEditor = {
         modalChoice( // core/modal-choice-ui.js
             tFormat('subtitleEditor.cutMp3.resultDesc', { start: startStr, end: endStr }),
             [
-                { label: t('subtitleEditor.cutMp3.download'), onClick: () => this._downloadCutBlob(blob, fileName) },
-                { label: t('subtitleEditor.cutMp3.insert'), onClick: () => this._insertCutBlobAsNewSong(blob, fileName) },
+                { label: t('subtitleEditor.cutMp3.download'), onClick: () => this._downloadCutBlob(cut.blob, fileName) },
+                { label: t('subtitleEditor.cutMp3.insert'), onClick: () => this._insertCutBlobAsNewSong(cut.blob, fileName, cut.durationSec) },
             ],
             { title: t('subtitleEditor.cutMp3.resultTitle') }
         );
@@ -1609,7 +1597,7 @@ const workflowSubtitleEditor = {
      * riêng, key riêng) — tái dùng resolveSongKey()/setSongRecord() (service/db.js) để key luôn
      * nhất quán. Không cần tự thêm vào playlistOrder — initPlaylistFromDB() coi store `songs` là
      * chân lý duy nhất, tự quét lại khi index.html mở, bài mới sẽ tự xuất hiện. */
-    async _insertCutBlobAsNewSong(blob, fileName) {
+    async _insertCutBlobAsNewSong(blob, fileName, durationSec) {
         // Media do app tự tạo chịu cùng giới hạn dung lượng như upload (core/upload-validation.js, nạp ở subtitle-editor.html).
         const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
         if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
@@ -1629,7 +1617,7 @@ const workflowSubtitleEditor = {
             },
             cover,
             subtitles: [],
-            duration: appState.get('_region').end - appState.get('_region').start,
+            duration: durationSec, // độ dài THẬT của file cắt (cắt theo frame làm tròn ra biên frame)
             addedAt: Date.now(),
         };
         await createMediaRecord('song', key, record); // service/db.js — ghi đủ 3 store
