@@ -180,7 +180,7 @@ const workflowPlayer = {
     },
 
     /** Nhãn tên / nghệ sĩ / album của Song trên Bottom Player — nghệ sĩ mặc định lúc thiếu tag ("Unknown artist", theo mọi
-     * ngôn ngữ đã từng ghi) coi như không có -> ô tự ẩn. @param {{title?: string, artist?: string, album?: string}} tag */
+     * ngôn ngữ đã từng ghi) coi như không có -> ô trống chữ. @param {{title?: string, artist?: string, album?: string}} tag */
     applySongTrackLabels(tag) {
         const placeholders = [t('common.unknownArtist'), t('common.song.unknownArtist'), t('common.songEdit.defaultArtist'), 'Unknown artist', 'Unknown Artist'];
         const labels = resolveSongTrackLabels(tag, placeholders); // core/player-controls.js
