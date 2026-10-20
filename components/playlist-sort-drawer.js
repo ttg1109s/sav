@@ -42,7 +42,7 @@ function renderPlaylistSortPanelBody(source, statField) {
                             <!-- SỬA (07/10/2026, Giang) — dòng gợi ý "Stats quyết định thứ tự trước, Tên/Ngày chỉ phá thế bằng" (trước
                                  đây là chữ dưới hàng Hướng) chuyển thành icon (i) cạnh nhãn Tên/Ngày, CHỈ hiện khi Stats đang chọn
                                  field khác 'none' (ẩn/hiện qua data-sort-stat-info, cùng chỗ với hàng Hướng — xem
-                                 workflowPlaylist._syncSortStatDependents()). -->
+                                 core/playlist/main.js::toggleSortStatDependents()). -->
                             <div class="flex items-center gap-1.5 min-w-0">
                                 <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.nameMode.label">${t('playlistSortPanel.nameMode.label')}</span>
                                 <span data-sort-stat-info class="${statField === 'none' ? 'hidden ' : ''}flex shrink-0">${renderInfoIconHtml(t('playlistSortPanel.statField.hint'))}</span>

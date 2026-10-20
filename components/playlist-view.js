@@ -241,7 +241,7 @@ const TPL_PLAYLIST_VIEW = `
     </div>
 
 
-    <!-- Menu nhỏ của nút "Thêm" (dùng chung 3 Nguồn): chọn file rời hoặc cả thư mục. Định vị fixed ngay dưới nút, đóng bằng #song-action-overlay. "accept" dưới đây là mặc định của Song, đổi theo Nguồn ở workflowPlaylist._applyUploadInputAccept(). 2 mục là <label> bọc thẳng <input type="file"> — vài trình duyệt/WebView (file://, Android WebView cũ) im lặng bỏ qua input.click() gọi bằng JS, chỉ click thật lên label/input mới chắc chạy. -->
+    <!-- Menu nhỏ của nút "Thêm" (dùng chung 3 Nguồn): chọn file rời hoặc cả thư mục. Định vị fixed ngay dưới nút, đóng bằng #song-action-overlay. "accept" dưới đây là mặc định của Song, đổi theo Nguồn ở core/playlist/main.js::applyPlaylistSourceChrome(). 2 mục là <label> bọc thẳng <input type="file"> — vài trình duyệt/WebView (file://, Android WebView cũ) im lặng bỏ qua input.click() gọi bằng JS, chỉ click thật lên label/input mới chắc chạy. -->
     <div id="upload-action-menu" class="hidden fixed z-[115] w-52 rounded-xl shadow-2xl overflow-hidden" data-uitk="modalCardBg modalCardBorder">
         <label class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left transition-colors cursor-pointer" data-uitk="cardHoverBg textPrimary">
             ${iconSvg('document-text', 'h-4 w-4 shrink-0', 'data-uitk="iconHue:sky"')}
@@ -376,8 +376,8 @@ function renderListSongNodeHtml(view, durationLabel) {
                 <div class="flex">${renderSongActionMenuButtonHtml(view.key, false)}</div></div>`;
 }
 
-/** 1 dòng phẳng tab "Chi tiết" của song-edit-modal (icon tròn màu + nhãn + giá trị, viền mảnh dưới trừ dòng cuối) —
- * event/workflow/playlist.js. `hue`: tên hue trong bảng `iconTone` (core/ui-theme/*.js); `iconName`: tên trong
+/** 1 dòng phẳng tab "Chi tiết" của song-edit-modal (icon tròn màu + nhãn + giá trị đã escape, viền mảnh dưới trừ dòng
+ * cuối). `hue`: tên hue trong bảng `iconTone` (core/ui-theme/*.js); `iconName`: tên trong
  * assets/icon/icons.js. */
 function renderSongInfoRowHtml(iconName, hue, label, value) {
     return `
@@ -388,6 +388,72 @@ function renderSongInfoRowHtml(iconName, hue, label, value) {
             <span class="text-[11px] font-semibold uppercase tracking-wide shrink-0 w-[88px]" data-uitk="textSecondary">${label}</span>
             <span class="text-sm text-right flex-1 break-all" data-uitk="textPrimary">${value}</span>
         </div>`;
+}
+
+/** Icon tab "Chi tiết" (tên trong assets/icon/icons.js). */
+const SONG_INFO_ICON = {
+    file: 'document-text', resolution: 'arrows-expand', album: 'album', playCount: 'music-notes',
+    clock: 'clock', size: 'drive', title: 'music-note', artist: 'user',
+};
+
+/** Ô chữ tab "Chi tiết": dữ liệu từ file/người dùng (tag ID3, tên file, album) -> escape; rỗng -> nhãn "trống". */
+function renderSongInfoTextValue(value) {
+    return value ? escapeHtml(value) : t('playlistView.songInfo.empty');
+}
+
+/** "Rộng×Cao" hoặc nhãn "trống" khi thiếu kích thước. */
+function renderSongInfoResolution(width, height) {
+    return (width && height) ? `${width}×${height}` : t('playlistView.songInfo.empty');
+}
+
+/** Tab "Chi tiết" của Video. @param {{filename?: string, width?: number, height?: number, album?: string, playCount: number,
+ * listenLabel: string, sizeLabel: string}} view - nhãn thời gian/dung lượng Workflow định dạng sẵn */
+function renderVideoEditDetailsHtml(view) {
+    return renderSongInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), renderSongInfoTextValue(view.filename))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), renderSongInfoResolution(view.width, view.height))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(view.album))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: view.playCount }))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), view.listenLabel)
+        + renderSongInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), view.sizeLabel);
+}
+
+/** Tab "Chi tiết" của Photo — như Video, thêm dòng thời lượng. @param {object} view - như renderVideoEditDetailsHtml() + `durationLabel` */
+function renderPhotoEditDetailsHtml(view) {
+    return renderSongInfoRowHtml(SONG_INFO_ICON.file, 'sky', t('playlistView.songInfo.fieldFilename'), renderSongInfoTextValue(view.filename))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.resolution, 'emerald', t('playlistView.songInfo.fieldResolution'), renderSongInfoResolution(view.width, view.height))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.album, 'fuchsia', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(view.album))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), view.durationLabel)
+        + renderSongInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: view.playCount }))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldViewDuration'), view.listenLabel)
+        + renderSongInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), view.sizeLabel);
+}
+
+/** Tab "Chi tiết" của Song. @param {{title: string, artist: string, album: string, durationLabel: string, playCount: number,
+ * listenLabel: string, sizeLabel: string}} view - tag ID3 thô (escape ở đây) */
+function renderSongEditDetailsHtml(view) {
+    return renderSongInfoRowHtml(SONG_INFO_ICON.title, 'sky', t('playlistView.songInfo.fieldTitle'), renderSongInfoTextValue(view.title))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), renderSongInfoTextValue(view.artist))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(view.album))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'amber', t('playlistView.songInfo.fieldDuration'), view.durationLabel)
+        + renderSongInfoRowHtml(SONG_INFO_ICON.playCount, 'rose', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: view.playCount }))
+        + renderSongInfoRowHtml(SONG_INFO_ICON.clock, 'indigo', t('playlistView.songInfo.fieldListened'), view.listenLabel)
+        + renderSongInfoRowHtml(SONG_INFO_ICON.size, 'teal', t('playlistView.songInfo.fieldSize'), view.sizeLabel);
+}
+
+/** `{list}` của `common.upload.failedList` — modal render HTML nên tên file + lý do đều escape.
+ * @param {Array<{filename: string, reason: string}>} items */
+function renderUploadFailedListHtml(items) {
+    return items.map((x) => `${escapeHtml(x.filename)} — ${escapeHtml(x.reason)}`).join('\n\n');
+}
+
+/** `{names}` của `fileManager.video.uploadSkipped` (tên file escape). @param {string[]} names */
+function renderUploadSkippedNamesHtml(names) {
+    return names.map((name) => escapeHtml(name)).join(', ');
+}
+
+/** `{message}` của các modal lỗi upload (lỗi bất kỳ -> chữ, escape). @param {*} err */
+function renderUploadErrorMessageHtml(err) {
+    return escapeHtml(err && err.message ? err.message : err);
 }
 
 /** Vòng "đã chọn" có tick (chế độ chọn nhiều) — core/playlist/selection.js::showSelectionIndicator() chèn vào node.
