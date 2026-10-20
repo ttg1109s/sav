@@ -301,11 +301,13 @@ const workflowAppSettings = {
         this._currentRenderFn = () => this._renderTheme();
         const activeUiTheme = resolveUiThemeName(appConfigUiTheme.getAll().activeUiTheme); // core/ui-theme/registry.js — tên lạ -> Light (khớp theme thật đang áp)
         const backgroundHtml = activeUiTheme === 'morphin' ? renderThemeBackgroundCardsHtml(computeThemeBackgroundView(appConfigViz.getAll()).cards) : ''; // components/settings/theme.js + core/theme-background.js
-        const playerControlHtml = renderPlayerControlSettingsHtml(workflowTheme.getPlayerControlView()); // components/settings/theme.js + event/workflow/theme.js
+        const playerControlView = workflowTheme.getPlayerControlView(); // event/workflow/theme.js
+        const playerControlHtml = renderPlayerControlSettingsHtml(playerControlView); // components/settings/theme.js
         this._render(t('appSettings.system.theme.label'), renderAppSettingsThemeBody(getSelectableUiThemeNames(), activeUiTheme, backgroundHtml, playerControlHtml), (body) => { // components/settings/theme.js
             wireAppSettingsTheme(body); // core/app-settings-ui.js
             wireThemeBackgroundCards(body); // core/theme-background-ui.js — không có cụm 3 card (Color khác Morphin) thì không gắn gì
-            wirePlayerControlSettings(body); // core/player-control-settings-ui.js
+            patchPlayerControlSettings(body, playerControlView); // core/player-control-settings-ui.js — điền slot khung xem trước
+            wirePlayerControlSettings(body);
         });
     },
 

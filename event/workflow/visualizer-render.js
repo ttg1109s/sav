@@ -52,8 +52,20 @@ const VIZ_RENDER_TASK_BY_VISUAL_OFF = {
     false: () => workflowVisualizerRender._startRenderTask(),
 };
 
+/** Luật màu effect (khoá = resolveEffectColorRule(), core/visualizer/effect-paint.js) -> hàm màu `(i, total, value)` dựng 1 lần
+ * mỗi frame (hueOffset của frame chụp lúc dựng). Mỗi luật là 1 core riêng — chọn luật thuộc Workflow (Rule 1). */
+const VIZ_COLOR_RULE_BY_KEY = {
+    solid: (ec) => {
+        const color = computeUniformEffectColor(ec.solidColor); // core/visualizer/effect-paint.js
+        return () => color;
+    },
+    dynamic: (ec) => (i, total) => computeUniformEffectColor(interpolateColor(ec.dynA, ec.dynB, i / total)), // core + core/color-utils.js
+    gradient: (ec, hueOffset) => (i, total, value) => computeGradientHslEffectColor(hueOffset, i / total, value), // core
+    palette: (ec, hueOffset) => (i, total, value) => computePaletteEffectColor(computeGradientPaletteRgb(ec.gradientPaletteRgb, hueOffset, i / total, value)), // core
+};
+
 /** Màu 1 phần tử theo color mode của effect — dùng chung các effect tự chọn màu theo mode (vortex rings/bars/
- * wave, đèn Rain street): gradient = màu getComputedColor() đã tính, dynamic = xen kẽ dynA/dynB theo index,
+ * wave, đèn Rain street): gradient = màu colorAt() đã tính, dynamic = xen kẽ dynA/dynB theo index,
  * solid = solidColor. */
 const VIZ_MODE_COLOR_BY_MODE = {
     gradient: (cfg, index, gradientFill) => gradientFill,
@@ -289,6 +301,27 @@ const workflowVisualizerRender = {
         this._callGroupHook(groupName, action);
     },
 
+    /** Hàm màu của frame đang vẽ (VIZ_COLOR_RULE_BY_KEY) — dựng ở `_tickDraw()`, null ngoài frame vẽ. */
+    _frameColorFn: null,
+
+    /** Hàm màu theo config effect HIỆN TẠI + hueOffset hiện tại. @param {object} ec - resolveEffectConfig() */
+    _buildColorFn(ec) {
+        return VIZ_COLOR_RULE_BY_KEY[resolveEffectColorRule(ec)](ec, audioAnalysis.hueOffset()); // core/visualizer/effect-paint.js + service/audio-analysis.js
+    },
+
+    /** Config effect đang chạy (cfg.type). */
+    currentEffectConfig() {
+        const vizCfg = appConfigViz.getAll();
+        return resolveEffectConfig(vizCfg.customEffect, vizCfg.type); // core/custom-effect.js
+    },
+
+    /** Màu phần tử `i`/`total` với mức `value` (0-255) — mọi hàm vẽ của các group gọi qua đây. Trong frame vẽ dùng hàm màu đã
+     * dựng sẵn; ngoài frame (dựng scene, UI) dựng theo config mới nhất. @returns {{fill:string, fillNoAlpha:string, glow:string}} */
+    colorAt(i, total, value) {
+        const colorFn = this._frameColorFn || this._buildColorFn(this.currentEffectConfig());
+        return colorFn(i, total, value);
+    },
+
     /** Màu theo color mode — xem VIZ_MODE_COLOR_BY_MODE. `fallbackMode` = mode dùng khi cfg.mode lạ (giữ đúng
      * nhánh `else` của từng nơi gọi cũ). */
     modeColor(cfg, index, gradientFill, fallbackMode) {
@@ -307,15 +340,17 @@ const workflowVisualizerRender = {
 
     // ===================== Frame vẽ =====================
 
-    /** Tick VẼ (RENDER_TASK, chỉ tồn tại khi Show Visual bật). Resolve config effect đang chạy 1 lần cho cả frame
-     * (`frameEffectConfig`, getComputedColor() đọc lại); `finally` luôn xoá về null để lời gọi NGOÀI frame vẽ
-     * không đọc phải bản cũ. */
+    /** Tick VẼ (RENDER_TASK, chỉ tồn tại khi Show Visual bật). Resolve config effect + hàm màu 1 lần cho cả frame
+     * (`frameEffectConfig`, `_frameColorFn`); `finally` luôn xoá về null để lời gọi NGOÀI frame vẽ không dùng phải bản cũ. */
     _tickDraw() {
-        appState.set('frameEffectConfig', getActiveEffectConfig(), { skipCheck: true }); // core/custom-effect.js
+        const ec = this.currentEffectConfig();
+        appState.set('frameEffectConfig', ec, { skipCheck: true });
+        this._frameColorFn = this._buildColorFn(ec);
         try {
             this._drawFrame();
         } finally {
             appState.set('frameEffectConfig', null, { skipCheck: true });
+            this._frameColorFn = null;
         }
     },
 
@@ -338,7 +373,7 @@ const workflowVisualizerRender = {
             ctx, canvas, cfg,
             group,
             style,
-            perf: { blurMult: getActiveBlurMult() }, // core/visualizer/effect-paint.js
+            perf: { blurMult: computeEffectBlurMult(cfg) }, // core/visualizer/effect-paint.js
             isPlaying: !media.paused,
             // CÁCH ĐỌC AUDIO DUY NHẤT của effect (01/10/2026, Giang: "thống nhất theo chuẩn"): frame.audio.xxx() — không còn
             // các trường ảnh chụp beatScale/smoothedEnergy/hue/vizDataArray/analyser/bufferLength/lastBeatTime/midiNote. Task

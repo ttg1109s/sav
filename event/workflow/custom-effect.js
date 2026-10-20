@@ -116,6 +116,7 @@ const workflowCustomEffect = {
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
         CUSTOM_EFFECT_DRAWER_BY_CLOSED[genericDrawerPanel.classList.contains('hidden')](config);
+        this._fillGradientPalette(cfg);
     },
 
     /** Vẽ lại TOÀN BỘ body (đổi độ dài mảng đèn/chữ, field `rerender` làm field khác ẩn/hiện) — giữ vị trí cuộn. */
@@ -131,6 +132,13 @@ const workflowCustomEffect = {
             bodyClass: 'overflow-y-auto px-4 py-3',
         });
         workflowGenericDrawerHelpers.restoreScroll(); // event/workflow/generic-drawer-helpers.js
+        this._fillGradientPalette(cfg);
+    },
+
+    /** Điền slot hàng "Bảng 7 màu" theo config effect đang mở. @param {object} cfg - resolveEffectConfig() */
+    _fillGradientPalette(cfg) {
+        const view = computeGradientPaletteView(cfg.gradientPalette); // core/custom-effect.js
+        fillCustomEffectGradientPaletteUi(genericDrawerBody, view, t(view.statusKey)); // core/custom-effect-drawer-ui.js
     },
 
     close() {
@@ -184,15 +192,15 @@ const workflowCustomEffect = {
         if (!palette) return;
         this._writeField(this._openType, 'gradientPalette', palette);
         workflowConfig.save();
-        markCustomEffectGradientPaletteCustom(genericDrawerBody, t('customEffectDrawer.gradientPalette.statusCustom')); // core/custom-effect-drawer-ui.js
+        this._fillGradientPalette(this._openConfig());
         workflowVisualizerDisplay.syncProgressBarColor();
     },
 
-    /** Reset bảng 7 màu về mặc định (dải hue gốc) — vẽ lại body để 7 ô hiện lại màu mặc định. */
+    /** Reset bảng 7 màu về mặc định (dải hue gốc) — 7 ô hiện lại màu mặc định. */
     resetGradientPalette() {
         this._writeField(this._openType, 'gradientPalette', []);
         workflowConfig.save();
-        this._rerenderBody();
+        this._fillGradientPalette(this._openConfig());
         workflowVisualizerDisplay.syncProgressBarColor();
     },
 

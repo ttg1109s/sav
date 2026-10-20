@@ -23,7 +23,7 @@ const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gamepl
 const GAMEPLAY_SHATTER_SHARD_COUNT = 8;
 const GAMEPLAY_CIRCLE_POPUP_LABEL_BY_TIER = { perfect: 'PERFECT', excellent: 'EXCELLENT', good: 'GOOD', bad: 'BAD', miss: 'MISS' };
 
-// Màu wave theo mode effect đang chạy (getActiveEffectConfig(), core/custom-effect.js), chốt lúc spawn. Mode lạ -> solid.
+// Màu wave theo mode effect đang chạy (resolveEffectConfig(), core/custom-effect.js), chốt lúc spawn. Mode lạ -> solid.
 const GAMEPLAY_CIRCLE_WAVE_COLORS_BY_EFFECT_MODE = {
     gradient: () => {
         const hueOffset = audioAnalysis.hueOffset(); // service/audio-analysis.js
@@ -247,7 +247,7 @@ const workflowGameplay = {
 
         const jittered = applyCellJitter(cell.cellX, cell.cellY, cfg, Math.random(), Math.random()); // core/gameplay/circle-mode.js
         const shrinkDurationMs = computeShrinkDurationMs(bpmText, cfg, diffCfg.shrinkDurationMultiplier); // core/gameplay/circle-mode.js
-        const effectCfg = getActiveEffectConfig(); // core/custom-effect.js
+        const effectCfg = workflowVisualizerRender.currentEffectConfig(); // event/workflow/visualizer-render.js
         const colors = (GAMEPLAY_CIRCLE_WAVE_COLORS_BY_EFFECT_MODE[effectCfg.mode] || GAMEPLAY_CIRCLE_WAVE_COLORS_BY_EFFECT_MODE.solid)(effectCfg, this._nextSpawnIndex);
         this._nextSpawnIndex++;
 

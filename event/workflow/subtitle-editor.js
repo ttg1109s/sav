@@ -803,26 +803,15 @@ const workflowSubtitleEditor = {
         return { samples: mixAudioBufferToMono(audioBuffer), sampleRate: audioBuffer.sampleRate }; // core/audio-segment.js
     },
 
-    /** Giải mã 1 Blob audio ở `sampleRate` (WebView cũ không nhận option -> sample rate mặc định của máy) — AudioContext
-     * tạm, đóng ngay sau khi xong. Lỗi bất kỳ -> null. @param {Blob} blob @param {number} sampleRate
+    /** Giải mã file gốc của bài ở `sampleRate`. Lỗi bất kỳ -> null. @param {Blob} blob @param {number} sampleRate
      * @returns {Promise<AudioBuffer|null>} */
     async _decodeBlobAudio(blob, sampleRate) {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return null;
-        let ctx = null;
         try {
             const freshBlob = await rematerializeBlob(blob); // service/db.js — CÙNG lý do _initWaveform() (bug round-trip Blob qua IndexedDB)
-            const arrayBuffer = await freshBlob.arrayBuffer();
-            try { ctx = new Ctx({ sampleRate }); } catch (e) { ctx = new Ctx(); }
-            return await new Promise((resolve, reject) => {
-                const maybePromise = ctx.decodeAudioData(arrayBuffer, resolve, reject); // dạng callback cho Safari cũ, dạng Promise cho bản mới
-                if (maybePromise && typeof maybePromise.then === 'function') maybePromise.then(resolve, reject);
-            });
+            return await decodeAudioArrayBuffer(await freshBlob.arrayBuffer(), sampleRate); // core/audio-segment.js
         } catch (err) {
             console.warn('[subtitle-editor] giải mã riêng file gốc thất bại:', err);
             return null;
-        } finally {
-            if (ctx && typeof ctx.close === 'function') ctx.close().catch(() => {});
         }
     },
 
@@ -1571,10 +1560,10 @@ const workflowSubtitleEditor = {
 
     /** Modal 3 lựa chọn sau khi cắt xong — modalChoice() (core/modal-choice-ui.js). @param {{blob: Blob, durationSec: number}} cut */
     _showCutResultModal(cut) {
-        const startStr = secToStr(appState.get('_region').start); // core
-        const endStr = secToStr(appState.get('_region').end); // core
-        const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
-        const fileName = `${baseTitle} [cut ${startStr} - ${endStr}].mp3`.replace(/[:,]/g, '-');
+        const s = appState.get(['_region', '_record', '_songKey']);
+        const startStr = secToStr(s._region.start); // core/subtitle/subtitles.js
+        const endStr = secToStr(s._region.end);
+        const fileName = buildCutMp3FileName(s._record.tag?.title || s._songKey, startStr, endStr); // core/mp3-cut.js
 
         modalChoice( // core/modal-choice-ui.js
             tFormat('subtitleEditor.cutMp3.resultDesc', { start: startStr, end: endStr }),
@@ -1602,18 +1591,20 @@ const workflowSubtitleEditor = {
         const sizeCheck = validateMediaFileSize(blob); // core/upload-validation.js
         if (!sizeCheck.valid) { await alertModal(tFormat('common.validate.generatedNotSaved', { reason: sizeCheck.reason })); return; }
         const key = await resolveSongKey(fileName); // service/db.js
-        const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
+        const s = appState.get(['_record', '_songKey']);
+        const sourceRecord = s._record;
+        const baseTitle = sourceRecord.tag?.title || s._songKey;
         // Cover lấy từ bài gốc (Blob ĐỌC TỪ IndexedDB) -> vật chất hoá thành Blob
         // mới trước khi ghi sang record khác (tránh lỗi round-trip); `blob` đoạn cắt vốn là Blob mới vừa encode.
-        const sourceCover = appState.get('_record').cover;
+        const sourceCover = sourceRecord.cover;
         const cover = sourceCover ? await rematerializeBlob(sourceCover) : null; // service/db.js
         const record = {
             filename: fileName,
             blob,
             tag: {
                 title: tFormat('subtitleEditor.cutMp3.newSongTitle', { title: baseTitle }),
-                artist: appState.get('_record').tag?.artist || '',
-                album: appState.get('_record').tag?.album || '',
+                artist: sourceRecord.tag?.artist || '',
+                album: sourceRecord.tag?.album || '',
             },
             cover,
             subtitles: [],
