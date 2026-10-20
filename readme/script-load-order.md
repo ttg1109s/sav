@@ -131,6 +131,7 @@ Preloader **không còn `<script>` inline** (tách ra file 07/10/2026, Giang duy
 20. [CDN] `https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js`
 21. [CSS] `assets/css/base.css`
 22. [CSS] `assets/css/sliders.css`
+22a. [CSS] `assets/css/player-control.css` — MỚI 20/10/2026 (bề mặt + bố cục Bottom Player, khung xem trước Player control)
 23. [CSS] `assets/css/glass.css`
 24. [CSS] `assets/css/animations.css`
 25. [CSS] `assets/css/layout-nav.css`
@@ -633,6 +634,8 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 366. `event/listener/visualizer-viewport.js`
 366a. `core/theme-background.js` — MỚI 14/10/2026 (phép tính thuần nền App Panel / status bar / preloader — đợt 8)
 367. `core/theme-background-ui.js`
+367a. `core/player-control-style.js` — MỚI 20/10/2026 (kiểu nền + độ đục Bottom Player); cần lúc chạy: `core/config.js` (appConfigViz)
+367b. `core/player-control-settings-ui.js` — MỚI 20/10/2026 (cụm Player control ở Settings > Theme); cần lúc chạy: `event/bus.js` (eventBus)
 368. `event/workflow/theme.js`
 369. `event/router/theme.js` — cần: `event/bus.js` (eventBus)
 370. `event/listener/theme.js` — cần: `core/dom-refs.js` (appStack)
@@ -793,6 +796,7 @@ Trang riêng, mở qua `pages/subtitle-editor.html?song=<key mã hoá>` (`servic
 44. `components/subtitle-karaoke-drawer.js` — cần lúc chạy: `core/modal-choice-ui.js` (escapeHtml), `components/generic-drawer.js` (buildDrawerHeaderHtml)
 44a. `components/subtitle-editor-modals.js` — MỚI 13/10/2026 (thân modal Split/Shift cho `modalChoice()`, đợt 6b-2); cần lúc chạy: `lang/lang.js` (t())
 45. `core/audio-segment.js`
+45a. `core/mp3-cut.js` — MỚI 20/10/2026 (Cut MP3: cắt theo frame / mã hoá lại); cần lúc chạy: lamejs (CDN)
 46. `core/slider-panel-scroll.js`
 
 **Cụm subtitleEditor**

@@ -83,6 +83,9 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Muốn sửa... | Vào file... |
 |---|---|
 | Nút phát, Next/Prev, tua, tốc độ, Media Session | `components/bottom-player.js`, `core/player-controls.js`, `event/workflow/player-controls.js`, `event/workflow/player.js`; cụm `playerControls` |
+| Giao diện Bottom Player (bố cục, thanh tiến trình, kiểu nền/độ đục — Settings > Theme > Player control) | `components/bottom-player.js`, `assets/css/player-control.css`, `assets/css/sliders.css` (`.music-slider`), `core/player-control-style.js`, `core/player-control-settings-ui.js`, `event/workflow/theme.js` |
+| Cut MP3 (Subtitle Editor) | `core/mp3-cut.js`, `event/workflow/subtitle-editor.js::cutMp3FromRegion()` |
+| Bảng 7 màu của mode gradient (Custom Effect) | `core/custom-effect.js` (`gradientPalette`), `core/visualizer/effect-paint.js::getComputedColor()`, `components/custom-effect-drawer.js`, `event/workflow/custom-effect.js` |
 | Audio graph, EQ | `core/audio-engine.js`, `event/workflow/audio-engine.js`, state `service/state/audio-engine.js`; preset EQ `components/eq-presets-drawer.js`, `core/eq-presets.js`, cụm `eqPresets` |
 | Video Player mode | `core/video-player.js`, `event/workflow/video-player.js`, `event/workflow/video-motion-surface.js`, state `service/state/video-player-mode.js`; cụm `videoPlayer` |
 | Chụp khung hình | `core/video-player-capture.js`, `event/workflow/video-frame-capture.js` |
