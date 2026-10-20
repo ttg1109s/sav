@@ -1,7 +1,7 @@
 /**
  * Component: màn Settings > System > Theme — select "Color" (Light/Dark/Morphin) và, chỉ khi Color = Morphin, cụm 3 card nền
  * (None / Gradient / Background media) + hàng "Panel glass" (2 slider kính Playlist chính, chỉ hiện khi đang dùng nền media).
- * Card "Player control" (mọi Color): kiểu nền, độ đục, bìa trong nút Play, vị trí phụ đề của Bottom Player, có khung xem
+ * Card "Player control" (mọi Color): kiểu nền, độ đục, bìa trong nút Play, khoảng cách phụ đề của Bottom Player, có khung xem
  * trước — computePlayerControlView() (core/player-control-style.js), wire/vá: core/player-control-settings-ui.js.
  *
  * Logic: event/workflow/app-settings.js (_renderTheme) + event/workflow/theme.js. Trạng thái card: computeThemeBackgroundView()
@@ -33,14 +33,13 @@ function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml, p
 }
 
 /** Card "Player control" — khung xem trước (nền giả lập Visualizer + thanh điều khiển thu nhỏ, cùng CSS bề mặt + key `pc*`
- * với Bottom Player thật; Shuffle vẽ ở trạng thái bật), nút kiểu nền, slider độ đục, công tắc bìa trong nút Play, vị trí phụ
- * đề (Inside/Outside) + slider khoảng cách (chỉ Outside). Thuộc tính khung xem trước là slot — gán qua
+ * với Bottom Player thật; Shuffle vẽ ở trạng thái bật), nút kiểu nền, slider độ đục, công tắc bìa trong nút Play, slider
+ * khoảng cách phụ đề ↔ thanh. Thuộc tính khung xem trước là slot — gán qua
  * patchPlayerControlSettings() (core/player-control-settings-ui.js) sau khi dựng.
  * @param {ReturnType<typeof computePlayerControlView>} view @returns {string} */
 function renderPlayerControlSettingsHtml(view) {
     const pickBtn = (attr, value, item) => `<button type="button" ${attr}="${value}" aria-pressed="${item.selected}" class="h-8 px-3 rounded-full text-xs font-semibold transition-colors" data-uitk="${item.uitk}" data-i18n="${item.labelKey}">${t(item.labelKey)}</button>`;
     const styleButtons = view.items.map((item) => pickBtn('data-pc-style-pick', item.style, item)).join('');
-    const subtitleButtons = view.subtitleItems.map((item) => pickBtn('data-pc-sub-pick', item.placement, item)).join('');
     const sliderRow = (rowId, labelKey, inputId, min, max, value, unit, visible) => `
                     <div id="${rowId}" class="${visible ? '' : 'hidden'}">
                         <div class="flex justify-between items-center mb-2">
@@ -54,8 +53,7 @@ function renderPlayerControlSettingsHtml(view) {
                     <p class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.playerControl.section">${t('appSettings.theme.playerControl.section')}</p>
                     <div class="pc-preview" data-pc-preview aria-hidden="true">
                         <div class="pc-surface group" data-pc-preview-surface>
-                            <div class="pc-preview-sub pc-preview-sub-out"></div>
-                            <div class="pc-preview-sub pc-preview-sub-in"></div>
+                            <div class="pc-preview-sub"></div>
                             <div class="pc-preview-info">
                                 <span class="pc-preview-side bg-current" data-uitk="pcText"></span>
                                 <span class="pc-preview-title bg-current" data-uitk="pcText"></span>
@@ -87,11 +85,7 @@ function renderPlayerControlSettingsHtml(view) {
                             <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
                         </label>
                     </div>
-                    <div>
-                        <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.subtitle">${t('appSettings.theme.playerControl.subtitle')}</span>
-                        <div class="flex flex-wrap gap-2 mt-2">${subtitleButtons}</div>
-                    </div>
-                    ${sliderRow('player-control-sub-gap-row', 'appSettings.theme.playerControl.subtitleGap', 'player-control-sub-gap', PLAYER_CONTROL_SUBTITLE_GAP_MIN_PX, PLAYER_CONTROL_SUBTITLE_GAP_MAX_PX, view.subtitleGapPx, 'px', view.showSubtitleGap)}
+                    ${sliderRow('player-control-sub-gap-row', 'appSettings.theme.playerControl.subtitleGap', 'player-control-sub-gap', PLAYER_CONTROL_SUBTITLE_GAP_MIN_PX, PLAYER_CONTROL_SUBTITLE_GAP_MAX_PX, view.subtitleGapPx, 'px', true)}
                 </div>`;
 }
 
