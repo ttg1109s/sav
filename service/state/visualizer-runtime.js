@@ -8,7 +8,7 @@
             schema: {
                 currentModeIndex: 'number',
                 dpr: 'number',
-                frameEffectConfig: 'any', // MỚI (28/09/2026, Phase 2) — config effect đang chạy, resolve 1 lần ĐẦU mỗi frame VẼ (workflowVisualizerRender._tickDraw()), null ngoài frame vẽ — getComputedColor()/getActiveBlurMult() đọc lại thay vì tự getActiveEffectConfig() mỗi lời gọi.
+                frameEffectConfig: 'any', // config effect đang chạy, resolve 1 lần đầu mỗi frame vẽ (workflowVisualizerRender._tickDraw()), null ngoài frame vẽ.
             },
             buildDefaults() {
                 return {
