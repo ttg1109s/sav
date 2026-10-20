@@ -1,25 +1,13 @@
 /**
- * core/visualizer/draw/flying-note-ui.js — ĐỔI TÊN 28/09/2026 từ flying-note.js (Rule 5c: file core chuyên
- * dựng UI phải có hậu tố `-ui`; file cũ xoá tay).
- *
- * Nốt nhạc bay lên (DOM, không phải canvas) trên #record-container khi nhạc đủ mạnh, bất kể kiểu hiệu
- * ứng nào đang chọn. TÁCH RIÊNG (19/07/2026, yêu cầu Giang — mỗi hàm 1 file trong core/visualizer/draw/)
- * từ file gộp cũ core/visualizer/draw-helpers.js (đã xoá, xem readme/changelog/v13.md mục 6).
- *
- * [SỬA — 28/09/2026, Phase 2 dọn visualizer] `spawnFlyingNote()` cũ ĐÃ XOÁ — hàm đó tự đọc appState
- * (`frameCounter`, `globalHueOffset`) và tự hẹn giờ gỡ nốt bằng `taskManager.once()` (taskManager CẤM
- * trong Core, xem readme/task-manager-conventions.md mục 2). Giờ tách 2 Core thuần:
- *   - `createFlyingNoteEl(container, hue)` — dựng + gắn 1 nốt, trả về phần tử.
- *   - `removeFlyingNoteEl(noteEl)` — gỡ nốt (DỌN tài nguyên do chính vòng đời này tạo, Rule 3b).
- *   - `shouldSpawnFlyingNote(...)` — phép tính "frame này có sinh nốt không" (thuần, trả boolean).
- * Workflow `workflowAudioAnalysis._spawnFlyingNote()` (event/workflow/audio-analysis.js) dùng kết quả làm
- * guard, rồi tự hẹn giờ gỡ nốt qua taskManager.
+ * core/visualizer/draw/flying-note-ui.js — nốt nhạc bay lên (DOM) từ #record-container — khung bìa nằm trong nút Play/Pause
+ * của Bottom Player — khi nhạc đủ mạnh, bất kể effect nào. `shouldSpawnFlyingNote()` thuần (frame này có sinh nốt không),
+ * `createFlyingNoteEl()` dựng + gắn, `removeFlyingNoteEl()` gỡ; hẹn giờ gỡ ở Workflow
+ * (event/workflow/audio-analysis.js::_spawnFlyingNote()).
  */
 
 /** Ký hiệu nốt chọn ngẫu nhiên cho mỗi lần bay. */
 const FLYING_NOTE_SYMBOLS = ['♪', '♫', '♩', '♬'];
-/** Ngưỡng năng lượng, xác suất bỏ qua mỗi frame (Math.random() > 0.6 cũ), nhịp tối đa 1 nốt mỗi N frame,
- * thời gian sống trước khi gỡ khỏi DOM — giữ nguyên giá trị cũ. */
+/** Ngưỡng năng lượng, xác suất bỏ qua mỗi frame, nhịp tối đa 1 nốt mỗi N frame, thời gian sống trước khi gỡ khỏi DOM. */
 const FLYING_NOTE_ENERGY_MIN = 0.3;
 const FLYING_NOTE_SKIP_CHANCE = 0.6;
 const FLYING_NOTE_EVERY_N_FRAMES = 8;
@@ -40,7 +28,7 @@ function shouldSpawnFlyingNote(isPlaying, smoothedEnergy, frameCounter, randomVa
 
 /**
  * Dựng 1 nốt nhạc bay (class `.music-note` lo phần animation bay lên), đặt lệch ngẫu nhiên quanh tâm
- * đĩa, màu theo hue hiện tại (+ lệch ngẫu nhiên tối đa 60°), gắn vào `container`.
+ * nút Play, màu theo hue hiện tại (+ lệch ngẫu nhiên tối đa 60°), gắn vào `container`.
  * @param {HTMLElement} container - #record-container.
  * @param {number} hue - globalHueOffset của frame hiện tại (0-360).
  * @returns {HTMLDivElement} nốt vừa gắn — nơi gọi giữ lại để gỡ sau.
