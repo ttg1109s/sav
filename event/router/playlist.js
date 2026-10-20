@@ -111,8 +111,9 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.item.menuClick': {
+                // Mục nào hiện tuỳ loại media + Scope folder (đọc state) -> Workflow.
                 const { key, anchorBtn } = msg.payload;
-                openSongActionMenu(key, anchorBtn);
+                workflowPlaylist.openActionMenu(key, anchorBtn);
                 break;
             }
 
@@ -178,13 +179,14 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.editCover.remove': {
-                // 1 hàm core -> gọi thẳng.
-                removeSongEditCover();
+                // Thu hồi preview cũ + ghi ảnh chờ lưu (đọc playlistStore) -> Workflow.
+                workflowPlaylist.removePendingCover();
                 break;
             }
 
             case 'playlist.edit.cancel': {
-                closeSongEditModal(); // CHỈ 1 hàm core -> gọi thẳng
+                // Thu hồi preview ảnh bìa chờ lưu + đóng modal -> Workflow.
+                workflowPlaylist.closeEditModal();
                 break;
             }
 
@@ -267,8 +269,8 @@ const routerPlaylist = (() => {
             }
 
             case 'playlist.uploadMenu.labelClick': {
-                const { target } = msg.payload;
-                handleUploadMenuLabelClick(target); // CHỈ 1 hàm core -> gọi thẳng
+                // Hẹn giờ đóng menu (taskManager) -> Workflow.
+                workflowPlaylist.closeUploadMenuAfterLabelClick();
                 break;
             }
 
