@@ -18,7 +18,7 @@ Listener (DOM/tab/window/...)
 ┌─────────────────────────────────────────────────────────────────┐
 │ event/bus.js                                                    │
 │                                                                 │
-│  Block gate (event/block.js — DATA, 11 entry: xem mục 2)        │
+│  Block gate (event/block.js — DATA, 15 entry: xem mục 2)        │
 │  isBlocked(msg.type, payload)? ── true ──▶ DỪNG, KHÔNG vào Router│
 │       │ false                     (im lặng, hoặc alert notify)  │
 └───────┼─────────────────────────────────────────────────────────┘
@@ -111,8 +111,10 @@ ngoại lệ này. Nơi dùng (thêm chỗ mới = cập nhật bảng này):
 **Chờ sự kiện của phần tử media TĨNH — cụm `mediaWait`** (đợt 6b-4). Workflow cần đợi `audioPlayer`/`bgVideoElement`
 bắn 1 sự kiện (tua xong, phát được, nạp xong metadata) thì KHÔNG tự `addEventListener`, mà đăng ký lượt chờ với
 `workflowMediaWait` (event/workflow/media-wait.js): `once(el, tên, callback)` trả hàm huỷ, `wait(el, tên, timeoutMs,
-taskName)` trả Promise<boolean> (`false` = hết giờ). Listener `event/listener/media-wait.js` gắn SẴN lúc tải trang
-4 sự kiện `loadedmetadata`/`seeked`/`play`/`playing` của 2 phần tử → `eventBus.send({router: 'mediaWait', type:
+taskName)` trả Promise<boolean> (`false` = hết giờ), `waitFirst(el, [tên…])` trả Promise tên sự kiện tới trước (vd chờ
+media nạp đủ lúc vào Visualizer: `canplaythrough` hoặc `error`/`abort`/`emptied`). Listener `event/listener/media-wait.js`
+gắn SẴN lúc tải trang 8 sự kiện `loadedmetadata`/`seeked`/`play`/`playing`/`canplaythrough`/`error`/`abort`/`emptied` của 2
+phần tử → `eventBus.send({router: 'mediaWait', type:
 'mediaWait.event'})` → Router gọi `workflowMediaWait.notify()`, chạy các lượt chờ khớp ĐỒNG BỘ (cùng thời điểm với
 `{ once: true }` cũ). Bộ ba nạp SAU mọi Listener khác của 2 phần tử → lượt chờ vẫn chạy sau các listener cố định như
 trước. Cần thêm sự kiện/phần tử = thêm vào `MEDIA_WAIT_LISTEN_TARGETS`/`MEDIA_WAIT_LISTEN_EVENTS` (listener) và
@@ -171,7 +173,7 @@ eventBus.registerBlock('router.action.event', [
 - **`options.notify`** — chặn thật thì tự `alertModal(notify)` (không chờ modal đóng). Không có → chặn im lặng.
 - **`options.groupNotify[i]`** — thông báo riêng cho nhóm thứ `i` khớp đầu tiên; không có thì dùng `notify`.
 
-### Entry hiện có (11)
+### Entry hiện có (15)
 
 | `msg.type` | Chặn khi | Thông báo |
 |---|---|---|
@@ -180,6 +182,7 @@ eventBus.registerBlock('router.action.event', [
 | `visualBg.openPanel.click` | Nguồn Playlist không phải Song (`activeMediaSource !== 'song'`) | Có |
 | `recorder.start.click` | Đang có phiên ghi, hoặc Photo Player mode, hoặc đang ở Game (3 nhóm OR) | Im lặng |
 | `playerControls.next.click`, `.prev.click`, `.playPause.click`, `.restart.click` | Đang có phiên ghi (`recordPhase !== 'idle'`) — dùng chung `RECORDER_SESSION_ACTIVE_BLOCK` | Im lặng |
+| `playerControls.video.play`, `.pause`, `.loadedmetadata`, `.timeupdate`, `.ended` | Không ở Video Player mode (`isVideoPlayerMode !== true` — `#bg-video` chỉ là nền trang trí) — dùng chung `VIDEO_PLAYER_MODE_OFF_BLOCK` | Im lặng |
 | `perfHud.app.pointerdown` | Perf HUD tắt (`perfHudConfig.enabled !== true`) | Im lặng |
 | `imageEdit.layers.click` | Generic Drawer đang mở (`isGenericDrawerOpen`) | Im lặng |
 

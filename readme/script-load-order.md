@@ -603,7 +603,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 338. `event/listener/app-panel-nav.js` — cần: `core/dom-refs.js` (appBottomNav)
 339. `event/workflow/video-player.js`
 340. `event/router/video-player.js` — cần: `event/bus.js` (eventBus)
-341. `event/listener/video-player.js` — cần: `core/dom-refs.js` (bgVideoElement, btnCaptureVideoFrame)
+341. `event/listener/video-player.js` — cần: `core/dom-refs.js` (bgVideoElement, btnCaptureVideoFrame); `event/block.js` (Block gate `playerControls.video.*`)
 342. `event/workflow/photo-player.js`
 343. `event/workflow/number-countup.js`
 344. `event/workflow/gameplay-engine.js`
