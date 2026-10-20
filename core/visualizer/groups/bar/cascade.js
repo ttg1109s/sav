@@ -6,16 +6,16 @@
  * (cascadeKeyCount, tuỳ chỉnh), KHÔNG còn phụ thuộc setting "Độ dày thanh" (setting đó giờ chỉ
  * dùng cho Black Hole).
  *
- * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (rà soát Rule 3) — Workflow
+ * THUẦN, không side-effect, không đọc appState/config effect (rà soát Rule 3) — Workflow
  * (`_tickBar()`, event/workflow/visualizer-render.js) tự gom state rồi gọi, tự resolve màu qua
- * `getComputedColor()` rồi gọi `paintBarRects()` (core/visualizer/groups/bar/common.js) cho từng
+ * `colorAt()` rồi gọi `paintBarRects()` (core/visualizer/groups/bar/common.js) cho từng
  * lô rect trả về.
  *
  * NẠP SAU: core/visualizer/groups/bar/common.js (không phụ thuộc hàm, chỉ để đọc thứ tự nhất quán).
  */
 
 /**
- * Tính khung hình BAR CASCADE — THUẦN, không side-effect, không đọc appState/getActiveEffectConfig.
+ * Tính khung hình BAR CASCADE — THUẦN, không side-effect, không đọc appState/config effect.
  * @returns {{colorArgs:number[], shadowRect:object, capRect:object}[]}
  */
 function computeBarCascadeFrame(cfg, canvasWidth, canvasHeight, dpr, vizDataArray) {

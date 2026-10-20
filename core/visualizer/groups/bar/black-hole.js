@@ -10,7 +10,7 @@
  *   2. Chuyển động: envelope cột theo dt (lên nhanh, xuống chậm) — KHÔNG có vạch đỉnh (Giang). Mọi bước theo frame cũ
  *      (bán kính mượt ×0.15/frame, sao cộng mỗi frame) đổi sang dt — màn 90/120Hz chạy cùng tốc độ màn 60Hz.
  *      `smoothedBeatRadius` (biến global ở core/dom-refs.js) chuyển thành trạng thái riêng của Workflow.
- *   3. Màu + hiệu năng: flare/tia theo Color mode (getComputedColor() — Workflow resolve rồi truyền vào). SAO GIỮ MÀU GỐC
+ *   3. Màu + hiệu năng: flare/tia theo Color mode (colorAt() — Workflow resolve rồi truyền vào). SAO GIỮ MÀU GỐC
  *      (trắng, vài sao ngả xanh/vàng — Giang: sao không nối vào Color mode). [HOÀN NGUYÊN cùng ngày — Giang: glow chất
  *      lượng kém] Glow qua lớp canvas phụ độ phân giải thấp (downsample-blur: nhoè răng cưa, lấp khe cột, nhấp nháy) ĐÃ
  *      BỎ — cột lẫn tia Hawking quay về `shadowBlur` (Gaussian thật). Cột: đúng như bản cũ (10px × cường độ Blur).
@@ -339,7 +339,7 @@ function paintBlackHoleCore(ctx, centerX, centerY, currentRadius) {
 //     theo đúng góc đó (computeBlackHoleRayReach()).
 //   - XUYÊN QUA: tia chia 2 nửa — nửa SAU (BLACK_HOLE_BURST_RAY_BACK) vẽ DƯỚI hố đen + vòng cột, nửa TRƯỚC
 //     (BLACK_HOLE_BURST_RAY_FRONT) vẽ ĐÈ LÊN hố đen + vòng cột -> như tia xuyên qua hố đen hướng về người xem.
-//   - Màu theo Color mode DỌC thân tia: Workflow resolve bảng `palette` (getComputedColor(k, K, …)) — tâm = màu đầu, mép
+//   - Màu theo Color mode DỌC thân tia: Workflow resolve bảng `palette` (colorAt(k, K, …)) — tâm = màu đầu, mép
 //     màn hình = màu cuối (solid: 1 màu; dynamic: dynA -> dynB; gradient: dải hue như vòng cột).
 //   - [lượt 3, Giang] Độ mờ của dải nhiệt + quầng tia chớp = `shadowBlur` (Gaussian thật) thay lớp phụ downsample. Độ mờ
 //     là BẢN CHẤT của tia (Giang: "dày và có độ mờ") nên KHÔNG phụ thuộc toggle/cường độ Blur của Custom Effect.

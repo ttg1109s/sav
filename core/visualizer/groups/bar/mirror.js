@@ -32,9 +32,9 @@
  *    dính liền. Mỗi bar/bên lại là 2 rect RIÊNG như bản gốc: dải trên mọc lên từ centerY + dải ngược
  *    mọc xuống từ centerY, mỗi rect tự bo góc -> khấc ở trục tách 2 dải là CHỦ ĐÍCH, không phải lỗi.)
  *
- * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig (Rule 2/3) — Workflow
+ * THUẦN, không side-effect, không đọc appState/config effect (Rule 2/3) — Workflow
  * (event/workflow/visualizer/bar.js::_drawMirror()) tự gom state, tự gọi
- * RIÊNG LẺ: computeBarMirrorLevels() -> spreadBarMirrorLevels() -> computeBarMirrorFrame(), rồi resolve màu qua getComputedColor() + paintBarRects() (common.js).
+ * RIÊNG LẺ: computeBarMirrorLevels() -> spreadBarMirrorLevels() -> computeBarMirrorFrame(), rồi resolve màu qua colorAt() + paintBarRects() (common.js).
  *
  * NẠP SAU: core/visualizer/groups/bar/common.js (chỉ để thứ tự đọc nhất quán).
  */
@@ -114,7 +114,7 @@ function spreadBarMirrorLevels(levels, spread) {
 
 /**
  * Khung hình BAR MIRROR — THUẦN.
- * @param {object} cfg - getActiveEffectConfig()
+ * @param {object} cfg - resolveEffectConfig()
  * @param {Float32Array} levels - 0-1 theo dải, chỉ số 0 = bass (độ dài = resolveBarMirrorCount(cfg))
  * @returns {{ bars: {colorArgs:number[], rects:object[]}[] }}
  */
