@@ -36,13 +36,12 @@
 .pc-surface[data-pc-style="floating"] .pc-layout { padding-bottom: 10px; }
 .pc-sub-slot { grid-area: sub; min-width: 0; }
 .pc-sub-slot:empty { display: none; }
-/* Nghệ sĩ 25% | tên 50% | album 25%: ô rỗng (thiếu tag, Video/Photo không có nghệ sĩ) ẩn, tên giãn ra lấp chỗ. */
+/* Nghệ sĩ 25% | tên 50% | album 25% — cố định, thiếu tag (Video/Photo không có nghệ sĩ) chỉ trống chữ, tên luôn ở giữa. */
 .pc-info-row { grid-area: info; display: flex; align-items: center; justify-content: space-between; min-width: 0; }
-.pc-title { flex: 1 1 0; min-width: 0; padding: 0 8px; text-align: center; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-title { flex: 0 0 50%; min-width: 0; padding: 0 8px; text-align: center; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pc-artist, .pc-album { flex: 0 0 25%; min-width: 0; font-weight: 500; font-size: 11px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pc-artist { text-align: left; }
 .pc-album { text-align: right; }
-.pc-artist:empty, .pc-album:empty { display: none; }
 .pc-bar { grid-area: progress; min-width: 0; margin-top: 6px; }
 .pc-meta-row { grid-area: meta; display: flex; align-items: center; justify-content: space-between; }
 .pc-time { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.3; font-variant-numeric: tabular-nums; }
