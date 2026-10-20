@@ -136,14 +136,13 @@ const LANG_PATCH_COMMON = {
     'common.loading.generic': 'Processing...',
 
     'common.validate.unsupportedMime': 'Unsupported format ({mime}). Only {typeLabel} is accepted.',
-    'common.validate.unsupportedMimeUnknown': 'unknown',
     'common.validate.unknownFormat': 'Could not determine the format of file "{filename}". Only {typeLabel} is accepted.',
     'common.validate.typeLabel.audio': 'music files (mp3, wav, ogg, m4a, aac, flac)',
     'common.validate.typeLabel.image': 'PNG, JPG, or WEBP images',
-    // MỚI (06/10/2026, Giang chốt "file <= 500MB mới được upload") — core/upload-validation.js::validateMediaFileSize()
+    // Giới hạn 500MB mỗi file — core/upload-validation.js::validateMediaFileSize()
     'common.validate.fileTooLarge': 'File is too large ({sizeMb} MB). The limit is {limitMb} MB per file.',
-    // MỚI (06/10/2026, Giang chốt "media do app tự tạo chặn 500MB") — ghi âm, cắt đoạn (Subtitle editor), xuất video
-    // (Video editor), lưu ảnh đã sửa, chụp khung hình. {reason} = chuỗi fileTooLarge ngay trên.
+    // Media do app tự tạo vượt 500MB — ghi âm, cắt đoạn (Subtitle editor), xuất video (Video editor), lưu ảnh đã sửa,
+    // chụp khung hình. {reason} = chuỗi fileTooLarge ngay trên.
     'common.validate.generatedNotSaved': '{reason} The result was not saved.',
 
     'common.fatalError.alert': 'An unexpected error occurred ({context}). Please reload the page (F5).\n\nDetails: {message}',
