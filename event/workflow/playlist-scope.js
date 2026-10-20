@@ -16,7 +16,8 @@
  * `listPickableMedia()` — ảnh/video thư viện trừ item thuộc folder Hidden, cho mọi picker.
  * `askReloadToApplyNow()` — modal dùng chung (event/workflow/playlist-filter-presets.js::selectPreset()).
  *
- * NẠP SAU: core/playlist/{scope,filter,filter-presets,loader}.js, service/db.js, event/workflow/playlist-order.js,
+ * NẠP SAU: core/playlist/{scope,filter,filter-presets,loader}.js, core/song-search.js, core/file-manager/video.js,
+ * service/db.js, event/workflow/playlist-order.js,
  * core/modal-choice-ui.js. Lúc chạy: event/workflow/{folder,playlist-render}.js.
  */
 // mediaType -> đọc record cả lô trong 1 transaction (toàn thư viện = cursor; theo danh sách key = nhiều get trong 1 tx).
@@ -35,8 +36,8 @@ const PICKABLE_MEDIA_LISTER = {
 
 // Dựng playlistCache: Song (lọc record hợp lệ rồi dựng cache Song) / Video-Photo (Adapter).
 const PLAYLIST_CACHE_BUILD_BY_IS_SONG = {
-    true: (records) => buildSongPlaylistCache(filterValidSongRecords(records, appState.get('confirmedBrokenKeys'))), // core/playlist/loader.js
-    false: (records, mediaSource) => buildAdaptedPlaylistCache(records, mediaSource), // core/playlist/loader.js
+    true: (records) => workflowPlaylistScope._buildSongCache(records),
+    false: (records, mediaSource) => workflowPlaylistScope._buildAdaptedCache(records, mediaSource),
 };
 
 // listMediaRecords(): có folderId -> chỉ đọc key của folder đó; không -> cả thư viện.
@@ -84,6 +85,22 @@ const workflowPlaylistScope = {
     async loadPlaylistCacheForSource(mediaSource, folderId, onProgress) {
         const records = await this.listMediaRecords(mediaSource, folderId, onProgress);
         PLAYLIST_CACHE_BUILD_BY_IS_SONG[mediaSource === 'song'](records, mediaSource);
+    },
+
+    /** Validate + Adapt Song: lọc record hợp lệ, chuẩn hoá tên cho `songNameIndex`, dựng cache.
+     * @param {Array<object>} records @returns {string[]} key đã nạp */
+    _buildSongCache(records) {
+        const validRecords = filterValidSongRecords(records, appState.get('confirmedBrokenKeys')); // core/playlist/loader.js
+        const nameKeys = validRecords.map((record) => normalizeSongName(record.tag.title)); // core/song-search.js
+        return buildSongPlaylistCache(validRecords, nameKeys); // core/playlist/loader.js
+    },
+
+    /** Adapt Video/Photo: tên hiển thị (customName, hoặc filename bỏ đuôi) + tên chuẩn hoá cho `songNameIndex`, dựng cache.
+     * @param {Array<object>} records @param {'video'|'photo'} mediaType @returns {string[]} key đã nạp */
+    _buildAdaptedCache(records, mediaType) {
+        const titles = records.map((record) => record.customName || stripFileExtension(record.filename)); // core/file-manager/video.js
+        const nameKeys = titles.map((title) => normalizeSongName(title)); // core/song-search.js
+        return buildAdaptedPlaylistCache(records, mediaType, titles, nameKeys); // core/playlist/loader.js
     },
 
     /**

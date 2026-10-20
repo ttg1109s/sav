@@ -15,6 +15,10 @@ const SONG_EDIT_COVER_ICON_VIDEO = iconSvg('video-camera');
  * 24 giờ cho đúng 24 dòng; rộng hơn nhiều mọi giá trị computePhotoDurationSec() thực tế tạo ra. */
 const PHOTO_EDIT_DURATION_PICKER_MAX_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
+/** Đóng menu "Thêm nhạc" sau 1 nhịp khi bấm 1 trong 2 <label> (closeUploadMenuAfterLabelClick()). */
+const UPLOAD_MENU_LABEL_CLOSE_DELAY_MS = 10;
+const UPLOAD_MENU_LABEL_CLOSE_TASK = 'uploadMenuLabelClose';
+
 /** `accept` của 2 input upload dùng chung (#media-upload/#media-upload-folder, core/dom-refs.js) theo Nguồn — xem
  * `workflowPlaylist._applyUploadInputAccept()`. */
 const UPLOAD_ACCEPT_BY_SOURCE = {
@@ -134,6 +138,17 @@ const workflowPlaylist = {
         workflowPlaylistRender.flushPendingScrollToCurrent(); // no-op nếu không có cuộn nào đang chờ
     },
 
+    /** Ứng với 'playlist.item.menuClick' — mở menu 3 chấm cho 1 mục: mục nào hiện tuỳ loại media + Scope folder hiện tại.
+     * @param {string} key @param {HTMLElement} anchorBtn */
+    openActionMenu(key, anchorBtn) {
+        const { playlistCache, activePlayListFolder, activeMediaSource, isActiveFolderReadOnly } =
+            appState.get(['playlistCache', 'activePlayListFolder', 'activeMediaSource', 'isActiveFolderReadOnly']);
+        const cached = playlistCache.get(key);
+        const mediaType = (cached && cached.mediaType) || 'song'; // thiếu cache -> coi như Song
+        const view = resolveSongActionMenuView(mediaType, activePlayListFolder[activeMediaSource], isActiveFolderReadOnly); // core/playlist/actions.js
+        openSongActionMenu(key, anchorBtn, view); // core/playlist/actions.js
+    },
+
     /** Đổi `accept` của 2 input upload dùng chung theo Nguồn hiện tại. Gọi từ switchSource() và
      * loadPersistedPlaylistConfigOnBoot() — 2 nơi activeMediaSource có thể đổi.
      * @param {'song'|'video'|'photo'} source
@@ -219,9 +234,9 @@ const workflowPlaylist = {
         const mediaType = cached.mediaType || 'song';
         const stats = workflowListenStats.getStats(mediaType, key); // event/workflow/listen-stats.js
         const meta = await SONG_EDIT_META_READER[mediaType](key);
-        playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null });
+        revokeBlobUrl(playlistStore.get('songEditPendingCoverPreviewUrl')); // service/blob-url.js — dọn preview còn sót từ lần mở trước
+        playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null, songEditPendingCoverPreviewUrl: null });
         console.log(`writer: "workflowPlaylist.openSongEditModal", page: "playlistStore.songEditCurrentKey", content: "${key} (${mediaType})"`);
-        revokeSongEditPendingPreview(); // core/playlist/actions.js — dọn preview còn sót từ lần mở trước
         toggleSongEditFieldGroups(mediaType); // core/playlist/actions.js
         SONG_EDIT_FIELDS_FILLER[mediaType](cached, meta);
         setSongEditDetailsHtml(SONG_EDIT_DETAILS_HTML[mediaType](cached, meta, stats)); // core/playlist/actions.js
@@ -249,11 +264,18 @@ const workflowPlaylist = {
         console.log(`writer: "workflowPlaylist._fillPhotoEditFields", page: "playlistStore.songEditPendingPhotoDurationSec", content: "${cached.duration || 0}"`);
     },
 
-    /** Ứng với 'playlist.playbackError.keep' (nút "Giữ lại") — đọc key + ẩn modal (`getAndClearPlaybackErrorKey()`),
-     * ghi nhận giữ bài lỗi, bỏ khỏi danh sách hiển thị.
+    /** Key của modal lỗi lúc phát đang mở + đóng modal (xoá key). @returns {string|null} null nếu không có modal nào mở */
+    _takePlaybackErrorKey() {
+        const key = playlistStore.get('playbackErrorKey');
+        if (!key) return null;
+        closePlaybackErrorModal(); // core/playlist/actions.js
+        return key;
+    },
+
+    /** Ứng với 'playlist.playbackError.keep' (nút "Giữ lại") — đóng modal, ghi nhận giữ bài lỗi, bỏ khỏi danh sách hiển thị.
      * @returns {{status: string}} */
     keepBrokenSong() {
-        const key = getAndClearPlaybackErrorKey(); // core/playlist/actions.js
+        const key = this._takePlaybackErrorKey();
         if (!key) return { status: 'noop' };
         appState.mutate('confirmedBrokenKeys', s => s.add(key));
         console.log(`writer: "workflowPlaylist.keepBrokenSong", page: "confirmedBrokenKeys", content: "+${key}"`);
@@ -265,7 +287,7 @@ const workflowPlaylist = {
      * Ứng với 'playlist.playbackError.delete' — đọc key đang chờ xoá rồi xoá trong shield.
      */
     async executePlaybackErrorDelete() {
-        const key = getAndClearPlaybackErrorKey();
+        const key = this._takePlaybackErrorKey();
         if (!key) return; // không có gì đang mở -> no-op
 
         await withLoadingShield(t('common.loading.deleting'), async () => {
@@ -296,7 +318,7 @@ const workflowPlaylist = {
 
     // ===================== Ảnh bìa từ thumb video =====================
     // "Choose" -> "Video thumbnail": picker video (Generic Drawer, single-select) -> `thumbBlob` (vuông 320px; record cũ
-    // thiếu thì lùi về `thumbFullBlob`) -> `File` -> changeSongEditCover(): ảnh chỉ là pending, Lưu mới ghi DB + APIC.
+    // thiếu thì lùi về `thumbFullBlob`) -> `File` -> _changePendingCover(): ảnh chỉ là pending, Lưu mới ghi DB + APIC.
     // Mở mới (modal Sửa thông tin không nằm trong Generic Drawer), đợi drawer trượt xong rồi mới đọc DB + dựng lưới.
     _coverVideoPickerOpen: false, // guard: picker đang mở hay không (đóng rất nhanh lúc đang đọc DB / race tap)
 
@@ -347,7 +369,7 @@ const workflowPlaylist = {
         this._coverVideoPickerOpen = false;
     },
 
-    /** Đọc record video -> thumb (vuông, lùi về full-res) -> `File` -> changeSongEditCover() (pending, chưa ghi DB).
+    /** Đọc record video -> thumb (vuông, lùi về full-res) -> `File` -> _changePendingCover() (pending, chưa ghi DB).
      * @param {string} videoKey */
     async applyCoverFromVideoThumb(videoKey) {
         const record = await getVideoRecord(videoKey); // service/db.js
@@ -358,23 +380,46 @@ const workflowPlaylist = {
             return;
         }
         const file = new File([thumb], `${stripFileExtension(record.filename)}.jpg`, { type: thumb.type || 'image/jpeg' }); // core/file-manager/video.js (stripFileExtension)
-        const result = changeSongEditCover(file); // core/playlist/actions.js — CÓ return, DÙNG ngay dưới
-        if (result.status === 'invalid') {
-            await alertModal(result.reason);
-        }
+        await this._changePendingCover(file);
     },
 
-    /** Callback picker ảnh — bọc Blob thành `File` (File là Blob) rồi changeSongEditCover() (pending).
+    /** Callback picker ảnh — bọc Blob thành `File` (File là Blob) rồi _changePendingCover() (pending).
      * @param {string} imageKey
      */
     async applyCoverFromLibrary(imageKey) {
         const record = await getImageRecord(imageKey); // service/db.js
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
         const file = new File([record.blob], record.filename, { type: record.blob.type });
-        const result = changeSongEditCover(file); // core/playlist/actions.js
-        if (result.status === 'invalid') {
-            await alertModal(result.reason);
-        }
+        await this._changePendingCover(file);
+    },
+
+    /** Ảnh bìa mới chờ lưu: sai định dạng -> báo lỗi; hợp lệ -> preview. @param {File} file */
+    async _changePendingCover(file) {
+        const check = validateFileType(file, IMAGE_UPLOAD_RULE); // core/upload-validation.js
+        if (!check.valid) { await alertModal(check.reason); return; }
+        this._setPendingCover(file, createBlobUrl(file)); // service/blob-url.js
+    },
+
+    /** Ứng với 'playlist.editCover.remove' (nút "Xóa ảnh bìa") — chờ lưu: xoá ảnh, preview về đĩa than mặc định. */
+    removePendingCover() {
+        this._setPendingCover('remove', null);
+    },
+
+    /** Ghi ảnh bìa chờ lưu (thu hồi preview cũ) + vẽ preview. Chỉ ghi DB lúc bấm "Lưu" (_saveSongEdit()).
+     * @param {File|'remove'} cover @param {string|null} previewUrl - blob URL của `cover`; null -> đĩa than mặc định */
+    _setPendingCover(cover, previewUrl) {
+        revokeBlobUrl(playlistStore.get('songEditPendingCoverPreviewUrl')); // service/blob-url.js
+        playlistStore.set({ songEditPendingCover: cover, songEditPendingCoverPreviewUrl: previewUrl });
+        console.log(`writer: "workflowPlaylist._setPendingCover", page: "playlistStore.songEditPendingCover", content: "${previewUrl ? 'ảnh mới' : 'remove'}"`);
+        setSongEditCoverPreview(previewUrl); // core/playlist/actions.js
+    },
+
+    /** Ứng với 'playlist.edit.cancel' và sau khi Lưu — bỏ ảnh bìa chờ lưu (thu hồi preview) rồi đóng modal Sửa thông tin. */
+    closeEditModal() {
+        revokeBlobUrl(playlistStore.get('songEditPendingCoverPreviewUrl')); // service/blob-url.js
+        playlistStore.set({ songEditPendingCover: null, songEditPendingCoverPreviewUrl: null });
+        console.log(`writer: "workflowPlaylist.closeEditModal", page: "playlistStore.songEditPendingCover", content: "null"`);
+        closeSongEditModal(); // core/playlist/actions.js
     },
 
     /** "Dọn dẹp sau khi lưu" 1 media: vẽ lại đúng hàng đó, đổi tên có thể ảnh hưởng sort -> cập nhật thứ tự hiển thị (chỉ
@@ -406,12 +451,12 @@ const workflowPlaylist = {
         const result = await saveByType[mediaType]();
         // Shield đã đóng hẳn — an toàn để hiện modal.
         if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
-        closeSongEditModal(); // core/playlist/actions.js — đóng modal trong mọi trường hợp
+        this.closeEditModal(); // đóng modal trong mọi trường hợp
         this._refreshAfterMediaEditSave(key);
     },
 
     async _saveVideoEdit(key) {
-        const { customName, album } = captureVideoEditFormState(); // core THUẦN
+        const { customName, album } = readVideoEditInputs(); // core/playlist/actions.js
         let result;
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
             result = await updateMediaMeta('video', key, (meta) => buildVideoEditMeta(meta, customName, album)); // service/db.js + core/playlist/actions.js
@@ -421,7 +466,8 @@ const workflowPlaylist = {
     },
 
     async _savePhotoEdit(key) {
-        const { customName, durationSec, album } = capturePhotoEditFormState(); // core THUẦN
+        const { customName, album } = readPhotoEditInputs(); // core/playlist/actions.js
+        const durationSec = playlistStore.get('songEditPendingPhotoDurationSec');
         let result;
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
             result = await updateMediaMeta('photo', key, (meta) => buildPhotoEditMeta(meta, customName, durationSec, album)); // service/db.js + core/playlist/actions.js
@@ -431,7 +477,8 @@ const workflowPlaylist = {
     },
 
     async _saveSongEdit(key) {
-        const { newTag, pendingCover } = captureSongEditFormState(); // core THUẦN — chỉ đọc form + playlistStore
+        const newTag = readSongEditTagInputs(); // core/playlist/actions.js
+        const pendingCover = playlistStore.get('songEditPendingCover');
         // Ảnh bìa: File mới -> ghi Blob mới vào store thumb; 'remove' -> xoá thumb; còn lại giữ nguyên (không ghi gì).
         const coverChange = (pendingCover instanceof File && 'file') || (pendingCover === 'remove' && 'remove') || 'keep';
         const writeCoverByChange = {
@@ -595,19 +642,25 @@ const workflowPlaylist = {
         updateSelectionActionBar(appState.get('selectionMode'), selectedMediaKeys.size);
     },
 
-    /** Class theo theme đang active cho chỉ báo chọn nhiều — tra 1 lần ở Workflow rồi truyền xuống
-     * `showSelectionIndicator()` (core lá, không tự tra theme). `selectionTintBg`/`btnPrimaryPillBg`/`textOnAccent`: core/ui-theme/*.js.
-     * @returns {{tint:string, indicatorSelected:string}} */
+    /** Chỉ báo chọn nhiều theo theme đang active — tra 1 lần ở Workflow rồi truyền xuống `showSelectionIndicator()` (core lá,
+     * không tự tra theme). `selectionTintBg`/`btnPrimaryPillBg`/`textOnAccent`: core/ui-theme/*.js.
+     * @returns {{tint:string, indicatorHtml:string}} */
     _selectionThemeClasses() {
         return {
             tint: resolveUiThemeClass(_activeUiThemeKeyList, 'selectionTintBg'), // core/ui-theme/registry.js + apply-ui.js
-            indicatorSelected: `${resolveUiThemeClass(_activeUiThemeKeyList, 'btnPrimaryPillBg')} ${resolveUiThemeClass(_activeUiThemeKeyList, 'textOnAccent')}`,
+            indicatorHtml: renderSelectionIndicatorHtml(`${resolveUiThemeClass(_activeUiThemeKeyList, 'btnPrimaryPillBg')} ${resolveUiThemeClass(_activeUiThemeKeyList, 'textOnAccent')}`), // components/playlist-view.js
         };
     },
 
     /** Ứng với 'playlist.uploadMenu.open' khi selectionMode=true — chỉ hiện modal báo chặn, không mở menu upload. */
     async showUploadBlockedBySelectionModal() {
         await alertModal(t('playlistView.selection.uploadBlocked'));
+    },
+
+    /** Ứng với 'playlist.uploadMenu.labelClick' — đóng menu "Thêm nhạc" sau 1 nhịp: ẩn ngay trong cùng tick click thì vài
+     * trình duyệt chưa kịp mở hộp chọn file của <input> bọc trong <label> (input đã display:none). */
+    closeUploadMenuAfterLabelClick() {
+        taskManager.once(() => closeUploadActionMenu(), UPLOAD_MENU_LABEL_CLOSE_DELAY_MS, UPLOAD_MENU_LABEL_CLOSE_TASK); // core/playlist/loader.js
     },
 
     // ===================== Chụp khung hình đầu video lúc upload =====================
@@ -699,7 +752,7 @@ const workflowPlaylist = {
     },
 
     /** Nạp 1 FileList Song (input file rời hoặc cả thư mục — webkitdirectory trả mọi file kể cả không phải nhạc,
-     * validateAudioFile() loại bớt). */
+     * validateFileType() loại bớt). */
     async uploadSongs(fileList) {
       try {
         const allFiles = Array.from(fileList); if (allFiles.length === 0) return;
@@ -714,7 +767,7 @@ const workflowPlaylist = {
         // liệt kê chung với failedFiles, không vào IndexedDB/playlist. Báo lỗi đầu tiên gặp phải.
         const files = [];
         for (const file of allFiles) {
-            const firstFail = [validateAudioFile(file), validateMediaFileSize(file)].find((check) => !check.valid); // core/upload-validation.js
+            const firstFail = [validateFileType(file, AUDIO_UPLOAD_RULE), validateMediaFileSize(file)].find((check) => !check.valid); // core/upload-validation.js
             if (!firstFail) files.push(file);
             else failedFiles.push(`${escapeHtml(file.name)} — ${firstFail.reason}`);
         }
@@ -783,7 +836,7 @@ const workflowPlaylist = {
                         } else { safetyTimeout.kill(); safeResolve(); }
                     });
 
-                    const duration = await readAudioDuration(file);
+                    const duration = await workflowAudioDuration.read(file); // event/workflow/audio-duration.js
                     const key = await resolveSongKey(file.name);
                     const isOverwrite = playlistOrderSet.has(key);
 
@@ -1605,8 +1658,7 @@ const workflowPlaylist = {
 
     /**
      * Khôi phục 3 lựa chọn Playlist lúc boot (event/workflow/app-boot.js, TRƯỚC bước nạp playlistCache — phải biết
-     * `activeMediaSource` trước). Đồng bộ lại UI qua `syncPlaylistSettingsUI()` (lần bootstrap ở cuối core/playlist/main.js
-     * chạy trước khi đọc xong IndexedDB).
+     * `activeMediaSource` trước). Đồng bộ lại UI qua `syncPlaylistSettingsUI()`.
      */
     async loadPersistedPlaylistConfigOnBoot() {
         const saved = await getMeta('playlistConfig');

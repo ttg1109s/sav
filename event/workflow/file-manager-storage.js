@@ -12,9 +12,9 @@
  * withLoadingShield()/alertModal()/modalChoice() chỉ đặt ở tầng này.
  *
  * NẠP SAU: core/storage-manager.js, core/about-stats.js, core/file-manager/video.js, core/file-manager/image.js,
- * core/image-load-ui.js, core/dynamic-object-ui.js, core/playlist/loader.js (readAudioDuration), core/media-element-ui.js,
+ * core/image-load-ui.js, core/dynamic-object-ui.js, core/media-element-ui.js,
  * core/player-controls.js, core/loading-shield-util.js, core/number-countup.js, components/file-manager-storage.js,
- * event/workflow/generic-drawer-helpers.js. NẠP TRƯỚC: event/router/file-manager-storage.js, event/listener/file-manager-storage.js.
+ * event/workflow/generic-drawer-helpers.js, event/workflow/audio-duration.js. NẠP TRƯỚC: event/router/file-manager-storage.js, event/listener/file-manager-storage.js.
  */
 const STORAGE_COUNTUP_TASK = 'storageStatsCountUp';
 const STORAGE_COUNTUP_STEPS = 24; // x 35ms mặc định của workflowNumberCountup ≈ 0.85s
@@ -470,7 +470,7 @@ const workflowFileManagerStorage = {
     async _checkSongRecord(record) {
         const quick = precheckSongRecord(record); // core/storage-manager.js — thiếu blob / mime sai
         if (quick) return quick;
-        return judgeSongDuration(await readAudioDuration(record.blob)); // core/playlist/loader.js
+        return judgeSongDuration(await workflowAudioDuration.read(record.blob)); // event/workflow/audio-duration.js + core/storage-manager.js
     },
 
     async _checkVideoRecord(record) {

@@ -32,8 +32,8 @@
  * TOÀN BỘ node ẩn trong DOM gần như không tốn gì (trình duyệt bỏ paint phần tử display:none) — rẻ
  * hơn nhiều so với build lại + tải lại ảnh mỗi lần gõ rồi xoá tìm kiếm.
  *
- * NẠP SAU: core/playlist/render.js (revokeNodeCoverUrl/
- * attachCoverFallback/updateEmptyState), core/playlist/state.js
+ * NẠP SAU: components/playlist-view.js (render*SongNodeHtml), core/playlist/render.js (revokeNodeCoverUrl/
+ * attachCoverFallback/fill*SongNode), core/playlist/state.js
  * (formatTime), core/dom-refs.js (playlistContainer/btnPlaylistEmptyPlay/DEFAULT_VINYL/bgVideoElement/
  * audioPlayer). NẠP TRƯỚC: mọi file gọi `workflowPlaylistRender.*` — event/workflow/playlist.js,
  * video-player.js, photo-player.js, player.js, playlist-scope.js, playlist-empty-state.js,
@@ -42,11 +42,11 @@
  * kỹ thuật RIÊNG của các file đó, CÙNG loại đã ghi nhận ở applySearchQuery()/removeKeyFromDisplay(),
  * chưa relocate cả hàm trong đợt này).
  */
-/** MỚI (02/10/2026, rà event-bus-flow.md mục 7) — các rẽ nhánh trong buildSongNode()/renderPlaylistDiff() viết bằng
- * object map (trước đây if/else). Khoá boolean thật. */
+/** Rẽ nhánh của buildSongNode()/renderPlaylistDiff() — object map, khoá boolean thật. Bố cục node: markup ở
+ * components/playlist-view.js, ghi lên node ở core/playlist/render.js. */
 const SONG_NODE_LAYOUT_BY_GRID = {
-    true: (wrapper, view) => fillGridSongNode(wrapper, view), // core/playlist/render.js
-    false: (wrapper, view) => fillListSongNode(wrapper, view), // core/playlist/render.js
+    true: (wrapper, view) => fillGridSongNode(wrapper, renderGridSongNodeHtml(view)),
+    false: (wrapper, view) => fillListSongNode(wrapper, renderListSongNodeHtml(view)),
 };
 // DOM khớp domNodesByKey -> diff tại chỗ; lệch (vd switchSource() vừa dọn domNodesByKey) -> dựng lại toàn bộ (lưới an toàn cũ).
 const PLAYLIST_RENDER_BY_DOM_IN_SYNC = {
@@ -119,12 +119,7 @@ const workflowPlaylistRender = {
         wrapper._coverObjectUrl = null; // gắn sau bởi _attachNodeCover()
         wrapper.dataset.coverPending = String(hasRealCover); // event/listener/playlist.js chỉ theo dõi node 'true'
 
-        // SỬA (02/10/2026, rà event-bus-flow.md mục 7) — if/else Grid/List -> object map; 2 bố cục dời nguyên văn sang
-        // core/playlist/render.js (fillGridSongNode()/fillListSongNode()).
         SONG_NODE_LAYOUT_BY_GRID[!!isGridViewNow](wrapper, { coverSrcAttr, isPlaying, eqIconHtml, menuBtnHtml, title, secondLineHtml });
-        // MỚI (02/10/2026, Giang chốt phương án A) — `loading="lazy"` + `decoding="async"` ở 2 thẻ <img> trên: item đang bị
-        // trình duyệt bỏ qua render (`content-visibility: auto`, assets/css/layout-nav.css) hoặc đang ẩn vì Search
-        // (`display:none`) KHÔNG tải ảnh bìa cho tới khi lại gần khung nhìn; decode ảnh không chặn main thread.
         attachCoverFallback(wrapper.querySelector('img')); // core/playlist/render.js
         applyUiThemeToDom(wrapper, _activeUiThemeKeyList); // SỬA (02/10/2026) — bỏ `typeof ... === 'function'`: apply-ui.js luôn nạp trước file này (index.html), điều kiện đó không bao giờ sai. // core/ui-theme/apply-ui.js — MỚI (09/09/2026, hệ UI Theme mở rộng "đổi hết trừ Visualizer") — node dựng ĐỘNG (createElement+innerHTML), KHÔNG tự động qua applyUiThemeToDom(document,...) lúc boot như nội dung tĩnh — phải tự áp NGAY ở đây mỗi khi dựng 1 node mới
         this._applySelectionLayer(wrapper, key); // MỚI (24/09/2026) — xem docstring hàm đó
