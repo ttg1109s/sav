@@ -26,23 +26,27 @@
     --viz-track: rgba(255, 255, 255, 0.25); --viz-thumb-gap: rgba(17, 24, 39, 0.9); --viz-thumb-dot: #ffffff;
 }
 
-/* ===================== Bố cục: phụ đề (Inside) / tên / tiến trình / giờ + nghệ sĩ / điều khiển ===================== */
+/* ===================== Bố cục: phụ đề (Inside) / nghệ sĩ · tên · album / tiến trình / giờ / điều khiển ===================== */
 .pc-layout {
     display: grid; grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "sub" "title" "progress" "meta" "controls";
+    grid-template-areas: "sub" "info" "progress" "meta" "controls";
     width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box;
     padding: 12px 16px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 .pc-surface[data-pc-style="floating"] .pc-layout { padding-bottom: 10px; }
 .pc-sub-slot { grid-area: sub; min-width: 0; }
 .pc-sub-slot:empty { display: none; }
-.pc-title { grid-area: title; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Nghệ sĩ 25% | tên 50% | album 25%: ô rỗng (thiếu tag, Video/Photo không có nghệ sĩ) ẩn, tên giãn ra lấp chỗ. */
+.pc-info-row { grid-area: info; display: flex; align-items: center; justify-content: space-between; min-width: 0; }
+.pc-title { flex: 1 1 0; min-width: 0; padding: 0 8px; text-align: center; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-artist, .pc-album { flex: 0 0 25%; min-width: 0; font-weight: 500; font-size: 11px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-artist { text-align: left; }
+.pc-album { text-align: right; }
+.pc-artist:empty, .pc-album:empty { display: none; }
 .pc-bar { grid-area: progress; min-width: 0; margin-top: 6px; }
-.pc-meta-row { grid-area: meta; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; }
+.pc-meta-row { grid-area: meta; display: flex; align-items: center; justify-content: space-between; }
 .pc-time { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.3; font-variant-numeric: tabular-nums; }
 .pc-time-current { font-weight: 600; }
-.pc-time-total { text-align: right; }
-.pc-artist { font-weight: 500; font-size: 11px; line-height: 1.3; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .pc-controls { grid-area: controls; display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 340px; justify-self: center; margin-top: 4px; }
 .pc-skip, .pc-toggle { display: flex; align-items: center; justify-content: center; border-radius: 9999px; transition: color 0.2s ease, transform 0.15s ease; }
@@ -92,16 +96,17 @@
 .pc-preview-sub-out { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--pc-sub-gap, 16px) / 2); }
 .pc-preview[data-pc-sub="inbox"] .pc-preview-sub-in { display: block; }
 .pc-preview[data-pc-sub="inbox"] .pc-preview-sub-out { display: none; }
-.pc-preview-title { height: 5px; width: 48%; margin: 10px 12px 0; border-radius: 9999px; }
+.pc-preview-info { display: flex; align-items: center; justify-content: space-between; margin: 10px 12px 0; }
+.pc-preview-title { height: 5px; width: 40%; border-radius: 9999px; }
+.pc-preview-side { height: 4px; width: 18%; border-radius: 9999px; opacity: 0.85; }
 .pc-preview-track { position: relative; height: 3px; margin: 10px 12px 0; border-radius: 9999px; background: var(--viz-track, rgba(255, 255, 255, 0.16)); }
 .pc-preview-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 40%; border-radius: 9999px; background: var(--progress-fill, #38bdf8); }
 .pc-preview-thumb {
     position: absolute; left: 40%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 9999px;
     background: radial-gradient(circle closest-side, var(--viz-thumb-dot, #fff) 0 34%, var(--viz-thumb-gap, #18181b) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%);
 }
-.pc-preview-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 7px 12px 0; }
+.pc-preview-meta { display: flex; align-items: center; justify-content: space-between; margin: 7px 12px 0; }
 .pc-preview-meta-time { height: 3px; width: 16px; border-radius: 9999px; opacity: 0.8; }
-.pc-preview-meta-artist { height: 4px; width: 26%; border-radius: 9999px; }
 .pc-preview-controls { display: flex; align-items: center; justify-content: space-between; width: 70%; max-width: 200px; margin: 6px auto 8px; }
 .pc-preview-btn { display: flex; align-items: center; justify-content: center; }
 .pc-preview-play { position: relative; isolation: isolate; width: 24px; height: 24px; border-radius: 9999px; box-shadow: 0 0 10px -2px var(--progress-fill, #38bdf8); }
