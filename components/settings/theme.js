@@ -33,14 +33,16 @@ function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml, p
 }
 
 /** Card "Player control" — khung xem trước (nền giả lập Visualizer + thanh điều khiển thu nhỏ, cùng CSS với Bottom Player
- * thật), nút kiểu nền, slider độ đục. @param {ReturnType<typeof computePlayerControlView>} view @returns {string} */
+ * thật), nút kiểu nền, slider độ đục. Kiểu nền/độ đục/màu effect của khung xem trước là slot — gán qua
+ * patchPlayerControlSettings() (core/player-control-settings-ui.js) sau khi dựng. @param {ReturnType<typeof computePlayerControlView>} view
+ * @returns {string} */
 function renderPlayerControlSettingsHtml(view) {
     const styleButtons = view.items.map((item) => `<button type="button" data-pc-style-pick="${item.style}" aria-pressed="${item.selected}" class="h-8 px-3 rounded-full text-xs font-semibold transition-colors" data-uitk="${item.uitk}" data-i18n="${item.labelKey}">${t(item.labelKey)}</button>`).join('');
     return `
                 <div id="player-control-settings" class="rounded-2xl flex flex-col gap-3 px-4 py-4" data-uitk="cardBg cardBorder">
                     <p class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.playerControl.section">${t('appSettings.theme.playerControl.section')}</p>
-                    <div class="pc-preview" style="--progress-fill:${view.accentColor};" aria-hidden="true">
-                        <div class="pc-surface" data-pc-preview-surface data-pc-style="${view.style}" style="--pc-alpha:${view.alpha};">
+                    <div class="pc-preview" data-pc-preview aria-hidden="true">
+                        <div class="pc-surface" data-pc-preview-surface>
                             <div class="pc-preview-track"><div class="pc-preview-fill"></div><div class="pc-preview-thumb"></div></div>
                             <div class="pc-preview-row">
                                 <div class="pc-preview-art"></div>
