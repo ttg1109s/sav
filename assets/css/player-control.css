@@ -1,21 +1,12 @@
 /* player-control.css — bề mặt + bố cục Bottom Player (components/bottom-player.js) và khung xem trước ở Settings > Theme >
-   Player control (components/settings/theme.js). Kiểu nền = `data-pc-style` trên `.pc-surface`, độ trong suốt = biến
-   `--pc-alpha` (0-1) — cả 2 do core/player-control-style.js ghi. Màu bề mặt theo UI theme qua biến `--viz-*` (themeVars,
-   assets/css/glass.css — cần nhân với `--pc-alpha` nên không làm bằng class Tailwind được); fallback = Dark. Màu chữ/nút KHÔNG
-   khai ở đây — theo key `pc*` (`data-uitk`, core/ui-theme/*.js). Màu effect đang chạy = `--progress-fill` (gán trên
-   #player-container — core/visualizer/visualizer-display.js::setProgressBarFillColor()). */
+   Player control (components/settings/theme.js). Trên `.pc-surface`: `data-pc-style` (kiểu nền), `data-pc-cover` (bìa trong
+   nút Play), biến `--pc-alpha` (độ đục 0.2-1) — core/player-control-style.js ghi. Màu bề mặt theo UI theme qua `--viz-*`
+   (assets/css/glass.css; nhân với `--pc-alpha` nên không làm bằng Tailwind được); fallback = Dark. Màu chữ/nút theo key `pc*`
+   (`data-uitk`, core/ui-theme/*.js). Màu effect = `--progress-fill` (gán trên #player-container). */
 
 .pc-surface { --pc-alpha: 1; position: relative; display: flex; flex-direction: column; transition: background-color 0.2s ease; }
 
 /* ===================== Kiểu nền ===================== */
-.pc-surface[data-pc-style="gradient"] {
-    background: linear-gradient(to top, rgba(var(--viz-fade-rgb, 9, 9, 11), var(--pc-alpha)) 0%, rgba(var(--viz-fade-rgb, 9, 9, 11), calc(var(--pc-alpha) * 0.85)) 70%, rgba(var(--viz-fade-rgb, 9, 9, 11), 0) 100%);
-}
-.pc-surface[data-pc-style="solid"] {
-    background: rgba(var(--viz-surface-rgb, 24, 24, 27), calc(var(--pc-alpha) * var(--viz-solid-alpha, 0.96)));
-    -webkit-backdrop-filter: blur(calc(var(--pc-alpha) * var(--viz-blur, 0px))); backdrop-filter: blur(calc(var(--pc-alpha) * var(--viz-blur, 0px)));
-    border-top: 1px solid var(--viz-border, rgba(255, 255, 255, 0.10));
-}
 .pc-surface[data-pc-style="glass"] {
     background: rgba(var(--viz-surface-rgb, 24, 24, 27), calc(var(--pc-alpha) * var(--viz-glass-alpha, 0.62)));
     -webkit-backdrop-filter: blur(calc(var(--pc-alpha) * 22px)) saturate(1.4); backdrop-filter: blur(calc(var(--pc-alpha) * 22px)) saturate(1.4);
@@ -29,75 +20,66 @@
     border: 1px solid var(--viz-border, rgba(255, 255, 255, 0.10));
     box-shadow: 0 12px 32px var(--viz-shadow, rgba(0, 0, 0, 0.55));
 }
-/* Không nền: chữ/icon nằm thẳng trên Visualizer — bóng chữ để đọc được; màu chữ trắng do variant `group-data-[pc-style=none]:`
-   của key `pc*`. Track/thumb slider (pseudo-element) ép bộ sáng ở đây. */
+/* Không nền: chữ/icon nằm thẳng trên Visualizer — bóng chữ để đọc được; chữ trắng do variant `group-data-[pc-style=none]:`. */
 .pc-surface[data-pc-style="none"] {
     background: transparent; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
     --viz-track: rgba(255, 255, 255, 0.25); --viz-thumb-gap: rgba(17, 24, 39, 0.9); --viz-thumb-dot: #ffffff;
 }
 
-/* ===================== Bố cục — màn hẹp: 3 hàng (thông tin / tiến trình / điều khiển) ===================== */
+/* ===================== Bố cục: phụ đề (Inside) / tên / tiến trình / giờ + nghệ sĩ / điều khiển ===================== */
 .pc-layout {
     display: grid; grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "info" "progress" "controls";
-    row-gap: 4px; padding: 12px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    grid-template-areas: "sub" "title" "progress" "meta" "controls";
+    width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box;
+    padding: 12px 16px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 .pc-surface[data-pc-style="floating"] .pc-layout { padding-bottom: 10px; }
-/* Gradient mờ dần lên trên — đẩy hàng thông tin xuống phần nền đã đủ đậm. */
-.pc-surface[data-pc-style="gradient"] .pc-layout { padding-top: 28px; }
-.pc-info { grid-area: info; display: flex; align-items: center; gap: 12px; min-width: 0; }
-.pc-art { width: 42px; height: 42px; }
-.pc-meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; position: relative; z-index: 20; }
-.pc-title { font-weight: 700; font-size: 13px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pc-artist { font-weight: 500; font-size: 11px; line-height: 1.35; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* Thanh tiến trình: hẹp = thanh trên, 2 ô giờ dưới (trái/phải); rộng = giờ 2 bên thanh. */
-.pc-progress-block {
-    grid-area: progress; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "bar bar bar" "cur . total"; align-items: center; margin-top: 4px;
-}
-.pc-bar { grid-area: bar; min-width: 0; }
+.pc-sub-slot { grid-area: sub; min-width: 0; }
+.pc-sub-slot:empty { display: none; }
+.pc-title { grid-area: title; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-bar { grid-area: progress; min-width: 0; margin-top: 6px; }
+.pc-meta-row { grid-area: meta; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; }
 .pc-time { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.3; font-variant-numeric: tabular-nums; }
-.pc-time-current { grid-area: cur; font-weight: 600; }
-.pc-time-total { grid-area: total; text-align: right; }
+.pc-time-current { font-weight: 600; }
+.pc-time-total { text-align: right; }
+.pc-artist { font-weight: 500; font-size: 11px; line-height: 1.3; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.pc-controls { grid-area: controls; display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 340px; justify-self: center; }
+.pc-controls { grid-area: controls; display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 340px; justify-self: center; margin-top: 4px; }
 .pc-skip, .pc-toggle { display: flex; align-items: center; justify-content: center; border-radius: 9999px; transition: color 0.2s ease, transform 0.15s ease; }
 .pc-skip { width: 44px; height: 44px; }
-.pc-toggle { position: relative; width: 40px; height: 40px; }
+.pc-toggle { width: 40px; height: 40px; }
 .pc-skip:active, .pc-toggle:active { transform: scale(0.9); }
-/* Chấm dưới icon khi đang bật (kiểu Spotify) — màu = màu chữ hiện tại (key pcToggleBtn, aria-pressed:). */
-.pc-toggle[aria-pressed="true"]::after { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 9999px; background: currentColor; }
+/* Icon 2 trạng thái theo `aria-pressed` (Shuffle: tắt = 2 mũi tên song song, bật = 2 mũi tên đan chéo). */
+[aria-pressed="true"] > .pc-icon-off, [aria-pressed="false"] > .pc-icon-on { display: none; }
+
+/* Nút Play/Pause. #record-container (.pc-play-art) phủ kín nút, KHÔNG có z-index để nốt nhạc bay (.music-note z 10) nổi
+   trên icon; bìa chỉ hiện khi `data-pc-cover="on"` — kèm lớp tối + icon trắng cho dễ đọc trên ảnh. */
 .pc-play {
-    width: 52px; height: 52px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 9999px;
+    position: relative; isolation: isolate;
+    width: 54px; height: 54px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 9999px;
     box-shadow: 0 0 18px -2px var(--progress-fill, #38bdf8);
     transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 .pc-play:hover { transform: scale(1.05); }
 .pc-play:active { transform: scale(0.94); }
+.pc-play-art { position: absolute; inset: 0; border-radius: 9999px; pointer-events: none; }
+.pc-play-cover { display: none; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 9999px; object-fit: cover; }
+.pc-play-icon { position: relative; z-index: 2; }
+.pc-surface[data-pc-cover="on"] .pc-play { color: #ffffff; }
+.pc-surface[data-pc-cover="on"] .pc-play-cover { display: block; }
+.pc-surface[data-pc-cover="on"] .pc-play::before { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: 9999px; background: rgba(0, 0, 0, 0.38); pointer-events: none; }
 
-/* ===================== Màn rộng: 3 cột (thông tin | điều khiển + tiến trình | trống) ===================== */
-@media (min-width: 640px) {
-    .pc-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
-        grid-template-areas: "info controls ." "info progress .";
-        column-gap: 20px; row-gap: 0; align-items: center; padding: 10px 24px calc(10px + env(safe-area-inset-bottom, 0px));
-    }
-    .pc-art { width: 52px; height: 52px; }
-    .pc-title { font-size: 14px; }
-    .pc-artist { font-size: 12px; }
-    .pc-progress-block { grid-template-areas: "cur bar total"; column-gap: 10px; margin-top: 0; }
-    .pc-time { font-size: 11px; min-width: 2.75em; }
-    .pc-time-current { text-align: right; }
-    .pc-controls { justify-content: center; gap: 14px; max-width: none; }
-    .pc-play { width: 48px; height: 48px; }
-}
+/* ===================== Phụ đề neo vào Bottom Player (core/player-control-style.js::dockSubtitleDisplay()) ===================== */
+/* Inside: nằm trong luồng bố cục, trên tên media. Outside: con của #player-container, cách mép trên thanh `--pc-sub-gap`.
+   'overlay' (thanh đang ẩn) giữ vị trí gốc trong #visualizer-ui (class Tailwind của phần tử). */
+#subtitle-display[data-sub-dock="inbox"] { position: relative; bottom: auto; padding: 0 0 8px; }
+#subtitle-display[data-sub-dock="outside"] { bottom: calc(100% + var(--pc-sub-gap, 16px)); left: 0; }
 
 /* ===================== Xem trước (Settings > Theme > Player control) ===================== */
-/* Nền giả lập màn Visualizer (dải màu + vài khối sáng) để thấy rõ độ trong suốt / kính mờ. Thu nhỏ đúng bố cục màn hẹp; màu
-   các nét = key `pc*` (`bg-current` lấy theo màu chữ của key). */
+/* Nền giả lập Visualizer để thấy rõ độ trong suốt / kính mờ; thu nhỏ đúng bố cục thật. `data-pc-sub` + `--pc-sub-gap` trên
+   `.pc-preview` chọn chỗ của dòng phụ đề giả. */
 .pc-preview {
-    position: relative; height: 132px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+    position: relative; height: 176px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
     background:
         radial-gradient(circle at 18% 30%, rgba(236, 72, 153, 0.9) 0 14%, transparent 15%),
         radial-gradient(circle at 70% 55%, rgba(56, 189, 248, 0.9) 0 18%, transparent 19%),
@@ -105,17 +87,24 @@
         linear-gradient(135deg, #312e81 0%, #0f172a 55%, #134e4a 100%);
 }
 .pc-preview .pc-surface[data-pc-style="floating"] { margin: 0 6px 6px; border-radius: 14px; }
-.pc-preview-info { display: flex; align-items: center; gap: 8px; padding: 10px 12px 0; }
-.pc-preview-art { width: 20px; height: 20px; border-radius: 9999px; background: linear-gradient(135deg, #f472b6, #818cf8); flex-shrink: 0; }
-.pc-preview-lines { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
-.pc-preview-line { height: 5px; width: 50%; border-radius: 9999px; }
-.pc-preview-line + .pc-preview-line { width: 30%; }
+.pc-preview-sub { height: 5px; width: 46%; margin: 0 auto; border-radius: 9999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 6px rgba(0, 0, 0, 0.5); }
+.pc-preview-sub-in { display: none; margin-top: 10px; }
+.pc-preview-sub-out { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--pc-sub-gap, 16px) / 2); }
+.pc-preview[data-pc-sub="inbox"] .pc-preview-sub-in { display: block; }
+.pc-preview[data-pc-sub="inbox"] .pc-preview-sub-out { display: none; }
+.pc-preview-title { height: 5px; width: 48%; margin: 10px 12px 0; border-radius: 9999px; }
 .pc-preview-track { position: relative; height: 3px; margin: 10px 12px 0; border-radius: 9999px; background: var(--viz-track, rgba(255, 255, 255, 0.16)); }
 .pc-preview-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 40%; border-radius: 9999px; background: var(--progress-fill, #38bdf8); }
 .pc-preview-thumb {
     position: absolute; left: 40%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 9999px;
     background: radial-gradient(circle closest-side, var(--viz-thumb-dot, #fff) 0 34%, var(--viz-thumb-gap, #18181b) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%);
 }
+.pc-preview-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 7px 12px 0; }
+.pc-preview-meta-time { height: 3px; width: 16px; border-radius: 9999px; opacity: 0.8; }
+.pc-preview-meta-artist { height: 4px; width: 26%; border-radius: 9999px; }
 .pc-preview-controls { display: flex; align-items: center; justify-content: space-between; width: 70%; max-width: 200px; margin: 6px auto 8px; }
 .pc-preview-btn { display: flex; align-items: center; justify-content: center; }
-.pc-preview-play { width: 22px; height: 22px; border-radius: 9999px; box-shadow: 0 0 10px -2px var(--progress-fill, #38bdf8); }
+.pc-preview-play { position: relative; isolation: isolate; width: 24px; height: 24px; border-radius: 9999px; box-shadow: 0 0 10px -2px var(--progress-fill, #38bdf8); }
+.pc-preview-cover { display: none; position: absolute; inset: 0; border-radius: 9999px; background: linear-gradient(135deg, #f472b6, #818cf8); }
+.pc-surface[data-pc-cover="on"] .pc-preview-play { color: #ffffff; }
+.pc-surface[data-pc-cover="on"] .pc-preview-cover { display: block; }
