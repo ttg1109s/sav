@@ -1,6 +1,7 @@
 /**
- * core/playlist/loader.js — menu "Thêm nhạc" + dựng `playlistCache`/`songNameIndex` từ record đã đọc (Song/Video/Photo).
- * Đọc DB, chuẩn hoá tên, thứ tự gọi: event/workflow/playlist-scope.js. Đọc thời lượng file mới: event/workflow/audio-duration.js.
+ * core/playlist/loader.js — menu "Thêm nhạc", dữ liệu bài mới nạp (tag ID3, ảnh bìa, record ghi đè, lỗi), dựng
+ * `playlistCache`/`songNameIndex` từ record đã đọc (Song/Video/Photo). Đọc DB, chuẩn hoá tên, thứ tự gọi:
+ * event/workflow/playlist-scope.js, event/workflow/playlist.js (upload). Thời lượng file mới: event/workflow/audio-duration.js.
  * Chốt FileList + reset input upload nằm ở event/listener/playlist.js (timing của sự kiện 'change').
  */
 
@@ -125,4 +126,65 @@
             appState.mutate('songNameIndex', (m) => { m.clear(); records.forEach((record, i) => m.set(record.key, nameKeys[i])); });
             console.log(`writer: "buildSongPlaylistCache", page: "songNameIndex", content: "nạp lại ${records.length} bài hát"`);
             return records.map((record) => record.key);
+        }
+
+        // ===================== Nạp bài mới =====================
+
+        /**
+         * Tag Song của 1 file mới: mặc định title = tên file bỏ đuôi, artist = nhãn "không rõ"; field ID3 nào có giá trị thì
+         * thay. Tag là dữ liệu thô từ file — nơi chèn vào HTML phải escape.
+         * @param {string} filename @param {object|null} id3Tags - `tags` của jsmediatags (null = không đọc được)
+         * @param {string} unknownArtist
+         * @returns {{tag: {title: string, artist: string, album: string}, picture: {data: number[], format: string}|null}}
+         */
+        function buildSongTagFromId3(filename, id3Tags, unknownArtist) {
+            const tags = id3Tags || {};
+            return {
+                tag: {
+                    title: tags.title || filename.replace(/\.[^/.]+$/, ''),
+                    artist: tags.artist || unknownArtist,
+                    album: tags.album || '',
+                },
+                picture: tags.picture && tags.picture.data ? tags.picture : null,
+            };
+        }
+
+        /**
+         * Ảnh bìa nhúng (ID3 APIC) thành Blob — chỉ khi `format` là MIME ảnh hợp lệ (VALID_IMAGE_MIME_TYPES,
+         * core/upload-validation.js) và có dữ liệu; tag hỏng (format rỗng/lạ) -> null (dùng đĩa than mặc định, vẫn nạp bài).
+         * @param {{data: number[], format: string}|null} picture @param {string} filename - chỉ để log @returns {Blob|null}
+         */
+        function buildId3CoverBlob(picture, filename) {
+            if (!picture) return null; // guard — không có ảnh bìa nhúng
+            const format = (picture.format || '').toLowerCase().trim();
+            if (!format || !VALID_IMAGE_MIME_TYPES.has(format) || !picture.data.length) {
+                console.warn(`[playlist] Cover ID3 của "${filename}" có định dạng không hợp lệ ("${picture.format}") hoặc rỗng — bỏ qua cover, vẫn nạp bài.`);
+                return null;
+            }
+            try { return new Blob([new Uint8Array(picture.data)], { type: format }); }
+            catch (err) { console.error(`[playlist] Lỗi đọc cover của "${filename}", bỏ qua cover, vẫn nạp bài:`, err); return null; }
+        }
+
+        /** Record ghi đè 1 bài đã có (trùng key): giữ phụ đề + folder / thống kê / điểm Game của bản cũ (meta, không Blob).
+         * @param {object} record - record mới @param {object|undefined} oldMeta @returns {object} */
+        function mergeOverwrittenSongRecord(record, oldMeta) {
+            if (!oldMeta) return record; // guard — bản cũ không còn
+            return { ...record, subtitles: oldMeta.subtitles || [], folder: oldMeta.folder, stats: oldMeta.stats, game: oldMeta.game };
+        }
+
+        /** Chữ lỗi của 1 file nạp thất bại ("Tên: thông điệp" nếu có đủ). Dữ liệu thô — nơi chèn vào HTML phải escape.
+         * @param {*} err @param {string} unknownLabel @returns {string} */
+        function formatUploadErrorMessage(err, unknownLabel) {
+            return (err && err.name && err.message) ? `${err.name}: ${err.message}` : String((err && err.message) || err || unknownLabel);
+        }
+
+        /** Tách file theo kết quả kiểm (mỗi file 1..n lượt kiểm; lượt hỏng đầu tiên là lý do loại), giữ thứ tự.
+         * @param {Array<{file: File, checks: Array<{valid: boolean, reason?: string}>}>} entries
+         * @returns {{accepted: File[], rejected: Array<{filename: string, reason: string}>}} */
+        function partitionFileChecks(entries) {
+            const verdicts = entries.map(({ file, checks }) => ({ file, firstFail: checks.find((check) => !check.valid) }));
+            return {
+                accepted: verdicts.filter((x) => !x.firstFail).map((x) => x.file),
+                rejected: verdicts.filter((x) => x.firstFail).map((x) => ({ filename: x.file.name, reason: x.firstFail.reason })),
+            };
         }

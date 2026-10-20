@@ -101,6 +101,11 @@
             if (btnPlaylistEmptyPlayLabel) btnPlaylistEmptyPlayLabel.textContent = isPlaying ? t('playlistView.btnPlaying') : t('playlistView.btnPlay');
         }
 
+        /** Ẩn khối "chưa có bài" (vd lúc bắt đầu nạp file mới). */
+        function hidePlaylistEmpty() {
+            playlistEmpty.classList.add('hidden');
+        }
+
         /** Hiện lớp "đang nạp danh sách" (phủ vùng list). total để hiển thị "x / y bài". */
         function showPlaylistLoading(done, total) {
             const el = document.getElementById('playlist-loading-list');

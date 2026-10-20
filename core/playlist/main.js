@@ -21,12 +21,56 @@
                 playlistContainer.className = PLAYLIST_CONTAINER_CLASS_BY_GRID[isGridView];
             },
 
-            // "Nguồn" (Song/Video/Photo) — select trong Settings (Generic Drawer), nơi gọi tự truy vấn lại DOM mỗi lần.
-            initMediaSource(selectEl, mediaSource) {
+            // "Nguồn" (Song/Video/Photo) — select trong Settings (Generic Drawer, truy vấn lại mỗi lần; panel đóng -> bỏ qua).
+            initMediaSource(mediaSource) {
+                const selectEl = genericDrawerBody.querySelector('#setting-playlist-media-source');
                 if (!selectEl) return;
                 selectEl.value = mediaSource;
             },
         };
+
+        const PLAYLIST_SOURCES = ['song', 'video', 'photo'];
+
+        /** Cấu hình Playlist đọc từ meta -> giá trị hợp lệ (Nguồn lạ -> 'song', thiếu field -> mặc định).
+         * @param {object} cfg - appConfigPlaylist.getAll()
+         * @returns {{activeMediaSource: string, displaySortMode: string, displayStatSortField: string, displayStatSortDirection: string, isGridView: boolean}} */
+        function sanitizePlaylistConfig(cfg) {
+            return {
+                activeMediaSource: PLAYLIST_SOURCES.includes(cfg.activeMediaSource) ? cfg.activeMediaSource : 'song',
+                displaySortMode: cfg.displaySortMode || 'az',
+                displayStatSortField: cfg.displayStatSortField || 'none',
+                displayStatSortDirection: cfg.displayStatSortDirection || 'desc',
+                isGridView: !!cfg.isGridView,
+            };
+        }
+
+        /** Phần giao diện đổi theo Nguồn: placeholder ô tìm kiếm, `accept` 2 input upload dùng chung (#media-upload,
+         * #media-upload-folder), hiện hàng Phát/Trộn bài. @param {string} placeholderText @param {string} uploadAccept */
+        function applyPlaylistSourceChrome(placeholderText, uploadAccept) {
+            if (playlistSearchInput) playlistSearchInput.placeholder = placeholderText;
+            if (fileInput) fileInput.accept = uploadAccept;
+            if (folderInput) folderInput.accept = uploadAccept;
+            if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
+            if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
+        }
+
+        /** Panel "Sắp xếp" (components/playlist-sort-drawer.js) vừa mở — điền giá trị hiện tại vào 3 select.
+         * @param {HTMLElement} panelEl @param {string} sortMode @param {string} statField @param {string} statDirection */
+        function syncSortPanelValues(panelEl, sortMode, statField, statDirection) {
+            panelEl.querySelector('#setting-playlist-sort-name').value = sortMode;
+            panelEl.querySelector('#setting-playlist-sort-stat-field').value = statField;
+            panelEl.querySelector('#setting-playlist-sort-stat-direction').value = statDirection;
+        }
+
+        /** Hàng "Hướng" + icon (i) cạnh nhãn Tên/Ngày chỉ hiện khi Stats chọn field khác 'none'. Panel đóng -> bỏ qua.
+         * @param {HTMLElement} panelEl @param {string} statField */
+        function toggleSortStatDependents(panelEl, statField) {
+            const isOff = statField === 'none';
+            ['[data-sort-direction-row]', '[data-sort-stat-info]'].forEach((selector) => {
+                const el = panelEl.querySelector(selector);
+                if (el) el.classList.toggle('hidden', isOff);
+            });
+        }
 
         /** Hiện/ẩn badge "đang xem folder" trong ô tìm kiếm + tên folder (Workflow: workflowPlaylistScope.syncActiveFolderBadge()).
          * @param {boolean} isScoped @param {string} folderName */

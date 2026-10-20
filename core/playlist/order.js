@@ -179,6 +179,11 @@ function resolveTopLevelResumeKey(currentKey, displayOrder) {
     return currentKey != null && displayOrder.includes(currentKey) ? currentKey : displayOrder[0];
 }
 
+/** Sắp xếp theo tên (A-Z / Z-A)? — đổi tên 1 mục chỉ ảnh hưởng thứ tự ở 2 mode này. @param {string} mode @returns {boolean} */
+function isNameSortMode(mode) {
+    return mode === 'az' || mode === 'za';
+}
+
 /** Danh sách bỏ 1 key (giữ thứ tự). @param {string[]} list @param {string} key @returns {string[]} */
 function removeKeyFromList(list, key) {
     return list.filter((k) => k !== key);

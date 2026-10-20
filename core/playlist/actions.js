@@ -68,6 +68,29 @@
             playlistStore.set({ songActionMenuKey: null });
         }
 
+        /**
+         * Xoá 1 mục từ menu 3 chấm: tên hiển thị trong thông báo (tag title -> filename -> key; dữ liệu thô, nơi chèn vào HTML
+         * phải escape), có bị chặn vì đang phát thật không (nhãn chặn theo loại), và phải dọn player kiểu nào nếu là mục đang
+         * phát (Video: thoát Video Player; còn lại: dừng audio + dọn URL).
+         * @param {string} key @param {object|undefined} cached @param {string|null} currentKey @param {boolean} isVideoPlayerMode
+         * @param {boolean} isVideoPaused - bgVideoElement.paused @param {boolean} isAudioPaused - audioPlayer.paused
+         * @returns {{title: string, mediaType: 'song'|'video'|'photo', blockedLabelKey: string|null, currentCleanup: 'video'|'song'|'none'}}
+         */
+        function resolveMediaDeletePlan(key, cached, currentKey, isVideoPlayerMode, isVideoPaused, isAudioPaused) {
+            const mediaType = (cached && cached.mediaType) || 'song';
+            const isVideo = mediaType === 'video';
+            const isCurrent = key === currentKey;
+            const isActuallyPlaying = isVideo ? (isVideoPlayerMode && !isVideoPaused) : !isAudioPaused;
+            const blockedKey = isVideo ? 'playlistView.songMenu.deleteBlockedPlayingVideo' : 'playlistView.songMenu.deleteBlockedPlaying';
+            const cleanupIfCurrent = isVideo ? 'video' : 'song';
+            return {
+                title: cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : key),
+                mediaType,
+                blockedLabelKey: isCurrent && isActuallyPlaying ? blockedKey : null,
+                currentCleanup: isCurrent ? cleanupIfCurrent : 'none',
+            };
+        }
+
         // ===================== Modal: Bài hát lỗi lúc phát =====================
         // playbackErrorModal/playbackErrorFilename: core/dom-refs.js. playbackErrorKey (modal đang nói về mục nào): playlistStore.
 
@@ -135,6 +158,21 @@
             songEditPhotoNameInput.placeholder = '';
             if (songEditPhotoAlbumInput) songEditPhotoAlbumInput.value = album;
             songEditPhotoDurationValueEl.textContent = durationText;
+        }
+
+        /** Nhãn thời lượng đang chờ lưu ở tab "Sửa" Photo (sau khi chọn trong time-picker). @param {string} text */
+        function setPhotoEditDurationText(text) {
+            if (songEditPhotoDurationValueEl) songEditPhotoDurationValueEl.textContent = text;
+        }
+
+        /** Giá trị mở time-picker thời lượng Photo (ms). @param {number} currentSec @param {number} minSec @returns {{valueMs: number, minMs: number}} */
+        function computePhotoEditPickerMs(currentSec, minSec) {
+            return { valueMs: (currentSec || 0) * 1000, minMs: minSec * 1000 };
+        }
+
+        /** Giây chọn từ time-picker, làm tròn 2 chữ số thập phân. @param {number} resultMs @returns {number} */
+        function resolvePickedPhotoDurationSec(resultMs) {
+            return Math.round(resultMs / 1000 * 100) / 100;
         }
 
         /** Điền tab "Sửa" Song từ tag hiện tại. */
@@ -208,4 +246,21 @@
          */
         function buildSongEditMeta(meta, newTag) {
             return { ...meta, tag: { ...meta.tag, ...newTag } };
+        }
+
+        /** Ảnh bìa chờ lưu -> việc ghi store thumb: File mới -> 'file'; 'remove' -> 'remove'; còn lại -> 'keep'.
+         * @param {File|'remove'|null} pendingCover @returns {'file'|'remove'|'keep'} */
+        function resolvePendingCoverChange(pendingCover) {
+            return (pendingCover instanceof File && 'file') || (pendingCover === 'remove' && 'remove') || 'keep';
+        }
+
+        /** Media Session của bài Song vừa sửa tag: tên/nghệ sĩ (thiếu -> nhãn mặc định), artwork chỉ khi có ảnh bìa.
+         * @param {{title: string, artist: string}} tag @param {Blob|null} cover @param {string|null} coverUrl
+         * @returns {{title: string, artist: string, artwork: Array<{src: string, sizes: string, type: string}>}} */
+        function resolveSongMediaSessionInfo(tag, cover, coverUrl) {
+            return {
+                title: tag.title || 'Visual Master',
+                artist: tag.artist || 'Unknown Artist',
+                artwork: cover ? [{ src: coverUrl, sizes: '512x512', type: cover.type || 'image/jpeg' }] : [],
+            };
         }

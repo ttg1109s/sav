@@ -51,3 +51,12 @@ function removeKeysFromDisplayState(keys, playlistOrder, displayOrder) {
     appState.mutate('selectedMediaKeys', s => keys.forEach(k => s.delete(k)));
     console.log(`writer: "removeKeysFromDisplayState", page: "selectedMediaKeys", content: "gỡ ${keys.length} key vừa xoá"`);
 }
+
+/** Xoá hàng loạt có trúng media đang phát không, và dọn theo kiểu nào: Video -> thoát Video Player; Song/Photo -> dừng
+ * audio. @param {string[]} keys @param {string|null} currentKey @param {'song'|'video'|'photo'} mediaType
+ * @returns {'song'|'video'|'none'} */
+function resolveBulkDeleteRelease(keys, currentKey, mediaType) {
+    const isCurrentDeleted = currentKey != null && keys.includes(currentKey);
+    const releaseIfDeleted = mediaType === 'video' ? 'video' : 'song';
+    return isCurrentDeleted ? releaseIfDeleted : 'none';
+}
