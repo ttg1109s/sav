@@ -429,24 +429,13 @@
         // service/song-key-cipher.js — file db.js này CHỈ còn thuần truy cập IndexedDB, không lẫn
         // tiện ích không liên quan gì tới đọc/ghi DB.
 
-        // KHÔNG còn getPlaylistOrder/setPlaylistOrder: playlist không lưu thứ tự riêng trong
-        // store `meta` nữa — store `songs` là chân lý duy nhất. Mỗi lần cần danh sách (khởi động,
-        // sau khi thêm/xoá bài), quét lại toàn bộ key qua getAllSongKeys() + lọc hợp lệ ngay trong
-        // RAM (xem core/playlist/loader.js) — không cố lưu/khôi phục thứ tự cũ.
+        // Playlist không lưu thứ tự riêng trong store `meta` — mỗi lần cần danh sách, đọc lại record rồi lọc hợp lệ trong
+        // RAM (event/workflow/playlist-scope.js + core/playlist/loader.js).
 
-        // MIME type hợp lệ cho mp3 — trình duyệt/thiết bị khác nhau có thể báo hơi khác nhau, nên
-        // chấp nhận cả audio/mpeg, audio/mp3 (không chuẩn nhưng vẫn gặp), và rỗng (file picker một số
-        // hệ điều hành không set type, không tự coi đó là lỗi chỉ vì thiếu type). Định nghĩa Ở ĐÂY
-        // (db.js, nạp sớm nhất) để dùng CHUNG giữa playlist.js (quét nhanh lúc khởi động/thêm bài,
-        // KHÔNG decode) và storage-manager.js (quét sâu ở Quản lý dung lượng, có decode) — tránh 2
-        // nơi định nghĩa "thế nào là hợp lệ" lệch nhau.
-        //
-        // SỬA (01/10/2026, Ghi âm — lỗi có sẵn phát hiện lúc làm) — TRƯỚC ĐÂY CHỈ nhận MIME mp3, trong khi lúc upload
-        // `validateAudioFile()` (core/upload-validation.js) lại nhận cả m4a/aac/wav/ogg/flac/webm -> bài m4a upload
-        // xong biến mất sau reload (filterValidSongRecords() loại) và bị "Scan & clean broken files" coi là hỏng. Bản
-        // ghi âm lưu theo định dạng OS (iOS: audio/mp4, Chrome: audio/webm) dính đúng lỗi đó. Giờ nhận ĐÚNG tập MIME
-        // mà upload nhận (khớp VALID_AUDIO_MIME_TYPES) + bỏ tham số ";codecs=..." trước khi so. Tên hằng giữ nguyên
-        // (2 nơi gọi chỉ dùng qua isQuickValidMime()).
+        // MIME hợp lệ của record Song khi quét nhanh (lúc nạp danh sách — filterValidSongRecords(), không decode) và quét
+        // sâu (Quản lý lưu trữ) — định nghĩa ở đây (db.js, nạp sớm nhất) để 2 nơi không lệch nhau. Phải khớp đúng tập MIME
+        // upload nhận (VALID_AUDIO_MIME_TYPES, core/upload-validation.js — kể cả bản ghi âm iOS audio/mp4, Chrome audio/webm)
+        // + rỗng (file picker vài hệ điều hành không set type); bỏ tham số ";codecs=..." trước khi so.
         const VALID_MP3_MIME_TYPES = new Set([
             'audio/mpeg', 'audio/mp3', 'audio/mpa', '',
             'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/ogg', 'audio/x-m4a', 'audio/m4a', 'audio/mp4', 'audio/aac',
