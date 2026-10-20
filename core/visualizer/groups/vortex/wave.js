@@ -3,10 +3,10 @@
  * (nhiễu động sóng) tách riêng khỏi `core/visualizer/types/vortex.js` cũ (trước đây gộp chung với
  * 'rings'/'bars'). Nội dung hàm GIỮ NGUYÊN 100%.
  *
- * THUẦN, không appState/getActiveEffectConfig/getComputedColor/getVortexCenterAt (rà soát Rule 3)
+ * THUẦN, không appState/config effect/colorAt/getVortexCenterAt (rà soát Rule 3)
  * — Workflow (`_tickVortexRender()`, event/workflow/visualizer-render.js) tự vòng lặp gọi RIÊNG
  * LẺ `stepVortexWaveZ()` rồi `getVortexCenterAt()` (core/webgl/three-vortex.js) rồi
- * `getComputedColor()` (core/visualizer/effect-paint.js) rồi `finishVortexWaveFrame()` cho TỪNG wave mesh.
+ * `workflowVisualizerRender.colorAt()` (event/workflow/visualizer-render.js) rồi `finishVortexWaveFrame()` cho TỪNG wave mesh.
  * `wave` là object Three.js NHẬN QUA THAM SỐ — mutate trực tiếp thuộc tính KHÔNG vi phạm Rule 2.
  *
  * NẠP SAU: core/visualizer/groups/vortex/common.js.
