@@ -45,14 +45,56 @@
    trên <body> (index.html) — đổi theme = `applyUiThemeToDom()` đổi class như mọi key khác, KHÔNG cần cơ chế mới.
    Mọi chỗ dùng đều có fallback = giá trị Light cũ (sliders.css/photo-gallery.css/video-gallery.css) -> Light KHÔNG đổi gì. */
 .uitk-vars-light {
+    /* UI phía Visualizer (Bottom Player, nút Control Center / về Playlist, panel Control Center, HUD) — xem khối `.viz-*` cuối file. */
+    --viz-surface-rgb: 255, 255, 255; --viz-fade-rgb: 255, 255, 255; --viz-solid-alpha: 0.96; --viz-glass-alpha: 0.72; --viz-chrome-alpha: 0.82; --viz-cc-alpha: 0.9;
+    --viz-blur: 0px; --viz-border: rgba(15, 23, 42, 0.10); --viz-shadow: rgba(15, 23, 42, 0.18);
+    --viz-text: #0f172a; --viz-text-muted: #64748b; --viz-icon: #334155; --viz-accent: #0284c7;
+    --viz-item-hover: rgba(15, 23, 42, 0.06); --viz-item-active-bg: rgba(2, 132, 199, 0.14);
+    --viz-play-bg: #0f172a; --viz-play-fg: #ffffff; --viz-track: rgba(15, 23, 42, 0.16); --viz-thumb-gap: #ffffff; --viz-thumb-dot: #0f172a;
     --uitk-slider-track: #e2e8f0; --uitk-slider-mark: #94a3b8; --uitk-slider-accent: #0ea5e9; --uitk-slider-disabled: #cbd5e1; --uitk-eq-fill: #8b5cf6;
     --uitk-timing-line: #475569; --uitk-timing-label: #94a3b8; --uitk-timing-accent: #38bdf8; --uitk-day-header-on-panel: #334155;
 }
 .uitk-vars-dark {
+    --viz-surface-rgb: 24, 24, 27; --viz-fade-rgb: 9, 9, 11; --viz-solid-alpha: 0.96; --viz-glass-alpha: 0.62; --viz-chrome-alpha: 0.78; --viz-cc-alpha: 0.88;
+    --viz-blur: 0px; --viz-border: rgba(255, 255, 255, 0.10); --viz-shadow: rgba(0, 0, 0, 0.55);
+    --viz-text: #f4f4f5; --viz-text-muted: #a1a1aa; --viz-icon: #e4e4e7; --viz-accent: #a78bfa;
+    --viz-item-hover: rgba(255, 255, 255, 0.08); --viz-item-active-bg: rgba(167, 139, 250, 0.18);
+    --viz-play-bg: #fafafa; --viz-play-fg: #18181b; --viz-track: rgba(255, 255, 255, 0.16); --viz-thumb-gap: #18181b; --viz-thumb-dot: #ffffff;
     --uitk-slider-track: rgba(255, 255, 255, 0.12); --uitk-slider-mark: #71717a; --uitk-slider-accent: #8b5cf6; --uitk-slider-disabled: #52525b; --uitk-eq-fill: #a78bfa;
     --uitk-timing-line: #71717a; --uitk-timing-label: #a1a1aa; --uitk-timing-accent: #a78bfa; --uitk-day-header-on-panel: #d4d4d8;
 }
 .uitk-vars-morphin {
+    --viz-surface-rgb: 255, 255, 255; --viz-fade-rgb: 0, 0, 0; --viz-solid-alpha: 0.22; --viz-glass-alpha: 0.14; --viz-chrome-alpha: 0.14; --viz-cc-alpha: 0.12;
+    --viz-blur: 36px; --viz-border: rgba(255, 255, 255, 0.25); --viz-shadow: rgba(0, 0, 0, 0.35);
+    --viz-text: #ffffff; --viz-text-muted: rgba(255, 255, 255, 0.72); --viz-icon: #ffffff; --viz-accent: #c4b5fd;
+    --viz-item-hover: rgba(255, 255, 255, 0.16); --viz-item-active-bg: rgba(255, 255, 255, 0.24);
+    --viz-play-bg: #ffffff; --viz-play-fg: #111827; --viz-track: rgba(255, 255, 255, 0.28); --viz-thumb-gap: rgba(17, 24, 39, 0.85); --viz-thumb-dot: #ffffff;
     --uitk-slider-track: rgba(255, 255, 255, 0.25); --uitk-slider-mark: rgba(255, 255, 255, 0.5); --uitk-slider-accent: #a78bfa; --uitk-slider-disabled: rgba(255, 255, 255, 0.35); --uitk-eq-fill: rgba(255, 255, 255, 0.9);
     --uitk-timing-line: rgba(255, 255, 255, 0.6); --uitk-timing-label: rgba(255, 255, 255, 0.75); --uitk-timing-accent: #ddd6fe; --uitk-day-header-on-panel: rgba(255, 255, 255, 0.85);
 }
+
+/* ===================== UI phía Visualizer theo UI Theme (20/10/2026) =====================
+   Nút tròn trên cùng (#btn-open-control-center, #btn-back-playlist), panel Control Center, Volume/Speed HUD. Màu lấy từ bộ biến
+   `--viz-*` của theme đang chọn (khai ở 3 class `.uitk-vars-*` phía trên); fallback = Dark. Bottom Player: assets/css/player-control.css. */
+.viz-chrome {
+    background: rgba(var(--viz-surface-rgb, 24, 24, 27), var(--viz-chrome-alpha, 0.78));
+    -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--viz-border, rgba(255, 255, 255, 0.10));
+    box-shadow: 0 6px 18px var(--viz-shadow, rgba(0, 0, 0, 0.55));
+    color: var(--viz-icon, #e4e4e7); transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.viz-chrome:hover { background: rgba(var(--viz-surface-rgb, 24, 24, 27), 1); }
+.viz-chrome:active { transform: scale(0.94); }
+.viz-cc-panel {
+    background: rgba(var(--viz-surface-rgb, 24, 24, 27), var(--viz-cc-alpha, 0.88));
+    -webkit-backdrop-filter: blur(36px) saturate(1.6); backdrop-filter: blur(36px) saturate(1.6);
+    border: 1px solid var(--viz-border, rgba(255, 255, 255, 0.10));
+    box-shadow: 0 25px 50px var(--viz-shadow, rgba(0, 0, 0, 0.55));
+    color: var(--viz-text, #f4f4f5);
+}
+.viz-cc-item { color: var(--viz-text-muted, #a1a1aa); transition: background-color 0.2s ease, color 0.2s ease; }
+.viz-cc-item:hover { background: var(--viz-item-hover, rgba(255, 255, 255, 0.08)); }
+.viz-cc-label { color: var(--viz-text, #f4f4f5); }
+.viz-cc-accent, .viz-cc-item.viz-cc-active { color: var(--viz-accent, #a78bfa); }
+.viz-chip { color: var(--viz-text-muted, #a1a1aa); transition: background-color 0.2s ease, color 0.2s ease; }
+.viz-chip.viz-chip-active { background: var(--viz-item-active-bg, rgba(167, 139, 250, 0.18)); color: var(--viz-text, #f4f4f5); }

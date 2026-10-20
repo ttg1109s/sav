@@ -1,8 +1,8 @@
 /* sliders.css — mọi input[type=range]/input[type=color] trong app. nhóm nền TRẮNG (.ce-slider; .eq-preset-
    slider đã bỏ 07/10/2026) TÁCH RIÊNG khỏi nhóm nền TỐI (.setting-slider/.eq-slider) — track
    rgba(255,255,255,0.1) của nhóm tối gần như vô hình trên nền trắng của Generic Drawer.
-   [.setting-slider/.eq-slider CHỈ còn dùng ở nền THẬT tối (components/visualizer-overlay.js,
-   core/volume-hud.js) — KHÔNG sửa 2 class này, hợp lệ ở đúng chỗ đang dùng.]
+   [.setting-slider CHỈ dùng ở Volume/Speed HUD (components/visualizer-overlay.js) — track/thumb theo UI theme qua biến
+   `--viz-*` (20/10/2026); .eq-slider giữ nền tối.]
    SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — phát hiện thêm 3 rule `.ptmove-*`
    (Point Move edit/Timing, Motion presets, sống trong Generic Drawer qua Settings > System > Motion)
    VẪN còn `rgba(255,255,255,x)` y hệt lỗi đã fix cho EQ — track/tick-label gần như vô hình trên nền
@@ -14,8 +14,8 @@
    (`var(--uitk-*, <giá trị Light cũ>)`, khai ở assets/css/glass.css — class `uitk-vars-*` do key theme `themeVars` gắn trên <body>):
    Light KHÔNG đổi gì (fallback = đúng giá trị cũ), Dark/Morphin không còn track xám nhạt + viền sky lệch tông accent tím. */
 
-input[type=range].setting-slider { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; }
-input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+input[type=range].setting-slider { -webkit-appearance: none; width: 100%; height: 4px; background: linear-gradient(to right, var(--viz-text, #f4f4f5) 0, var(--viz-text, #f4f4f5) var(--hud-fill-pct, 0%), var(--viz-track, rgba(255, 255, 255, 0.1)) var(--hud-fill-pct, 0%), var(--viz-track, rgba(255, 255, 255, 0.1)) 100%); border-radius: 2px; outline: none; }
+input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--viz-play-bg, #ffffff); cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 
 .eq-slider-container { width: 20px; height: 100px; position: relative; display: flex; justify-content: center; align-items: center; }
 input[type=range].eq-slider { -webkit-appearance: none; width: 100px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; transform: rotate(-90deg); position: absolute; }
@@ -69,12 +69,12 @@ input[type=range].ptmove-range-input::-moz-range-thumb { pointer-events: auto; w
 .ptmove-timing-corner-text { fill: #38bdf8; font-size: 11px; font-weight: 700; font-family: inherit; pointer-events: none; } /* "X: NN%" — cố định góc trái trên, chỉ hiện lúc ấn/kéo */
 
 /* Thanh tiến trình nhạc (Bottom Player) — track mảnh 4px, nút kéo tròn 16px gồm vòng ngoài màu effect + vòng tối + chấm trắng
-   ở tâm. Màu = `--progress-fill` (màu effect, gán trên #player-container), phần đã phát = `--progress-pct` (core/visualizer/
+   ở tâm (chấm + vòng tối theo UI theme, biến `--viz-thumb-*`). Màu = `--progress-fill` (màu effect, gán trên #player-container), phần đã phát = `--progress-pct` (core/visualizer/
    visualizer-display.js::updateProgressBarCSS()). Input cao 18px để dễ chạm, track vẽ bằng pseudo-element. */
-input[type=range].music-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 0; background: transparent; outline: none; cursor: pointer; --pc-track: rgba(255, 255, 255, 0.18); }
+input[type=range].music-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 0; background: transparent; outline: none; cursor: pointer; --pc-track: var(--viz-track, rgba(255, 255, 255, 0.16)); }
 input[type=range].music-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 9999px; background: linear-gradient(to right, var(--progress-fill, #38bdf8) 0, var(--progress-fill, #38bdf8) var(--progress-pct, 0%), var(--pc-track) var(--progress-pct, 0%), var(--pc-track) 100%); }
-input[type=range].music-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -6px; border: none; border-radius: 50%; background: radial-gradient(circle closest-side, #fff 0 34%, rgba(12, 12, 16, 0.9) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 8px -1px var(--progress-fill, #38bdf8); cursor: pointer; transition: transform 0.15s ease; }
+input[type=range].music-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -6px; border: none; border-radius: 50%; background: radial-gradient(circle closest-side, var(--viz-thumb-dot, #fff) 0 34%, var(--viz-thumb-gap, #18181b) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 8px -1px var(--progress-fill, #38bdf8); cursor: pointer; transition: transform 0.15s ease; }
 input[type=range].music-slider:active::-webkit-slider-thumb { transform: scale(1.3); }
 input[type=range].music-slider::-moz-range-track { height: 4px; border: none; border-radius: 9999px; background: linear-gradient(to right, var(--progress-fill, #38bdf8) 0, var(--progress-fill, #38bdf8) var(--progress-pct, 0%), var(--pc-track) var(--progress-pct, 0%), var(--pc-track) 100%); }
-input[type=range].music-slider::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 50%; background: radial-gradient(circle closest-side, #fff 0 34%, rgba(12, 12, 16, 0.9) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 8px -1px var(--progress-fill, #38bdf8); cursor: pointer; transition: transform 0.15s ease; }
+input[type=range].music-slider::-moz-range-thumb { width: 16px; height: 16px; border: none; border-radius: 50%; background: radial-gradient(circle closest-side, var(--viz-thumb-dot, #fff) 0 34%, var(--viz-thumb-gap, #18181b) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 8px -1px var(--progress-fill, #38bdf8); cursor: pointer; transition: transform 0.15s ease; }
 input[type=range].music-slider:active::-moz-range-thumb { transform: scale(1.3); }
