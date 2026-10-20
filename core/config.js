@@ -191,9 +191,10 @@
             subtitleKaraokePointerShape: 'default', // 'default' | 'pointer' | 'text' | 'crosshair' (vẽ lại kiểu CSS cursor)
             // 3 toggle hiện/ẩn UI chrome màn Visualizer (core/visualizer-ui-visibility.js).
             bottomPlayerVisible: true, playlistButtonVisible: true, controlCenterButtonVisible: true,
-            // Settings > Theme > Player control (core/player-control-style.js): kiểu nền Bottom Player 'gradient' | 'solid' |
-            // 'glass' | 'floating' | 'none', độ đục nền 0-100 (%).
-            playerControlBgStyle: 'gradient', playerControlOpacity: 100,
+            // Settings > Theme > Player control (core/player-control-style.js): kiểu nền 'glass' | 'floating' | 'none', độ đục
+            // 20-100 (%), bìa trong nút Play, phụ đề 'inbox' (trong thanh) | 'outside' (trên thanh, cách N px).
+            playerControlBgStyle: 'glass', playerControlOpacity: 100, playerControlCoverPlay: true,
+            playerControlSubtitlePlacement: 'outside', playerControlSubtitleGap: 16,
             // Cử chỉ (event/workflow/visualizer-gesture.js): mỗi hướng vuốt/tap 1 hành động ('next'/'prev'/'playPause'/
             // 'openPlaylist'/'none' = tắt, hoặc 'actionSlot1/2/3').
             gestureActionSwipeUp: 'next', gestureActionSwipeDown: 'prev',
@@ -397,7 +398,8 @@
                 subtitleKaraokeOutlineGlow: 'number', subtitleKaraokeOutlineBlur: 'number',
                 subtitleKaraokePointer: 'boolean', subtitleKaraokePointerShape: 'string',
                 bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
-                playerControlBgStyle: 'string', playerControlOpacity: 'number',
+                playerControlBgStyle: 'string', playerControlOpacity: 'number', playerControlCoverPlay: 'boolean',
+                playerControlSubtitlePlacement: 'string', playerControlSubtitleGap: 'number',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',

@@ -1,5 +1,5 @@
 /**
- * core/record-art-ui.js — ảnh tròn #record-art ở thanh phát đáy màn. Phần tử bị thay mỗi lần đổi media nên không có
+ * core/record-art-ui.js — ảnh bìa tròn #record-art trong nút Play của Bottom Player. Bị thay mỗi lần đổi media nên không có
  * trong core/dom-refs.js; markup ở components/bottom-player.js::renderRecordArtHtml().
  * NẠP SAU: service/component-dynamic.js, core/dom-refs.js.
  */

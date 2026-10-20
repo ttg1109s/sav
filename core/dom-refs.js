@@ -109,11 +109,12 @@
         const btnShuffle = document.getElementById('btn-shuffle'), btnRepeat = document.getElementById('btn-repeat'), repeatOneDigit = document.getElementById('repeat-one-digit');
         const btnRestartTrack = document.getElementById('btn-restart-track'); // MỚI 25/09/2026 — Control Center "Phát lại từ đầu" (components/visualizer-overlay.js)
         const playerPanel = document.getElementById('player-panel'); // bề mặt Bottom Player (kiểu nền/độ đục — core/player-control-style.js)
+        const pcSubSlot = document.getElementById('pc-sub-slot'); // chỗ neo phụ đề "Inside" trong Bottom Player
         const progressBar = document.getElementById('progress-bar');
         const progressBarRow = document.getElementById('progress-bar-row'); // ẩn hẳn lúc Photo Player mode (ảnh không hỗ trợ kéo tay tuỳ ý) — core/photo-player.js
         const currentTimeDisplay = document.getElementById('current-time'), durationTimeDisplay = document.getElementById('duration-time');
         const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist');
-        const recordArt = document.getElementById('record-art'), recordContainer = document.getElementById('record-container');
+        const recordContainer = document.getElementById('record-container'); // khung bìa trong nút Play (#record-art dựng lại mỗi lần đổi media)
         const statBpm = document.getElementById('stat-bpm'), statNote = document.getElementById('stat-note'), statEnergy = document.getElementById('stat-energy');
         // Dải BPM/Pitch/Energy — toggle ẩn/hiện giờ nằm ở Settings (checkbox), xem
         // core/visualizer-ui-visibility.js.
@@ -350,6 +351,7 @@
         // Phụ đề lúc phát (components/visualizer-overlay.js) — event/workflow/subtitle-display.js.
         const subtitleDisplay = document.getElementById('subtitle-display'), subtitleFrame = document.getElementById('subtitle-frame'), subActiveLines = document.getElementById('sub-active-lines');
         const subtitleKaraokeFx = document.getElementById('subtitle-karaoke-fx'), subtitleKaraokePointer = document.getElementById('subtitle-karaoke-pointer');
+        const subtitleOverlayDock = document.getElementById('subtitle-overlay-dock'); // vị trí gốc của #subtitle-display (khi Bottom Player ẩn)
 
         // (let source — ĐÃ BỎ 01/10/2026: nguồn MediaElement của audioPlayer giờ giữ ở workflowAudioEngine._songSourceNode,
         // event/workflow/audio-engine.js)
@@ -490,16 +492,7 @@
         // DUY NHẤT gọi getElementById, mọi file khác chỉ dùng lại biến đã có ở đây. Gom về đúng 1
         // chỗ, theo đúng style các khối phía trên.
         //
-        // NGOẠI LỆ CỐ Ý — KHÔNG đưa vào đây: #record-art. Phần tử này KHÔNG tĩnh — nó bị TẠO LẠI
-        // HOÀN TOÀN mỗi lần đổi bài hát (core/playlist/actions.js gán recordContainer.innerHTML = ...,
-        // xem window.playSong) và mỗi lần lưu sửa thông tin bài đang phát. Một biến `const` lấy 1
-        // lần lúc khởi động (giống mọi biến khác trong file này) sẽ NHANH CHÓNG trở thành tham
-        // chiếu tới 1 node đã bị gỡ khỏi DOM (stale reference) ngay sau lần đổi bài đầu tiên —
-        // đây chính là lý do biến `recordArt` khai báo phía trên KHÔNG được dùng ở bất kỳ đâu
-        // trong toàn project (dead code có từ trước patch này, không thuộc phạm vi dọn ở đây).
-        // Mọi nơi cần truy cập #record-art (core/playlist/actions.js, đã tự document.getElementById
-        // lại đúng lúc cần) tiếp tục làm vậy — đây là ngoại lệ HỢP LỆ của quy ước "dom-refs.js là
-        // nơi DUY NHẤT gọi getElementById", áp dụng riêng cho phần tử bị tái tạo động qua innerHTML.
+        // #record-art KHÔNG có ở đây: bị dựng lại mỗi lần đổi media (core/record-art-ui.js) — nơi cần thì tự tra lại.
         const songActionMenu = document.getElementById('song-action-menu');
         const songActionOverlay = document.getElementById('song-action-overlay');
         // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 4 nút cần gate
