@@ -26,16 +26,14 @@
     --viz-track: rgba(255, 255, 255, 0.25); --viz-thumb-gap: rgba(17, 24, 39, 0.9); --viz-thumb-dot: #ffffff;
 }
 
-/* ===================== Bố cục: phụ đề (Inside) / nghệ sĩ · tên · album / tiến trình / giờ / điều khiển ===================== */
+/* ===================== Bố cục: nghệ sĩ · tên · album / tiến trình / giờ / điều khiển ===================== */
 .pc-layout {
     display: grid; grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "sub" "info" "progress" "meta" "controls";
+    grid-template-areas: "info" "progress" "meta" "controls";
     width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box;
     padding: 12px 16px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 .pc-surface[data-pc-style="floating"] .pc-layout { padding-bottom: 10px; }
-.pc-sub-slot { grid-area: sub; min-width: 0; }
-.pc-sub-slot:empty { display: none; }
 /* Nghệ sĩ 25% | tên 50% | album 25% — cố định, thiếu tag (Video/Photo không có nghệ sĩ) chỉ trống chữ, tên luôn ở giữa. */
 .pc-info-row { grid-area: info; display: flex; align-items: center; justify-content: space-between; min-width: 0; }
 .pc-title { flex: 0 0 50%; min-width: 0; padding: 0 8px; text-align: center; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -73,14 +71,13 @@
 .pc-surface[data-pc-cover="on"] .pc-play::before { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: 9999px; background: rgba(0, 0, 0, 0.38); pointer-events: none; }
 
 /* ===================== Phụ đề neo vào Bottom Player (core/player-control-style.js::dockSubtitleDisplay()) ===================== */
-/* Inside: nằm trong luồng bố cục, trên tên media. Outside: con của #player-container, cách mép trên thanh `--pc-sub-gap`.
-   'overlay' (thanh đang ẩn) giữ vị trí gốc trong #visualizer-ui (class Tailwind của phần tử). */
-#subtitle-display[data-sub-dock="inbox"] { position: relative; bottom: auto; padding: 0 0 8px; }
+/* 'outside': con của #player-container, cách mép trên thanh `--pc-sub-gap`. 'overlay' (thanh đang ẩn) giữ vị trí gốc trong
+   #visualizer-ui (class Tailwind của phần tử). */
 #subtitle-display[data-sub-dock="outside"] { bottom: calc(100% + var(--pc-sub-gap, 16px)); left: 0; }
 
 /* ===================== Xem trước (Settings > Theme > Player control) ===================== */
-/* Nền giả lập Visualizer để thấy rõ độ trong suốt / kính mờ; thu nhỏ đúng bố cục thật. `data-pc-sub` + `--pc-sub-gap` trên
-   `.pc-preview` chọn chỗ của dòng phụ đề giả. */
+/* Nền giả lập Visualizer để thấy rõ độ trong suốt / kính mờ; thu nhỏ đúng bố cục thật. Dòng phụ đề giả cách thanh
+   `--pc-sub-gap` / 2 (gán trên `.pc-preview`). */
 .pc-preview {
     position: relative; height: 176px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
     background:
@@ -90,11 +87,10 @@
         linear-gradient(135deg, #312e81 0%, #0f172a 55%, #134e4a 100%);
 }
 .pc-preview .pc-surface[data-pc-style="floating"] { margin: 0 6px 6px; border-radius: 14px; }
-.pc-preview-sub { height: 5px; width: 46%; margin: 0 auto; border-radius: 9999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 6px rgba(0, 0, 0, 0.5); }
-.pc-preview-sub-in { display: none; margin-top: 10px; }
-.pc-preview-sub-out { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--pc-sub-gap, 16px) / 2); }
-.pc-preview[data-pc-sub="inbox"] .pc-preview-sub-in { display: block; }
-.pc-preview[data-pc-sub="inbox"] .pc-preview-sub-out { display: none; }
+.pc-preview-sub {
+    position: absolute; left: 0; right: 0; bottom: calc(100% + var(--pc-sub-gap, 16px) / 2);
+    height: 5px; width: 46%; margin: 0 auto; border-radius: 9999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
 .pc-preview-info { display: flex; align-items: center; justify-content: space-between; margin: 10px 12px 0; }
 .pc-preview-title { height: 5px; width: 40%; border-radius: 9999px; }
 .pc-preview-side { height: 4px; width: 18%; border-radius: 9999px; opacity: 0.85; }
