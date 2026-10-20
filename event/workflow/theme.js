@@ -38,7 +38,6 @@ const THEME_MEDIA_PICKER_BY_KIND = {
 
 // Chỗ neo #subtitle-display theo `subtitleDock` (computePlayerControlView()) — phần tử ở core/dom-refs.js.
 const PLAYER_CONTROL_SUBTITLE_HOST_BY_DOCK = {
-    inbox: () => pcSubSlot,
     outside: () => playerContainer,
     overlay: () => subtitleOverlayDock,
 };
@@ -217,13 +216,6 @@ const workflowTheme = {
     /** Ứng với 'theme.playerControlCover.change' — bìa trong nút Play. @param {boolean} checked */
     setPlayerControlCover(checked) {
         setPlayerControlCoverConfig(checked); // core/player-control-style.js
-        workflowConfig.save();
-        this.syncPlayerControlStyle();
-    },
-
-    /** Ứng với 'theme.playerControlSubtitle.click' — phụ đề trong / ngoài thanh. @param {string} placement */
-    setPlayerControlSubtitlePlacement(placement) {
-        setPlayerControlSubtitlePlacementConfig(placement); // core/player-control-style.js
         workflowConfig.save();
         this.syncPlayerControlStyle();
     },
