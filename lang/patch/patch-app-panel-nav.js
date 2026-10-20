@@ -186,6 +186,15 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.theme.glass.section': 'Panel glass',
     'appSettings.theme.glass.blur': 'Blur',
     'appSettings.theme.glass.tint': 'Opacity',
+    // Card "Player control" (Settings > Theme) — kiểu nền + độ đục Bottom Player (core/player-control-style.js).
+    'appSettings.theme.playerControl.section': 'Player control',
+    'appSettings.theme.playerControl.background': 'Background',
+    'appSettings.theme.playerControl.opacity': 'Opacity',
+    'appSettings.theme.playerControl.style.gradient': 'Fade',
+    'appSettings.theme.playerControl.style.solid': 'Solid',
+    'appSettings.theme.playerControl.style.glass': 'Glass',
+    'appSettings.theme.playerControl.style.floating': 'Floating',
+    'appSettings.theme.playerControl.style.none': 'None',
 
     'appSettings.visualizerScreen.title': 'Visualizer Screen',
     'appSettings.visualizerScreen.pendingNote': 'This section is being reorganized — coming soon in the next update.',

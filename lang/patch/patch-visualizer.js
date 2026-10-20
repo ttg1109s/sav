@@ -140,6 +140,12 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.colorMode.solid': 'Solid color',
     'visualizerSettingsDrawer.colorMode.dynamic': '2-color blend',
     'visualizerSettingsDrawer.colorMode.gradient': 'Music-driven gradient',
+    // Bảng 7 màu của mode gradient (Custom Effect Drawer — components/custom-effect-drawer.js::_renderCeGradientPaletteRow()).
+    'customEffectDrawer.gradientPalette.label': '7-color palette',
+    'customEffectDrawer.gradientPalette.statusDefault': 'Default colors',
+    'customEffectDrawer.gradientPalette.statusCustom': 'Custom colors',
+    'customEffectDrawer.gradientPalette.reset': 'Reset',
+    'customEffectDrawer.gradientPalette.swatch': 'Color {n}',
     'visualizerSettingsDrawer.solidColor.label': 'Choose a solid color',
     'visualizerSettingsDrawer.dynamicColor.label': 'Choose 2 blend colors',
 
