@@ -25,6 +25,7 @@ const CUSTOM_EFFECT_INPUT_ROUTES = [
     { match: (t) => (t.id === 'ce-solid-color-picker' || t.id === 'ce-solid-color-text' ? t : null), send: (el) => ['customEffect.solidColor.input', { value: el.value, crossTargetId: el.dataset.crossTarget }] },
     { match: (t) => (t.id === 'ce-dyn-color-a' ? t : null), send: (el) => ['customEffect.dynColor.input', { field: 'dynA', value: el.value }] },
     { match: (t) => (t.id === 'ce-dyn-color-b' ? t : null), send: (el) => ['customEffect.dynColor.input', { field: 'dynB', value: el.value }] },
+    { match: (t) => (t.dataset && t.dataset.cePaletteIndex !== undefined ? t : null), send: (el) => ['customEffect.gradientPaletteColor.input', { index: parseInt(el.dataset.cePaletteIndex, 10), value: el.value }] },
     { match: (t) => (t.id === 'ce-blur-intensity' ? t : null), send: (el) => ['customEffect.blurIntensity.input', { raw: el.value }] },
     { match: (t) => (t.closest ? t.closest('.ce-field-slider') : null), send: (el) => ['customEffect.fieldSlider.input', { field: el.dataset.field, raw: el.value, isFloat: el.dataset.float === '1' }] },
     { match: _ceMatchLampSlider, send: (el) => ['customEffect.lampSlider.input', { index: parseInt(el.dataset.lampIndex, 10), key: CUSTOM_EFFECT_LAMP_SLIDER_KEY_BY_CLASS[_ceLampSliderKey(el)], raw: el.value }] },
@@ -44,6 +45,7 @@ const CUSTOM_EFFECT_CHANGE_ROUTES = [
 const CUSTOM_EFFECT_CLICK_ROUTES = [
     { match: (t) => (t.closest ? t.closest('#ce-fw-text-add') : null), send: () => ['customEffect.fireworksText.add', { text: (genericDrawerBody.querySelector('#ce-fw-text-input') || {}).value || '' }] },
     { match: (t) => (t.closest ? t.closest('.ce-fw-text-remove') : null), send: (el) => ['customEffect.fireworksText.remove', { index: parseInt(el.dataset.textIndex, 10) }] },
+    { match: (t) => (t.closest ? t.closest('#ce-gradient-palette-reset') : null), send: () => ['customEffect.gradientPalette.reset', {}] },
     { match: (t) => (t.closest ? t.closest('#ce-lamp-add') : null), send: () => ['customEffect.lamp.add', {}] },
     { match: (t) => (t.closest ? t.closest('.ce-lamp-remove') : null), send: (el) => ['customEffect.lamp.remove', { index: parseInt(el.dataset.lampIndex, 10) }] },
     // MỚI (28/09/2026) — field 'imagePick' (nền mặt số clock): chọn ảnh thư viện / bỏ ảnh (quay về bìa bài).
