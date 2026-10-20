@@ -431,7 +431,7 @@ sửa. Router (`switch (msg.type)` ở mục 3, `VirtualMachineState` ở mục 
 | **Guard kèm việc khác** — dọn/huỷ/đổi state, hoặc chuyển tiến trình (`back()`, `goToNextTrack()`, `_abortSeekGate()`…) rồi `return` | FAIL — đó là 2 tiến trình, viết object map |
 | **Switch A/B trên cùng 1 đối tượng** — play/pause, mở/đóng, hiện/ẩn, bật/tắt task, chọn/bỏ chọn, nạp/gỡ nền | 1 nghiệp vụ — PASS (Giang chốt 07/10/2026) |
 | **Bước tuỳ chọn** — `if (flag) doStep();` (bật/tắt 1 bước, không có nhánh thay thế) | 1 nghiệp vụ — PASS (Giang chốt 07/10/2026). Tách method mở đầu bằng guard vẫn là cách viết tốt khi bước dài |
-| **Mọi nhánh ghi ĐÚNG cùng tập vị trí, chỉ khác giá trị** | PASS — đó là chọn giá trị. Lệch 1 vị trí là FAIL |
+| **Mọi nhánh ghi ĐÚNG cùng tập vị trí, cùng một cách tính, chỉ khác giá trị** | PASS — đó là chọn giá trị. Lệch 1 vị trí, hoặc khác thuật toán (Giang chốt 20/10/2026), là FAIL |
 | **Chọn GIÁ TRỊ dữ liệu**: `isVideo ? bgVideoElement : audioPlayer`, `MAP[key] \|\| MAP.fallback` | PASS — không rẽ tiến trình |
 | **≥2 tiến trình khác nhau** theo 1 giá trị rời rạc (type/style/mode/tên/boolean...) — chọn hình vẽ, chọn luật tính, migrate dữ liệu… | Object map: `const X_BY_Y = { a: (...) => ..., b: (...) => ... }; X_BY_Y[key](...)` |
 | **Điều kiện là PHÉP TÍNH** (ngưỡng năng lượng, xác suất, cửa sổ flux...) | Phép tính vào Core thuần trả giá trị/boolean (mục 7.1); Workflow dùng kết quả qua guard hoặc object map |

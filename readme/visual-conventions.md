@@ -44,10 +44,11 @@ mục 7 và 7b. Lệnh vẽ canvas và phép tính còn nằm trong group workfl
 1. **Nền trong suốt.** Canvas Visualizer chỉ vẽ tiền cảnh; nền (màu đặc/gradient, ảnh, video của Visual Background)
    nằm ở các lớp DOM bên dưới (`#visual-bg-image`, `#bg-video`…). Effect không tô lớp nền đục phủ kín canvas — trừ khi
    chính lớp đó là một phần của hình (kính mưa, chớp màn, lõi hố đen) và có chủ đích.
-2. **Màu theo Custom Effect của chính style.** Lấy màu qua `getComputedColor(i, total, value)`
-   (`core/visualizer/effect-paint.js`) — trả `{ fill, fillNoAlpha, glow }` theo color mode `solid`/`dynamic`/`gradient`
-   của effect đang chạy. Không hard-code màu. Đưa màu vào `THREE.Color` dùng `fillNoAlpha`.
-3. **Blur/glow theo `frame.perf.blurMult`** (`getActiveBlurMult()`). Style không có khối Blur khai trong
+2. **Màu theo Custom Effect của chính style.** Lấy màu qua `workflowVisualizerRender.colorAt(i, total, value)`
+   (luật màu ở `core/visualizer/effect-paint.js`, Workflow chọn 1 lần/frame) — trả `{ fill, fillNoAlpha, glow }` theo color
+   mode `solid`/`dynamic`/`gradient` (kể cả bảng 7 màu) của effect đang chạy. Không hard-code màu. Đưa màu vào
+   `THREE.Color` dùng `fillNoAlpha`.
+3. **Blur/glow theo `frame.perf.blurMult`** (`computeEffectBlurMult()`). Style không có khối Blur khai trong
    `CUSTOM_EFFECT_NO_BLUR_STYLES` (`core/custom-effect.js`).
 4. **Giá trị Custom Effect không dùng chung giữa các style cùng group** (Giang chốt 25/09/2026) — chỉnh `maxH` ở
    mirror không được đổi ở cascade. Drawer chia thẻ theo loại cài đặt; trong thẻ thứ tự công tắc > dropdown > input >

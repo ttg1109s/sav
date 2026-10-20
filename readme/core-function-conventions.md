@@ -38,10 +38,10 @@ trình duy nhất của hàm.
 | Chỉ dừng sớm (guard), chỉ tính giá trị vào biến cục bộ, chỉ kiểm tra phần tử tồn tại (`if (el) el.x()`) | PASS |
 | Guard chỉ báo lỗi (`alertModal`…) rồi `return` | PASS |
 | Guard dọn/huỷ/đổi state, hoặc chuyển sang tiến trình khác, rồi `return` | FAIL |
-| Mọi nhánh ghi **đúng cùng tập vị trí** (thuộc tính, class, lời gọi, field của object kết quả), chỉ khác giá trị | PASS — đó là chọn giá trị. Lệch 1 vị trí là FAIL |
+| Mọi nhánh ghi **đúng cùng tập vị trí** (thuộc tính, class, lời gọi, field của object kết quả), **cùng một cách tính**, chỉ khác giá trị | PASS — đó là chọn giá trị. Lệch 1 vị trí là FAIL |
 | **Switch A/B trên cùng 1 đối tượng** — play/pause, mở/đóng, hiện/ẩn, bật/tắt task, chọn/bỏ chọn, nạp/gỡ nền | 1 nghiệp vụ — PASS |
 | `if` bật/tắt **1 bước** (không có nhánh thay thế) | 1 nghiệp vụ — PASS |
-| Chọn hình vẽ, chọn luật tính, `moveTo`/`lineTo`, migrate dữ liệu… theo điều kiện | FAIL — dù trông như A/B |
+| Chọn hình vẽ, chọn luật tính, `moveTo`/`lineTo`, migrate dữ liệu… theo điều kiện | FAIL — dù trông như A/B, **dù mọi nhánh trả cùng tập field** (Giang chốt 20/10/2026: mode màu `dynamic`/`gradient`/bảng 7 màu là các thuật toán khác nhau → mỗi luật 1 core, Workflow chọn bằng object map — tiền lệ core/visualizer/effect-paint.js) |
 | `VirtualMachineState.run()` hoặc object map chọn hàm **trong core** | FAIL — vẫn là rẽ nhánh |
 
 **Phép thử nhanh — xoá điều kiện `if` đó đi, hàm còn lại thế nào?**

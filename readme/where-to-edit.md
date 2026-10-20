@@ -85,7 +85,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Nút phát, Next/Prev, tua, tốc độ, Media Session | `components/bottom-player.js`, `core/player-controls.js`, `event/workflow/player-controls.js`, `event/workflow/player.js`; cụm `playerControls` |
 | Giao diện Bottom Player (bố cục, thanh tiến trình, kiểu nền/độ đục — Settings > Theme > Player control) | `components/bottom-player.js`, `assets/css/player-control.css`, `assets/css/sliders.css` (`.music-slider`), `core/player-control-style.js`, `core/player-control-settings-ui.js`, `event/workflow/theme.js` |
 | Cut MP3 (Subtitle Editor) | `core/mp3-cut.js`, `event/workflow/subtitle-editor.js::cutMp3FromRegion()` |
-| Bảng 7 màu của mode gradient (Custom Effect) | `core/custom-effect.js` (`gradientPalette`), `core/visualizer/effect-paint.js::getComputedColor()`, `components/custom-effect-drawer.js`, `event/workflow/custom-effect.js` |
+| Bảng 7 màu của mode gradient (Custom Effect) | `core/custom-effect.js` (`gradientPalette`), `core/visualizer/effect-paint.js` (`computeGradientPaletteRgb`), `event/workflow/visualizer-render.js` (`VIZ_COLOR_RULE_BY_KEY`), `components/custom-effect-drawer.js`, `event/workflow/custom-effect.js` |
 | Audio graph, EQ | `core/audio-engine.js`, `event/workflow/audio-engine.js`, state `service/state/audio-engine.js`; preset EQ `components/eq-presets-drawer.js`, `core/eq-presets.js`, cụm `eqPresets` |
 | Video Player mode | `core/video-player.js`, `event/workflow/video-player.js`, `event/workflow/video-motion-surface.js`, state `service/state/video-player-mode.js`; cụm `videoPlayer` |
 | Chụp khung hình | `core/video-player-capture.js`, `event/workflow/video-frame-capture.js` |
@@ -116,7 +116,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 |---|---|
 | Vòng render (2 task `raf`), host các group | `event/workflow/visualizer-render.js`; mỗi group `event/workflow/visualizer/<group>.js` |
 | Code vẽ từng style | `core/visualizer/groups/<group>/<style>.js` (bar, connector, lighting, rain, shape, vortex) |
-| Màu / blur của effect | `core/visualizer/effect-paint.js` (`getComputedColor`, `getActiveBlurMult`) |
+| Màu / blur của effect | `core/visualizer/effect-paint.js` (1 core mỗi luật màu, `computeEffectBlurMult`), chọn luật + `colorAt()` ở `event/workflow/visualizer-render.js` |
 | Thanh BPM/Pitch/Energy | `core/visualizer/stats-bar.js` |
 | Ánh xạ tần số dùng chung | `core/visualizer/tonotopic.js` |
 | Đồng hồ khung hình | `core/visualizer/frame-clock.js` |
