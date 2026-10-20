@@ -53,12 +53,16 @@ const TPL_VISUALIZER_OVERLAY = `
                  mặc định sàn an toàn + inline tuỳ chỉnh — Element Style Editor hoặc màu/cỡ chữ mặc định); từng dòng
                  <p> không gắn class chữ, kế thừa hoàn toàn. Karaoke: canvas hạt bụi/khói + pointer nằm trong
                  #subtitle-display (biến CSS karaoke đặt ở đây, ngoài #subtitle-frame) — CSS ở assets/css/base.css. -->
+            <!-- #subtitle-overlay-dock (display: contents) = vị trí gốc; Settings > Theme > Player control neo #subtitle-display vào
+                 Bottom Player (core/player-control-style.js::dockSubtitleDisplay()), thanh ẩn thì trả về đây. -->
+            <div id="subtitle-overlay-dock" class="contents">
             <div id="subtitle-display" class="absolute bottom-[20%] w-full px-4 sm:px-10 flex flex-col items-center justify-center pointer-events-none z-[60] hidden">
                 <div id="subtitle-frame" class="text-center max-w-4xl flex flex-col items-center gap-1.5 sub-text-glow subtitle-default-appearance">
                     <div id="sub-active-lines" class="flex flex-col items-center gap-1.5"></div>
                 </div>
                 <canvas id="subtitle-karaoke-fx"></canvas>
                 <div id="subtitle-karaoke-pointer" class="hidden"></div>
+            </div>
             </div>
 
             <!-- Hàng trên cùng HỢP NHẤT — Control Center (trái) + BPM/Pitch/Energy (giữa,
