@@ -1,62 +1,66 @@
 /**
- * core/visualizer/effect-paint.js — Màu + độ blur của effect ĐANG CHẠY, đọc theo Custom Effect của frame vẽ hiện tại.
+ * core/visualizer/effect-paint.js — Màu + độ blur của effect đang chạy. Mỗi LUẬT MÀU là 1 core thuần riêng (Rule 1 — dynamic /
+ * gradient HSL / bảng 7 màu / solid là các thuật toán khác nhau): `resolveEffectColorRule()` trả khoá luật, Workflow
+ * (event/workflow/visualizer-render.js, map VIZ_COLOR_RULE_BY_KEY) chọn luật 1 lần mỗi frame rồi các hàm vẽ gọi
+ * `workflowVisualizerRender.colorAt(i, total, value)`. Mọi luật trả cùng dạng `{fill, fillNoAlpha, glow}`; `fillNoAlpha` dành cho
+ * THREE.Color (r128 cảnh báo mỗi lần gặp alpha trong hsla()).
  *
- * [DỜI — 01/10/2026, Giang: "move những hàm không liên quan ra khỏi audio-analysis"] Từ core/audio-analysis.js, logic
- * GIỮ NGUYÊN. Cả 2 hàm là HOT PATH DI SẢN được miễn trừ (readme/core-legacy-audit.md): tự đọc `frameEffectConfig`
- * (appState) và `getComputedColor` tự đọc hue từ kho `audioAnalysis` (service/audio-analysis.js) — khoảng 70 nơi gọi
- * mỗi frame, truyền tham số thì phải sửa toàn bộ, nên giữ cách đọc cũ.
+ * SỬA 20/10/2026 — thay `getComputedColor()`/`getActiveBlurMult()` (tự đọc appState + gọi core khác + rẽ luật trong 1 hàm).
  *
- * Phụ thuộc lúc CHẠY (không phải lúc nạp): getActiveEffectConfig (core/custom-effect.js), interpolateColor
- * (core/color-utils.js), audioAnalysis (service/audio-analysis.js).
+ * NẠP SAU: không phụ thuộc gì.
  */
 
-/** Màu riêng theo TỪNG effect (cfg.customEffect[cfg.type]) — không còn 1 mode màu chung
- * cho toàn app, xem core/custom-effect.js::getActiveEffectConfig(). */
-function getComputedColor(i, totalLength, dataValue) {
-    // SỬA (28/09/2026, Phase 2 dọn visualizer) — đọc config effect ĐÃ RESOLVE SẴN cho frame vẽ hiện tại
-    // (`frameEffectConfig`, workflowVisualizerRender._tickDraw() ghi đầu frame, xoá về null cuối frame)
-    // thay vì gọi getActiveEffectConfig() MỖI LẦN — hàm đó tạo object mới (2 spread + forEach + delete)
-    // mỗi lời gọi, nhân với hàng trăm lời gọi/frame. Ngoài frame vẽ (init scene, UI...) giá trị là
-    // null -> rơi về getActiveEffectConfig() như cũ, luôn đọc config MỚI NHẤT. Hàm hot-path di sản
-    // (miễn trừ, core-legacy-audit.md) — chỉ đổi NGUỒN đọc, không đổi logic.
-    const ec = appState.get('frameEffectConfig') || getActiveEffectConfig(); // core/custom-effect.js
-    // MỚI (Giang báo "THREE.Color: Alpha component of hsla(...) will be ignored" khi ở connector):
-    // `fillNoAlpha` = CÙNG màu với `fill` nhưng KHÔNG có alpha — dành riêng cho nơi đưa màu vào
-    // THREE.Color (connector). Parser hsla() của THREE r128 luôn cảnh báo (mỗi lần gọi, kể cả mỗi
-    // frame) khi alpha < 1 dù bỏ qua alpha; canvas 2D vẫn dùng `fill` (alpha 0.9) như cũ. 2 mode
-    // còn lại vốn không có alpha nên `fillNoAlpha` === `fill`.
-    if (ec.mode === 'dynamic') { const c = interpolateColor(ec.dynA, ec.dynB, i / totalLength); return { fill: c, fillNoAlpha: c, glow: c }; }
-    else if (ec.mode === 'gradient') {
-        let baseHue = (audioAnalysis.hueOffset() + (i / totalLength) * 240) % 360; // SỬA 01/10/2026: globalHueOffset dời vào service/audio-analysis.js (hot path miễn trừ — vẫn tự đọc như trước)
-        let finalHue = (baseHue + (dataValue / 255) * 80) % 360;
-        // Bảng 7 màu tuỳ chỉnh (resolveEffectConfig(), core/custom-effect.js): cùng trục hue, nội suy 2 màu kề nhau trên vòng 7
-        // màu; tối hơn khi dataValue nhỏ (như lightness 40->70% của bản HSL), quầng sáng pha 35% trắng. Cùng 3 field kết quả.
-        const pal = ec.gradientPaletteRgb;
-        if (pal) {
-            const pos = ((((finalHue % 360) + 360) % 360) / 360) * pal.length;
-            const k = Math.floor(pos) % pal.length;
-            const f = pos - Math.floor(pos);
-            const a = pal[k], b = pal[(k + 1) % pal.length];
-            const shade = 0.7 + (dataValue / 255) * 0.3;
-            const r = Math.round((a.r + (b.r - a.r) * f) * shade), g = Math.round((a.g + (b.g - a.g) * f) * shade), bl = Math.round((a.b + (b.b - a.b) * f) * shade);
-            const glow = `rgb(${Math.round(r + (255 - r) * 0.35)}, ${Math.round(g + (255 - g) * 0.35)}, ${Math.round(bl + (255 - bl) * 0.35)})`;
-            return { fill: `rgba(${r}, ${g}, ${bl}, 0.9)`, fillNoAlpha: `rgb(${r}, ${g}, ${bl})`, glow };
-        }
-        // FIX (16/09/2026, Giang báo "THREE.Color: Unknown color hsla(...)"): saturation/
-        // lightness PHẢI là số nguyên — parser hsl()/hsla() của THREE.Color (r128) chỉ nhận
-        // %-value dạng \d+ (không hỗ trợ thập phân), trong khi hue thì hỗ trợ thập phân bình
-        // thường. Trước đây 2 giá trị này là số thập phân (vd "83.764...%") -> khớp regex
-        // thất bại toàn bộ -> "Unknown color" (không chỉ dừng ở mức cảnh báo "alpha ignored"
-        // như khi chúng tình cờ là số nguyên). Math.round() ở đây không ảnh hưởng canvas 2D
-        // (fillStyle vẫn nhận hsla() bình thường, sai khác <1% không nhận ra được bằng mắt).
-        let lightness = Math.round(40 + (dataValue / 255) * 30);
-        let saturation = Math.round(70 + (dataValue / 255) * 30);
-        return { fill: `hsla(${finalHue}, ${saturation}%, ${lightness}%, 0.9)`, fillNoAlpha: `hsl(${finalHue}, ${saturation}%, ${lightness}%)`, glow: `hsl(${finalHue}, 100%, ${lightness + 15}%)` };
-    } else return { fill: ec.solidColor, fillNoAlpha: ec.solidColor, glow: ec.solidColor };
+/** Khoá luật màu của effect: 'solid' | 'dynamic' | 'gradient' (dải hue HSL mặc định) | 'palette' (gradient + bảng 7 màu tuỳ chỉnh).
+ * Mode lạ -> 'solid' (đúng nhánh mặc định cũ). @param {{mode:string, gradientPaletteRgb:object[]|null}} ec @returns {string} */
+function resolveEffectColorRule(ec) {
+    const gradientRule = ec.gradientPaletteRgb ? 'palette' : 'gradient';
+    return ec.mode === 'dynamic' ? 'dynamic' : (ec.mode === 'gradient' ? gradientRule : 'solid');
 }
 
-/** Cường độ blur/glow effect ĐANG CHẠY, quy đổi 0-1 cho `perf.blurMult` cũ — 0 nếu tắt. */
-function getActiveBlurMult() {
-    const ec = appState.get('frameEffectConfig') || getActiveEffectConfig(); // xem ghi chú ở getComputedColor()
+/** 1 màu cho cả 3 field — luật solid (màu cấu hình) và dynamic (Workflow nội suy trước bằng interpolateColor(), core/color-utils.js).
+ * @param {string} color @returns {{fill:string, fillNoAlpha:string, glow:string}} */
+function computeUniformEffectColor(color) {
+    return { fill: color, fillNoAlpha: color, glow: color };
+}
+
+/** Luật gradient mặc định — dải hue liên tục: hue = hueOffset + vị trí × 240° + dataValue (0-255) × 80°; saturation/lightness
+ * tăng theo dataValue. saturation/lightness làm tròn nguyên (parser hsl() của THREE.Color r128 chỉ nhận % nguyên).
+ * @param {number} hueOffset @param {number} position - 0-1 @param {number} dataValue @returns {{fill:string, fillNoAlpha:string, glow:string}} */
+function computeGradientHslEffectColor(hueOffset, position, dataValue) {
+    const baseHue = (hueOffset + position * 240) % 360;
+    const hue = (baseHue + (dataValue / 255) * 80) % 360;
+    const lightness = Math.round(40 + (dataValue / 255) * 30);
+    const saturation = Math.round(70 + (dataValue / 255) * 30);
+    return { fill: `hsla(${hue}, ${saturation}%, ${lightness}%, 0.9)`, fillNoAlpha: `hsl(${hue}, ${saturation}%, ${lightness}%)`, glow: `hsl(${hue}, 100%, ${lightness + 15}%)` };
+}
+
+/** Luật bảng 7 màu — cùng trục hue với luật gradient mặc định, đổi hue thành vị trí trên vòng N màu rồi nội suy 2 màu kề nhau;
+ * tối hơn khi dataValue nhỏ (hệ số 0.7-1). Dùng chung cho effect (computePaletteEffectColor) và cửa sổ Rain glass.
+ * @param {{r:number,g:number,b:number}[]} paletteRgb @param {number} hueOffset @param {number} position - 0-1
+ * @param {number} dataValue @returns {{r:number, g:number, b:number}} (số nguyên) */
+function computeGradientPaletteRgb(paletteRgb, hueOffset, position, dataValue) {
+    const hue = (((hueOffset + position * 240 + (dataValue / 255) * 80) % 360) + 360) % 360;
+    const pos = (hue / 360) * paletteRgb.length;
+    const k = Math.floor(pos) % paletteRgb.length;
+    const f = pos - Math.floor(pos);
+    const a = paletteRgb[k], b = paletteRgb[(k + 1) % paletteRgb.length];
+    const shade = 0.7 + (dataValue / 255) * 0.3;
+    return {
+        r: Math.round((a.r + (b.r - a.r) * f) * shade),
+        g: Math.round((a.g + (b.g - a.g) * f) * shade),
+        b: Math.round((a.b + (b.b - a.b) * f) * shade),
+    };
+}
+
+/** Màu effect từ 1 RGB của bảng 7 màu — fill alpha 0.9, quầng pha 35% trắng.
+ * @param {{r:number,g:number,b:number}} rgb @returns {{fill:string, fillNoAlpha:string, glow:string}} */
+function computePaletteEffectColor(rgb) {
+    const glow = `rgb(${Math.round(rgb.r + (255 - rgb.r) * 0.35)}, ${Math.round(rgb.g + (255 - rgb.g) * 0.35)}, ${Math.round(rgb.b + (255 - rgb.b) * 0.35)})`;
+    return { fill: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.9)`, fillNoAlpha: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`, glow };
+}
+
+/** Cường độ blur/glow của effect, quy đổi 0-1 (`frame.perf.blurMult`) — 0 nếu tắt.
+ * @param {{blurEnabled:boolean, blurIntensity:number}} ec @returns {number} */
+function computeEffectBlurMult(ec) {
     return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
 }
