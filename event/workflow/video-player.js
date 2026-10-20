@@ -444,9 +444,8 @@ const workflowVideoPlayer = {
             console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
             workflowAutoSwitchVisual.onMediaChanged(); // event/workflow/auto-switch-visual.js — nhánh 'perMedia'
 
-            playerTitle.textContent = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // ưu tiên tên người dùng tự đặt; filename thì bỏ đuôi mở rộng
-            // Artist RỖNG — khớp playlistCache của Video (tag.artist=''); #player-title/#player-artist dùng CHUNG DOM 2 màn.
-            playerArtist.textContent = '';
+            // Tên: ưu tiên tên người dùng tự đặt, filename thì bỏ đuôi mở rộng. Video không có nghệ sĩ; album rỗng thì ô tự ẩn.
+            setPlayerTrackLabels(record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'), '', record.album || ''); // core/player-controls.js
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'), // xem giải thích ngay trên

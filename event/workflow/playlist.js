@@ -229,7 +229,7 @@ const workflowPlaylist = {
         setMediaElementSource(audioPlayer, '');
         appState.set('currentKey', null);
         console.log(`writer: "workflowPlaylist._releaseCurrentSong", page: "currentKey", content: "null"`);
-        setPlayerTrackLabels(t('bottomPlayer.noSongSelected'), '---'); // core/player-controls.js
+        setPlayerTrackLabels(t('bottomPlayer.noSongSelected'), '', ''); // core/player-controls.js
         workflowAutoSwitchVisual.killAllTasks(); // event/workflow/auto-switch-visual.js
         workflowPlayerControls.returnToPlaylistUI(); // event/workflow/player-controls.js
         setVisualizerActiveFalse(); // core/player-controls.js — returnToPlaylistUI() không tự set cờ này
@@ -240,7 +240,7 @@ const workflowPlaylist = {
         await VIDEO_PLAYER_EXIT_BY_MODE[!!appState.get('isVideoPlayerMode')]();
         appState.set('currentKey', null);
         console.log(`writer: "workflowPlaylist._releaseCurrentVideo", page: "currentKey", content: "null"`);
-        setPlayerTrackLabels(t('bottomPlayer.noSongSelected'), '---'); // core/player-controls.js
+        setPlayerTrackLabels(t('bottomPlayer.noSongSelected'), '', ''); // core/player-controls.js
     },
 
     /** Ứng với 'playlist.actionMenu.edit.click'. */
@@ -500,7 +500,7 @@ const workflowPlaylist = {
         appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName))); // core/song-search.js
         console.log(`writer: "workflowPlaylist._syncEditedVideoRuntime", page: "playlistCache/songNameIndex", content: "${key} -> ${displayName}"`);
         if (key !== currentKey) return;
-        setPlayerTrackLabels(displayName, ''); // core/player-controls.js — Video không có artist
+        setPlayerTrackLabels(displayName, '', meta.album || ''); // core/player-controls.js — Video không có artist
         setMediaSessionMetadata(displayName, '', []);
     },
 
@@ -518,7 +518,7 @@ const workflowPlaylist = {
         appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName))); // core/song-search.js
         console.log(`writer: "workflowPlaylist._syncEditedPhotoRuntime", page: "playlistCache/songNameIndex", content: "${key} -> ${displayName}"`);
         if (key !== currentKey) return;
-        setPlayerTrackLabels(displayName, ''); // core/player-controls.js
+        setPlayerTrackLabels(displayName, '', meta.album || ''); // core/player-controls.js
         appState.set('photoPlayerDurationSec', meta.duration, { skipCheck: true }); // event/workflow/photo-player.js đọc mỗi tick
         console.log(`writer: "workflowPlaylist._syncEditedPhotoRuntime", page: "photoPlayerDurationSec", content: "${meta.duration}"`);
         setMediaSessionMetadata(displayName, '', []);
@@ -538,7 +538,7 @@ const workflowPlaylist = {
         appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(meta.tag.title))); // core/song-search.js
         console.log(`writer: "workflowPlaylist._syncEditedSongRuntime", page: "playlistCache/songNameIndex", content: "${key} -> ${meta.tag.title}"`);
         if (key !== currentKey) return;
-        setPlayerTrackLabels(meta.tag.title, meta.tag.artist); // core/player-controls.js
+        workflowPlayer.applySongTrackLabels(meta.tag); // event/workflow/player.js
         const coverUrl = SONG_EDIT_COVER_URL_BY_CHANGE[coverChange](pendingCover, currentCoverObjectURL);
         const session = resolveSongMediaSessionInfo(meta.tag, cover, coverUrl); // core/playlist/actions.js
         setMediaSessionMetadata(session.title, session.artist, session.artwork); // core/player-controls.js

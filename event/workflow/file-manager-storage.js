@@ -157,7 +157,7 @@ const workflowFileManagerStorage = {
             revokeBlobUrl(currentCoverObjectURL);
             appState.set('currentObjectURL', null);
             appState.set('currentCoverObjectURL', null);
-            setPlayerTrackLabels(t('bottomPlayer.noSongSelected'), '---'); // core/player-controls.js
+            setPlayerTrackLabels(t('bottomPlayer.noSongSelected'), '', ''); // core/player-controls.js
             workflowPlaylistOrder.updateShuffleArray();
             workflowPlaylistRender.renderPlaylistFull();
             workflowConfig.save();

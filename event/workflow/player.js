@@ -124,7 +124,7 @@ const workflowPlayer = {
             appState.set('currentObjectURL', URL.createObjectURL(record.blob));
             audioPlayer.src = appState.get('currentObjectURL');
 
-            playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
+            workflowPlayer.applySongTrackLabels(record.tag); // nhãn tên/nghệ sĩ/album Bottom Player
             // Bài mới vừa gán src nên audio luôn đang dừng -> dựng ở trạng thái quay-tạm-dừng; sự kiện 'play' gỡ `paused` là quay.
             mountRecordArt(recordContainer, renderRecordArtHtml(audioPlayer.paused), appState.get('currentCoverObjectURL'), record.tag.title || ''); // core/record-art-ui.js + components/bottom-player.js
             // Cover Blob có thể không decode được (ID3 lỗi/cắt cụt) -> attachCoverFallback() (render.js) tự về DEFAULT_VINYL.
@@ -179,6 +179,14 @@ const workflowPlayer = {
         });
     },
 
+    /** Nhãn tên / nghệ sĩ / album của Song trên Bottom Player — nghệ sĩ mặc định lúc thiếu tag ("Unknown artist", theo mọi
+     * ngôn ngữ đã từng ghi) coi như không có -> ô tự ẩn. @param {{title?: string, artist?: string, album?: string}} tag */
+    applySongTrackLabels(tag) {
+        const placeholders = [t('common.unknownArtist'), t('common.song.unknownArtist'), t('common.songEdit.defaultArtist'), 'Unknown artist', 'Unknown Artist'];
+        const labels = resolveSongTrackLabels(tag, placeholders); // core/player-controls.js
+        setPlayerTrackLabels(labels.title, labels.artist, labels.album); // core/player-controls.js
+    },
+
     /**
      * Nạp lại bài ĐANG load trong audioPlayer từ DB sau khi file của nó
      * vừa bị thay (upload ghi đè trùng tên) — GIỮ vị trí phát + trạng thái phát/dừng, làm mới cover/tiêu đề. CHỈ gọi
@@ -203,7 +211,7 @@ const workflowPlayer = {
 
         const newCoverUrl = record.cover ? createBlobUrl(record.cover) : DEFAULT_VINYL; // service/blob-url.js
         workflowPlaylist.replaceCurrentCoverUrl(newCoverUrl); // event/workflow/playlist.js
-        playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
+        workflowPlayer.applySongTrackLabels(record.tag);
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: record.tag.title || "Visual Master",
