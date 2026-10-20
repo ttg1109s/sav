@@ -140,7 +140,7 @@
         }
 
         /** Media element thật đang phát: `bgVideoElement` (Video Player mode) hoặc `audioPlayer` (Song). Photo không có
-         * element — Next/Prev lấy đồng hồ giả qua workflowPhotoPlayer.resolveActiveMedia().
+         * element — Next/Prev đi thẳng đồng hồ ảnh (workflowPhotoPlayer.seekClock()/setPaused()).
          * @param {boolean} isVideoPlayerMode @returns {HTMLMediaElement} */
         function getActiveMediaElement(isVideoPlayerMode) {
             return isVideoPlayerMode ? bgVideoElement : audioPlayer;
@@ -259,6 +259,59 @@
             appState.set('isSeeking', true);
             console.log(`writer: "setSeekingPositionUi", page: "isSeeking", content: "true"`);
             currentTimeDisplay.textContent = positionLabel;
+        }
+
+        // ===== Cổng seek (event/workflow/player-controls.js::runGatedSeek()) — tính thuần + ghi gain =====
+
+        /** Lệnh cổng còn được chạy tiếp không sau 1 lần chờ: 'superseded' (lệnh seek mới hơn đã tiếp quản), 'mediaChanged'
+         * (nguồn đã đổi — Next/chọn bài), 'running'. @param {number} token @param {number} activeToken
+         * @param {string} currentSrc @param {string} srcAtStart @returns {'superseded'|'mediaChanged'|'running'} */
+        function resolveSeekGateStatus(token, activeToken, currentSrc, srcAtStart) {
+            if (token !== activeToken) return 'superseded';
+            return currentSrc !== srcAtStart ? 'mediaChanged' : 'running';
+        }
+
+        /** Vị trí sau 'seeked' đã đúng mốc chưa — `toleranceSec` null = không kiểm (Song). @param {number} currentSec
+         * @param {number} targetSec @param {number|null} toleranceSec @returns {boolean} */
+        function isSeekPositionSettled(currentSec, targetSec, toleranceSec) {
+            return toleranceSec === null || Math.abs(currentSec - targetSec) <= toleranceSec;
+        }
+
+        /** Cổng seek xong có play() lại không, và 'play' đó có phải lần phát THẬT cần tới UI không ('pause' trước đó là thật
+         * mà cổng sắp play() lại theo `resumeAfter`). @returns {{shouldPlay: boolean, isVisiblePlay: boolean}} */
+        function resolveSeekGateResume({ resumeAfter, heldByGate, gateResume, playRequested }) {
+            const resumeByGate = heldByGate && gateResume;
+            return { shouldPlay: resumeAfter || resumeByGate || playRequested, isVisiblePlay: heldByGate && resumeAfter && !resumeByGate };
+        }
+
+        /** Dòng log 1 lệnh cổng seek. @param {'song'|'video'} mediaKind @param {boolean} wasPlaying @param {number} targetSec
+         * @param {number} elapsedMs @returns {string} */
+        function formatSeekGateLog(mediaKind, wasPlaying, targetSec, elapsedMs) {
+            return `[seekGate] ${mediaKind} (nạp lại) ${wasPlaying ? 'đang phát' : 'đang dừng'} -> ${targetSec.toFixed(2)}s | tổng ${Math.round(elapsedMs)}ms`;
+        }
+
+        /** Mute / mở tiếng dần `masterGainNode` cho cổng seek (âm lượng người dùng ở `volumeGainNode` nên master chỉ là cổng:
+         * mở về 1). @param {GainNode} masterGainNode @param {number} nowSec - audioContext.currentTime @param {boolean} muted
+         * @param {number} rampSec */
+        function applySeekGateGain(masterGainNode, nowSec, muted, rampSec) {
+            masterGainNode.gain.cancelScheduledValues(nowSec);
+            masterGainNode.gain.setValueAtTime(0, nowSec);
+            if (!muted) masterGainNode.gain.linearRampToValueAtTime(1, nowSec + rampSec);
+        }
+
+        // ===== Phát 1 item Playlist (event/workflow/player.js::playMedia()) =====
+
+        /** Tuỳ chọn của playMedia(): `switchScreen` mặc định true (chỉ Next/Prev/tự chuyển truyền false), `direction` mặc định
+         * 'next' (Video/Photo chọn slot Transition). @param {{switchScreen?: boolean, direction?: 'next'|'prev'}} [options]
+         * @returns {{switchScreen: boolean, direction: 'next'|'prev'}} */
+        function resolvePlayMediaRequest(options) {
+            return { switchScreen: !options || options.switchScreen !== false, direction: (options && options.direction) || 'next' };
+        }
+
+        /** Đang Photo Player mode mà item mới không phải ảnh -> thoát mode trước. @param {boolean} isPhotoPlayerMode
+         * @param {'song'|'video'|'photo'} mediaType @returns {boolean} */
+        function shouldExitPhotoPlayerMode(isPhotoPlayerMode, mediaType) {
+            return isPhotoPlayerMode && mediaType !== 'photo';
         }
 
         /** Nhãn Bottom Player của 1 Song từ tag: nghệ sĩ là chuỗi thay thế lúc thiếu tag ("Unknown artist"…) coi như không có.

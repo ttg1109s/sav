@@ -1,7 +1,7 @@
 /**
  * core/photo-player.js — Photo Player mode: ảnh tĩnh phát làm nội dung chính trên màn Visualizer (có thời lượng như
  * Song/Video, phát im lặng). Đồng hồ giả là các field của package `photo-player-mode` (service/state/photo-player-mode.js);
- * file này chỉ tính thuần từ các field đó và ghi UI của player. Vòng tick, đọc/ghi state và "media giả" cho Next/Prev ở
+ * file này chỉ tính thuần từ các field đó và ghi UI của player. Vòng tick, đọc/ghi state, tua/dừng đồng hồ cho Next/Prev ở
  * event/workflow/photo-player.js.
  *
  * `clock` dùng chung cho các hàm tính: { photoPlayerPaused, photoPlayerClockHeld, photoPlayerEnded,

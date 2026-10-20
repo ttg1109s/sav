@@ -6,12 +6,13 @@
 
 /** Thay #record-art trong khung chứa. `src`/`alt` gán qua slot (tên file có ký tự HTML không phá markup).
  * @param {HTMLElement} containerEl - #record-container @param {string} html - renderRecordArtHtml()
- * @param {string} src @param {string} alt */
+ * @param {string} src @param {string} alt @returns {HTMLImageElement|null} #record-art vừa dựng — để nơi gọi gắn fallback lỗi ảnh */
 function mountRecordArt(containerEl, html, src, alt) {
     containerEl.replaceChildren(instantiateComponent(html, {
         src: { selector: '#record-art', prop: 'src', value: src },
         alt: { selector: '#record-art', prop: 'alt', value: alt },
     })); // service/component-dynamic.js
+    return containerEl.querySelector('#record-art');
 }
 
 /** Đổi ảnh của #record-art đang hiện (không dựng lại). @param {string} src
