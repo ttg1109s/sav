@@ -42,9 +42,7 @@ const LANG_PATCH_VISUALIZER = {
     'videoPlayer.startFromPlaylist.blockedByBgVideo': 'Turn off "Use Video Background" first (Settings) before playing a video from the Playlist.',
     'visualizerOverlay.cycleMode.title': 'Change effect',
     'visualizerOverlay.cycleMode.label': 'Effect',
-    'visualizerOverlay.shuffle.title': 'Shuffle',
     'visualizerOverlay.shuffle.label': 'Shuffle',
-    'visualizerOverlay.repeat.title': 'Repeat',
     'visualizerOverlay.repeat.label': 'Repeat',
     'visualizerOverlay.restart.title': 'Play from the beginning', // MỚI 25/09/2026 — #btn-restart-track
     'visualizerOverlay.restart.label': 'Restart',
@@ -308,7 +306,7 @@ const LANG_PATCH_VISUALIZER = {
     // đủ chuyển sang dòng hint mới `sectionActions.hint` (đặt 1 lần dưới tiêu đề section, đỡ phải
     // nhồi vào từng tên hàng).
     'gestureSettings.sectionActions': 'Actions',
-    'gestureSettings.sectionActions.hint': 'Assign a Control Center button to each slot, then pick that slot from any gesture below',
+    'gestureSettings.sectionActions.hint': 'Assign a player button to each slot, then pick that slot from any gesture below',
     'gestureSettings.action.actionSlot1': 'Slot 1',
     'gestureSettings.action.actionSlot2': 'Slot 2',
     'gestureSettings.action.actionSlot3': 'Slot 3',

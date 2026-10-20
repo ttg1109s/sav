@@ -187,4 +187,6 @@ const LANG_PATCH_PLAYLIST = {
     'bottomPlayer.noSongSelected': 'Nothing playing',
     'bottomPlayer.btnPrev.title': 'Previous',
     'bottomPlayer.btnNext.title': 'Next',
+    'bottomPlayer.btnShuffle.title': 'Shuffle',
+    'bottomPlayer.btnRepeat.title': 'Repeat',
 };
