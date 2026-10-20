@@ -634,7 +634,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 366. `event/listener/visualizer-viewport.js`
 366a. `core/theme-background.js` — MỚI 14/10/2026 (phép tính thuần nền App Panel / status bar / preloader — đợt 8)
 367. `core/theme-background-ui.js`
-367a. `core/player-control-style.js` — MỚI 20/10/2026 (kiểu nền + độ đục Bottom Player); cần lúc chạy: `core/config.js` (appConfigViz)
+367a. `core/player-control-style.js` — MỚI 20/10/2026 (kiểu nền, độ đục, bìa nút Play, chỗ neo phụ đề của Bottom Player); cần lúc chạy: `core/config.js` (appConfigViz)
 367b. `core/player-control-settings-ui.js` — MỚI 20/10/2026 (cụm Player control ở Settings > Theme); cần lúc chạy: `event/bus.js` (eventBus)
 368. `event/workflow/theme.js`
 369. `event/router/theme.js` — cần: `event/bus.js` (eventBus)
