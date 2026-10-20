@@ -180,11 +180,10 @@ const UI_THEME_DARK = {
     vizCcLabel: 'text-zinc-100', // nhãn nổi trong ô (tên effect đang chạy)
     vizAccentText: 'text-violet-400', // icon nhấn trong Control Center (icon effect)
     vizChip: 'text-zinc-400 aria-pressed:bg-violet-500/20 aria-pressed:text-zinc-100 transition-colors', // nút mốc tốc độ ở Speed HUD — bật (aria-pressed) có nền
-    pcText: 'text-zinc-100 group-data-[pc-style=none]:text-white', // tên bài + giờ đang phát
+    pcText: 'text-zinc-100 group-data-[pc-style=none]:text-white', // tên media + nghệ sĩ + giờ đang phát
     pcTextMuted: 'text-zinc-400 group-data-[pc-style=none]:text-white/75', // tổng thời lượng
-    pcAccentText: 'text-violet-400 group-data-[pc-style=none]:text-white/80', // nghệ sĩ
     pcIconBtn: 'text-zinc-200 group-data-[pc-style=none]:text-white hover:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:hover:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Prev/Next
-    pcToggleBtn: 'text-zinc-500 group-data-[pc-style=none]:text-white/60 aria-pressed:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:aria-pressed:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Shuffle/Repeat — bật (aria-pressed) = màu effect + chấm dưới (player-control.css)
+    pcToggleBtn: 'text-zinc-500 group-data-[pc-style=none]:text-white/60 aria-pressed:text-zinc-100 group-data-[pc-style=none]:aria-pressed:text-white transition-colors', // Shuffle/Repeat — tắt mờ, bật (aria-pressed) = màu chữ chính
     pcPlayBtn: 'bg-zinc-50 text-zinc-900 group-data-[pc-style=none]:bg-white group-data-[pc-style=none]:text-slate-900', // nút Play/Pause tròn (nền + icon; quầng sáng màu effect ở player-control.css)
 
     // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).

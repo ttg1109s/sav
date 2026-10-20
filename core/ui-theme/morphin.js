@@ -167,11 +167,10 @@ const UI_THEME_MORPHIN = {
     vizCcLabel: 'text-white', // nhãn nổi trong ô (tên effect đang chạy)
     vizAccentText: 'text-violet-300', // icon nhấn trong Control Center (icon effect)
     vizChip: 'text-white/70 aria-pressed:bg-white/25 aria-pressed:text-white transition-colors', // nút mốc tốc độ ở Speed HUD — bật (aria-pressed) có nền
-    pcText: 'text-white', // tên bài + giờ đang phát
+    pcText: 'text-white', // tên media + nghệ sĩ + giờ đang phát
     pcTextMuted: 'text-white/70 group-data-[pc-style=none]:text-white/75', // tổng thời lượng
-    pcAccentText: 'text-violet-200 group-data-[pc-style=none]:text-white/80', // nghệ sĩ
     pcIconBtn: 'text-white hover:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Prev/Next
-    pcToggleBtn: 'text-white/55 group-data-[pc-style=none]:text-white/60 aria-pressed:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:aria-pressed:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Shuffle/Repeat — bật (aria-pressed) = màu effect + chấm dưới (player-control.css)
+    pcToggleBtn: 'text-white/55 group-data-[pc-style=none]:text-white/60 aria-pressed:text-white group-data-[pc-style=none]:aria-pressed:text-white transition-colors', // Shuffle/Repeat — tắt mờ, bật (aria-pressed) = màu chữ chính
     pcPlayBtn: 'bg-white text-slate-900', // nút Play/Pause tròn (nền + icon; quầng sáng màu effect ở player-control.css)
 
     // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).
