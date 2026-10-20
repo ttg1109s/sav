@@ -1,5 +1,5 @@
 /**
- * core/dynamic-object-ui.js — đối tượng TẠO ĐỘNG lúc app đang chạy (`<video>`/`<script>` tạm, MediaRecorder,
+ * core/dynamic-object-ui.js — đối tượng TẠO ĐỘNG lúc app đang chạy (`<video>`/`<audio>`/`<script>` tạm, MediaRecorder,
  * ScriptProcessorNode...): tạo/giải phóng, và đổi sự kiện của chúng thành Promise / callback dữ liệu cho Workflow.
  *
  * NGOẠI LỆ CHÍNH THỨC của Rule 5a (readme/event-bus-flow.md mục "Ngoại lệ: adapter đối tượng tạo động", Giang chốt
@@ -56,6 +56,13 @@ function createMetadataProbeVideoElement() {
     videoEl.playsInline = true;
     videoEl.preload = 'metadata';
     return videoEl;
+}
+
+/** Thẻ `<audio>` tạm chỉ để đọc thời lượng (event/workflow/audio-duration.js): chỉ tải metadata, không buffer cả file. */
+function createMetadataProbeAudioElement() {
+    const audioEl = new Audio();
+    audioEl.preload = 'metadata';
+    return audioEl;
 }
 
 /** Gán nguồn rồi đợi 'loadedmetadata' (đăng ký TRƯỚC khi gán src).

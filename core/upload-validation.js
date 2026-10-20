@@ -1,7 +1,7 @@
 /**
- * core/upload-validation.js — chặn file sai định dạng/quá cỡ khi người dùng nạp nhạc (media-upload) và ảnh nền.
- * `accept=""` của <input type="file"> chỉ là gợi ý (chọn "Tất cả file" hoặc kéo-thả là qua mặt), nên kiểm tra thật
- * nằm ở đây, trước khi ghi IndexedDB hay tạo blob URL.
+ * core/upload-validation.js — chặn file sai định dạng/quá cỡ khi người dùng nạp media và ảnh bìa. `accept=""` của
+ * <input type="file"> chỉ là gợi ý (chọn "Tất cả file" hoặc kéo-thả là qua mặt), nên kiểm tra thật nằm ở đây, trước khi
+ * ghi IndexedDB hay tạo blob URL.
  *
  * Kiểm tra 2 lớp: MIME (`file.type`) khớp whitelist -> hợp lệ; MIME có nhưng không khớp -> sai dứt khoát (dấu hiệu đổi
  * đuôi giả); MIME rỗng (một số OS/browser không suy ra được) -> xét đuôi file theo whitelist riêng.
@@ -16,47 +16,38 @@
         ]);
         const VALID_AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'webm']);
 
-        // ===================== (b) ẢNH NỀN =====================
-        // Theo đúng yêu cầu: CHỈ png, jpg/jpeg, webp (không mở rộng thêm gif/svg/bmp...).
+        // ===================== (b) ẢNH =====================
+        // Chỉ png, jpg/jpeg, webp.
         const VALID_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
         const VALID_IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp']);
 
-        /** Lấy đuôi file (không dấu chấm, chữ thường) — '' nếu không có đuôi. */
-        function getFileExtension(filename) {
-            const m = /\.([a-zA-Z0-9]+)$/.exec(filename || '');
-            return m ? m[1].toLowerCase() : '';
-        }
+        /** Luật kiểm tra theo loại file — tham số thứ 2 của validateFileType(). */
+        const AUDIO_UPLOAD_RULE = { mimes: VALID_AUDIO_MIME_TYPES, exts: VALID_AUDIO_EXTENSIONS, labelKey: 'common.validate.typeLabel.audio' };
+        const IMAGE_UPLOAD_RULE = { mimes: VALID_IMAGE_MIME_TYPES, exts: VALID_IMAGE_EXTENSIONS, labelKey: 'common.validate.typeLabel.image' };
 
         /**
-         * Hàm kiểm tra dùng chung cho cả 3 loại file — xem chiến lược 2 lớp ở đầu file.
-         * Trả về { valid: boolean, reason?: string } — reason chỉ có khi valid=false, dùng để
-         * hiện thông báo lỗi cụ thể cho người dùng.
+         * Kiểm tra định dạng 1 file theo luật (AUDIO_UPLOAD_RULE / IMAGE_UPLOAD_RULE) — xem chiến lược 2 lớp ở đầu file.
+         * @param {File} file @param {{mimes: Set<string>, exts: Set<string>, labelKey: string}} rule
+         * @returns {{valid: boolean, reason?: string}} reason chỉ có khi valid=false (thông báo cho người dùng)
          */
-        function validateFileType(file, mimeWhitelist, extWhitelist, typeLabel) {
+        function validateFileType(file, rule) {
+            const typeLabel = t(rule.labelKey);
             const mime = (file.type || '').toLowerCase();
             if (mime) {
-                if (mimeWhitelist.has(mime)) return { valid: true };
-                return { valid: false, reason: tFormat('common.validate.unsupportedMime', { mime: mime || t('common.validate.unsupportedMimeUnknown'), typeLabel }) };
+                if (rule.mimes.has(mime)) return { valid: true };
+                return { valid: false, reason: tFormat('common.validate.unsupportedMime', { mime, typeLabel }) };
             }
-            // MIME rỗng -> fallback theo đuôi file.
-            const ext = getFileExtension(file.name);
-            if (extWhitelist.has(ext)) return { valid: true };
+            // MIME rỗng -> theo đuôi file (không dấu chấm, chữ thường; không có đuôi -> '').
+            const extMatch = /\.([a-zA-Z0-9]+)$/.exec(file.name || '');
+            const ext = extMatch ? extMatch[1].toLowerCase() : '';
+            if (rule.exts.has(ext)) return { valid: true };
             return { valid: false, reason: tFormat('common.validate.unknownFormat', { filename: file.name, typeLabel }) };
         }
 
-        function validateAudioFile(file) {
-            return validateFileType(file, VALID_AUDIO_MIME_TYPES, VALID_AUDIO_EXTENSIONS, t('common.validate.typeLabel.audio'));
-        }
-        function validateImageFile(file) {
-            return validateFileType(file, VALID_IMAGE_MIME_TYPES, VALID_IMAGE_EXTENSIONS, t('common.validate.typeLabel.image'));
-        }
-
         // ===================== (c) GIỚI HẠN DUNG LƯỢNG MỖI FILE =====================
-        // MỚI (06/10/2026, Giang chốt sau khi đo bằng share-size-test.html: share 600MB vẫn ổn) —
-        // mỗi file media nạp vào thư viện (Song/Video/Photo) tối đa 500MB. Lý do: trong PWA iOS chỉ
-        // navigator.share() lưu được file ra ngoài, và share phải đọc nguyên file vào RAM — giữ mọi
-        // file dưới mức đã đo an toàn để file nào cũng xuất/sao lưu được. DÙNG CHUNG làm cỡ tối đa
-        // mỗi phần zip (core/storage-manager.js::groupZipEntriesBySize()).
+        // Mỗi file media nạp vào thư viện (Song/Video/Photo) tối đa 500MB: trong PWA iOS chỉ navigator.share() lưu được file ra
+        // ngoài, và share phải đọc nguyên file vào RAM — giữ mọi file dưới mức đã đo an toàn (share 600MB vẫn ổn) để file
+        // nào cũng xuất/sao lưu được. Cũng là cỡ tối đa mỗi phần zip (event/workflow/zip-download.js).
         const MEDIA_FILE_MAX_BYTES = 500 * 1024 * 1024;
 
         /**
