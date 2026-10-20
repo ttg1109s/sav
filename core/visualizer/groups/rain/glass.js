@@ -90,8 +90,9 @@ function computeRainCityFrame(canvasWidth, canvasHeight, cityBuildings, dpr, viz
     return { walls, windows };
 }
 
-/** Màu cửa SÁNG theo color mode — trả css + HSL (h 0-360, s/l 0-100) để resolveRainCityOffColor() lật.
- * @param {{mode:string, solid:{r,g,b}, dynA:{r,g,b}, dynB:{r,g,b}, hueOffset:number}} palette - Workflow
+/** Màu cửa SÁNG theo color mode — trả css + HSL (h 0-360, s/l 0-100) để resolveRainCityOffColor() lật. Mode 'palette' =
+ * gradient có bảng 7 màu tuỳ chỉnh (cùng cách nội suy nhánh bảng màu của getComputedColor()).
+ * @param {{mode:string, solid:{r,g,b}, dynA:{r,g,b}, dynB:{r,g,b}, gradientRgb:{r,g,b}[]|null, hueOffset:number}} palette - Workflow
  * tự hexToRgb() 1 lần/frame. @param {number} t - vị trí ngang 0-1 @param {number} value - byte FFT 0-255 */
 function resolveRainCityLitColor(palette, t, value) {
     if (palette.mode === 'gradient') {
@@ -106,6 +107,16 @@ function resolveRainCityLitColor(palette, t, value) {
         r = palette.dynA.r + (palette.dynB.r - palette.dynA.r) * t;
         g = palette.dynA.g + (palette.dynB.g - palette.dynA.g) * t;
         b = palette.dynA.b + (palette.dynB.b - palette.dynA.b) * t;
+    } else if (palette.mode === 'palette') {
+        const pal = palette.gradientRgb;
+        const hue = (palette.hueOffset + t * 240 + (value / 255) * 80) % 360;
+        const pos = (((hue % 360) + 360) % 360 / 360) * pal.length;
+        const k = Math.floor(pos) % pal.length, f = pos - Math.floor(pos);
+        const c0 = pal[k], c1 = pal[(k + 1) % pal.length];
+        const shade = 0.7 + (value / 255) * 0.3;
+        r = (c0.r + (c1.r - c0.r) * f) * shade;
+        g = (c0.g + (c1.g - c0.g) * f) * shade;
+        b = (c0.b + (c1.b - c0.b) * f) * shade;
     } else {
         r = palette.solid.r; g = palette.solid.g; b = palette.solid.b;
     }
