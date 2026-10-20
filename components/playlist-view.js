@@ -328,32 +328,52 @@ function renderSongActionMenuButtonHtml(key, onDarkBg) {
     </button>`;
 }
 
-/**
- * Nội dung 1 node Playlist bố cục Grid — core/playlist/render.js::fillGridSongNode() gán vào node. `loading="lazy"` +
- * `decoding="async"`: item đang bị `content-visibility: auto` bỏ qua hoặc ẩn vì Search không tải ảnh bìa tới khi lại gần
- * khung nhìn; decode không chặn main thread.
- * @param {{coverSrcAttr:string, isPlaying:boolean, eqIconHtml:string, menuBtnHtml:string, title:string, secondLineHtml:string}} view
- */
-function renderGridSongNodeHtml(view) {
-    return `
-                <div class="w-full aspect-square relative mb-2.5">
-                    <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
-                    ${view.isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${view.eqIconHtml}</div>` : ''}
-                    <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${view.menuBtnHtml}</div>
-                </div>
-                <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${view.title}</h3>
-                <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${view.secondLineHtml}</p>`;
+/** Phần dùng chung của 2 bố cục node: thuộc tính src ảnh bìa (bìa thật gắn sau, lúc node lại gần khung nhìn), dòng 2
+ * (nghệ sĩ · thời lượng), icon đang phát (sóng EQ khi đang chạy, chấm khi tạm dừng). Tên/nghệ sĩ escape.
+ * @param {{title: string, artist: string, hasRealCover: boolean, isPlaying: boolean, isActuallyPlaying: boolean}} view @param {string} durationLabel */
+function renderSongNodeParts(view, durationLabel) {
+    const eqBarsHtml = `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] eq-1" data-uitk="eqBarBg"></div><div class="w-[3px] eq-2" data-uitk="eqBarBg"></div><div class="w-[3px] eq-3" data-uitk="eqBarBg"></div></div>`;
+    const pausedDotHtml = `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPrimaryPillBg"></div>`;
+    return {
+        title: escapeHtml(view.title),
+        secondLineHtml: view.artist ? `${escapeHtml(view.artist)} <span class="opacity-50">·</span> ${durationLabel}` : durationLabel,
+        coverSrcAttr: view.hasRealCover ? '' : `src="${DEFAULT_VINYL}"`,
+        eqIconHtml: view.isActuallyPlaying ? eqBarsHtml : (view.isPlaying ? pausedDotHtml : ''),
+    };
 }
 
-/** Nội dung 1 node Playlist bố cục List — core/playlist/render.js::fillListSongNode(). @param {object} view - cùng shape renderGridSongNodeHtml() */
-function renderListSongNodeHtml(view) {
-    return `
-                <img ${view.coverSrcAttr} loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
-                <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
-                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${view.isPlaying ? 'accentText' : 'textPrimary'}">${view.title}</h3>${view.isPlaying ? view.eqIconHtml : ''}</div>
-                    <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${view.secondLineHtml}</p>
+/**
+ * 1 node Playlist bố cục Grid (phần tử gốc + nội dung) — core/playlist/node-ui.js::createSongNode() dựng.
+ * `loading="lazy"` + `decoding="async"`: item đang bị `content-visibility: auto` bỏ qua hoặc ẩn vì Search không tải ảnh
+ * bìa tới khi lại gần khung nhìn; decode không chặn main thread. `data-cover-pending="true"`: <img> chưa có src, chờ bìa
+ * thật (event/listener/playlist.js theo dõi). Nút 3 chấm nằm trong vòng tròn tối đè ảnh bìa.
+ * @param {{key: string, title: string, artist: string, hasRealCover: boolean, isPlaying: boolean, isActuallyPlaying: boolean}} view
+ *   - computeSongNodeView() (core/playlist/render.js) @param {string} durationLabel
+ */
+function renderGridSongNodeHtml(view, durationLabel) {
+    const p = renderSongNodeParts(view, durationLabel);
+    return `<div data-key="${view.key}" data-cover-pending="${view.hasRealCover}" data-role="play-item" class="flex flex-col cursor-pointer active:scale-[0.98] transition-transform group relative w-full">
+                <div class="w-full aspect-square relative mb-2.5">
+                    <img ${p.coverSrcAttr} loading="lazy" decoding="async" class="w-full h-full rounded-2xl object-cover shadow-lg">
+                    ${view.isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${p.eqIconHtml}</div>` : ''}
+                    <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${renderSongActionMenuButtonHtml(view.key, true)}</div>
                 </div>
-                <div class="flex">${view.menuBtnHtml}</div>`;
+                <h3 class="text-[15px] font-semibold leading-tight line-clamp-1 px-1" data-uitk="textPrimary">${p.title}</h3>
+                <p class="text-[13px] font-medium line-clamp-1 px-1 mt-0.5" data-uitk="textSecondary">${p.secondLineHtml}</p></div>`;
+}
+
+/** 1 node Playlist bố cục List — `data-uitk="cardHoverBg rowPressBg"` (rê chuột / nhấn giữ); nền hàng đang chọn do
+ * showSelectionIndicator() (core/playlist/selection.js) thêm/gỡ. @param {object} view - cùng shape renderGridSongNodeHtml()
+ * @param {string} durationLabel */
+function renderListSongNodeHtml(view, durationLabel) {
+    const p = renderSongNodeParts(view, durationLabel);
+    return `<div data-key="${view.key}" data-cover-pending="${view.hasRealCover}" data-uitk="cardHoverBg rowPressBg" data-role="play-item" class="flex items-center gap-4 px-5 py-3 transition-colors cursor-pointer w-full group">
+                <img ${p.coverSrcAttr} loading="lazy" decoding="async" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
+                <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
+                    <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate" data-uitk="${view.isPlaying ? 'accentText' : 'textPrimary'}">${p.title}</h3>${view.isPlaying ? p.eqIconHtml : ''}</div>
+                    <p class="text-[13px] truncate font-medium" data-uitk="textSecondary">${p.secondLineHtml}</p>
+                </div>
+                <div class="flex">${renderSongActionMenuButtonHtml(view.key, false)}</div></div>`;
 }
 
 /** 1 dòng phẳng tab "Chi tiết" của song-edit-modal (icon tròn màu + nhãn + giá trị, viền mảnh dưới trừ dòng cuối) —

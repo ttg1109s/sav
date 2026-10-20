@@ -7,7 +7,7 @@
  *       + Dropdown (b) chọn HƯỚNG — lớn→bé/bé→lớn — CHỈ HIỆN khi field khác 'none' (ẩn/hiện qua
  *         `data-sort-direction-row`, xử lý ở workflowPlaylist.openSortPanel()/changeStatSortField()).
  * Khi field khác 'none', trục này LÀ CHÍNH — trục (1) chỉ còn vai trò phá thế bằng (2 bài bằng
- * nhau) — xem core/playlist/order.js::sortKeysByMode().
+ * nhau) — xem workflowPlaylistOrder.sortKeys() (event/workflow/playlist-order.js).
  *
  * MỞ RỘNG (hợp nhất Photo vào Playlist) — `count` GIỮ LẠI cho Photo, đổi ý nghĩa thành "lượt click
  * xem" (xem event/workflow/file-manager-photo.js::openImagePreview() — bumpSongPlayCount()).
