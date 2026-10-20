@@ -10,7 +10,8 @@
  * và từ core/player-controls.js (`togglePlayPause()` lúc `currentKey===null`, `handleAudioEnded()`) — Core gọi Workflow
  * là nợ kỹ thuật đã có sẵn, xem docstring từng hàm ở file đó.
  *
- * NẠP SAU: core/playlist/actions.js, core/playlist/render.js (attachCoverFallback), core/playlist/order.js,
+ * NẠP SAU: core/playlist/actions.js, core/playlist/render.js (attachCoverFallback), core/playlist/order.js, core/record-art-ui.js,
+ * components/bottom-player.js (renderRecordArtHtml),
  * event/workflow/wakelock.js, core/listen-stats.js, core/media-element-ui.js, event/workflow/
  * subtitle-display.js (chỉ gọi lúc chạy), event/workflow/audio-engine.js (workflowAudioEngine.setup), event/bus.js,
  * event/workflow/video-player.js, event/workflow/media-wait.js (lúc chạy). NẠP TRƯỚC: event/workflow/player-controls.js,
@@ -124,7 +125,8 @@ const workflowPlayer = {
             audioPlayer.src = appState.get('currentObjectURL');
 
             playerTitle.textContent = record.tag.title; playerArtist.textContent = record.tag.artist;
-            recordContainer.innerHTML = `<img id="record-art" src="${appState.get('currentCoverObjectURL')}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 ${audioPlayer.paused ? 'paused' : 'animate-spin-slow'}" alt="Record"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
+            // Bài mới vừa gán src nên audio luôn đang dừng -> dựng ở trạng thái quay-tạm-dừng; sự kiện 'play' gỡ `paused` là quay.
+            mountRecordArt(recordContainer, renderRecordArtHtml(audioPlayer.paused), appState.get('currentCoverObjectURL'), record.tag.title || ''); // core/record-art-ui.js + components/bottom-player.js
             // Cover Blob có thể không decode được (ID3 lỗi/cắt cụt) -> attachCoverFallback() (render.js) tự về DEFAULT_VINYL.
             attachCoverFallback(document.getElementById('record-art'));
 

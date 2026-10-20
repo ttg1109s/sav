@@ -15,7 +15,7 @@
  *
  * NẠP SAU: core/video-player.js, core/playlist/order.js, service/db.js (getVideoRecord), core/media-element-ui.js,
  * event/workflow/audio-engine.js, event/workflow/player-controls.js, event/workflow/playlist-scope.js,
- * event/workflow/media-wait.js (lúc chạy).
+ * event/workflow/media-wait.js (lúc chạy), core/record-art-ui.js + components/bottom-player.js (#record-art).
  */
 // Khoảng cách tối thiểu (giây) giữ lại trước cuối video khi người dùng kéo/nhả thanh seek tới sát/đúng
 // duration — xem `_clampSeekTarget()`. Seek KHÔNG được đặt currentTime chạm EOF (làm `ended` bắn theo
@@ -456,7 +456,7 @@ const workflowVideoPlayer = {
             }
 
             // Cover ở player bottom = thumb của video — TÁI DÙNG `this._thumbObjectUrl` (poster) thay vì tạo thêm URL.
-            recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${t('videoPlayer.untitled')}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
+            mountRecordArt(recordContainer, renderRecordArtHtml(false), this._thumbObjectUrl, t('videoPlayer.untitled')); // core/record-art-ui.js + components/bottom-player.js
 
             workflowWakeLock.request();
 

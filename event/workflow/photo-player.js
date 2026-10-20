@@ -146,7 +146,7 @@ const workflowPhotoPlayer = {
 
         const title = record.customName || stripFileExtension(record.filename) || t('photoPlayer.untitled'); // core/file-manager/video.js
         applyPhotoPlayerTrackInfo(title); // core/photo-player.js
-        mountRecordArt(recordContainer, renderRecordArtHtml('animate-spin-slow'), this._thumbObjectUrl, title); // core/record-art-ui.js + components/bottom-player.js
+        mountRecordArt(recordContainer, renderRecordArtHtml(false), this._thumbObjectUrl, title); // core/record-art-ui.js + components/bottom-player.js
 
         this._showOnSurface(objectUrl, record, durationSec, direction, generation);
         updatePhotoPlayerTimeLabels(formatTime(0), formatTime(durationSec)); // core/photo-player.js + core/playlist/state.js
