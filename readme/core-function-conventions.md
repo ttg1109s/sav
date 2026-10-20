@@ -38,11 +38,35 @@ trình duy nhất của hàm.
 | Chỉ dừng sớm (guard), chỉ tính giá trị vào biến cục bộ, chỉ kiểm tra phần tử tồn tại (`if (el) el.x()`) | PASS |
 | Guard chỉ báo lỗi (`alertModal`…) rồi `return` | PASS |
 | Guard dọn/huỷ/đổi state, hoặc chuyển sang tiến trình khác, rồi `return` | FAIL |
-| Mọi nhánh ghi **đúng cùng tập vị trí** (thuộc tính, class, lời gọi, field của object kết quả), **cùng một cách tính**, chỉ khác giá trị | PASS — đó là chọn giá trị. Lệch 1 vị trí là FAIL |
+| Mọi nhánh ghi **đúng cùng tập vị trí** (thuộc tính, class, lời gọi, field của object kết quả), **cùng một cách tính**, chỉ khác giá trị | PASS — đó là chọn giá trị (tiêu chí A–E ngay dưới bảng). Lệch 1 vị trí, hoặc khác cách tính, là FAIL |
 | **Switch A/B trên cùng 1 đối tượng** — play/pause, mở/đóng, hiện/ẩn, bật/tắt task, chọn/bỏ chọn, nạp/gỡ nền | 1 nghiệp vụ — PASS |
 | `if` bật/tắt **1 bước** (không có nhánh thay thế) | 1 nghiệp vụ — PASS |
-| Chọn hình vẽ, chọn luật tính, `moveTo`/`lineTo`, migrate dữ liệu… theo điều kiện | FAIL — dù trông như A/B, **dù mọi nhánh trả cùng tập field** (Giang chốt 20/10/2026: mode màu `dynamic`/`gradient`/bảng 7 màu là các thuật toán khác nhau → mỗi luật 1 core, Workflow chọn bằng object map — tiền lệ core/visualizer/effect-paint.js) |
+| Chọn hình vẽ, chọn luật tính, `moveTo`/`lineTo`, migrate dữ liệu… theo điều kiện | FAIL — dù trông như A/B, **dù mọi nhánh trả cùng tập field** (Giang chốt 20/10/2026 — xem "chọn GIÁ TRỊ hay chọn THUẬT TOÁN" ngay dưới; tiền lệ sửa: core/visualizer/effect-paint.js) |
 | `VirtualMachineState.run()` hoặc object map chọn hàm **trong core** | FAIL — vẫn là rẽ nhánh |
+
+**Nhánh ≥2 vế (if/else, else-if, ternary) cùng ghi/trả 1 thứ — chọn GIÁ TRỊ hay chọn THUẬT TOÁN?** (Giang chốt 20/10/2026)
+
+Cùng tập vị trí ghi / cùng tập field kết quả **chưa đủ** để PASS. Hỏi tiếp: các vế có phải **cùng một cách tính** không?
+
+- **FAIL — chọn thuật toán / thực thể:** điều kiện chọn giữa ≥2 cách tính khác nhau (khác công thức, khác hàm, khác quy
+  trình), thường do 1 mode/kiểu/tuỳ chọn quyết định. Mỗi cách tính là 1 core riêng, Workflow chọn bằng object map.
+  Ví dụ (đã ghi sổ 20/10/2026): mode màu `dynamic` (nội suy 2 màu) / `gradient` (dải hue HSL) / bảng 7 màu; `contain`
+  (`Math.min`) / `cover` (`Math.max`); chọn ngẫu nhiên / chọn kế tiếp; `parseFloat` / `parseInt` theo `isFloat`; lấy mức
+  dải bằng MAX các bin / nội suy; mỗi `field` 1 cách lấy giá trị; mỗi hình (sin/wave/circle…) 1 công thức dựng;
+  đường khép kín (quấn modulo) / đường mở (kẹp biên); xuất ra file (stream) / ra RAM (buffer).
+- **PASS — chọn giá trị (1 thuật toán):**
+
+  | Mã | Dạng | Ví dụ |
+  |---|---|---|
+  | A | Giá trị dự phòng / guard dữ liệu: 1 vế là hằng mặc định khi dữ liệu không hợp lệ | `den > 0 ? a / den : 0`, `Array.isArray(x) ? x : []` |
+  | B | Bước tuỳ chọn: áp hoặc không áp đúng 1 phép lên cùng 1 giá trị | `isPx ? pct * 4 : pct`, `n > 1 ? list.filter(…) : list` |
+  | C | Cùng công thức, khác toán hạng/hằng (kể cả lật dấu, đối xứng, đổi trục) | `flipX ? -dx : dx`, `dir > 0 ? tempY : -tempY`, `startFromRight ? cols - 1 - ci : ci` |
+  | D | Công thức từng khúc của **1 hàm toán** do chính giá trị đầu vào quyết định (không do mode/tuỳ chọn) | `abs`/`sign`/kẹp biên, trung vị chẵn/lẻ, easing in-out, sector hue khi đổi RGB→HSL, giải mã `#rgb`/`#rrggbb` |
+  | E | Switch A/B trên cùng 1 đối tượng / cập nhật đúng phần tử khớp trong danh sách | play/pause, `item.key === k ? { …item, enabled } : item` |
+
+  Ranh giới D: điều kiện đến từ **mode/kiểu/tuỳ chọn** (config, tham số cờ, enum) mà các vế khác cách tính → FAIL, kể cả khi
+  công thức trông "giống từng khúc". Điều kiện đến từ **chính giá trị đang tính** (âm/dương, vượt ngưỡng, đầu/cuối dãy) →
+  D, PASS.
 
 **Phép thử nhanh — xoá điều kiện `if` đó đi, hàm còn lại thế nào?**
 - Vẫn còn nguyên ĐÚNG 1 kịch bản, chỉ mất phần "dừng sớm nếu chưa đủ điều kiện" → **guard clause,
@@ -531,7 +555,7 @@ tạo bằng vòng lặp runtime, chèn vào container đã có sẵn từ templ
 | Function có `if/else`/`switch` chọn giữa ≥2 TIẾN TRÌNH/logic nghiệp vụ khác nhau (bất kể điều kiện lấy từ `appState`, tham số, hay đâu khác)? | **KHÔNG được** — tách thành nhiều function đơn tuyến, để nơi gọi chọn |
 | Function có guard clause thuần (validate, early-return, vẫn chỉ 1 tiến trình; hoặc chỉ báo lỗi rồi thoát)? | **ĐƯỢC** — không phải Rule 1. Guard dọn/đổi state hoặc chuyển tiến trình rồi thoát thì KHÔNG |
 | Nhánh chỉ là switch A/B trên cùng 1 đối tượng (mở/đóng, play/pause…), hoặc bật/tắt 1 bước? | **ĐƯỢC** — 1 nghiệp vụ (Giang chốt 07/10/2026) |
-| Mọi nhánh ghi cùng tập vị trí, chỉ khác giá trị? | **ĐƯỢC** — chọn giá trị, không phải rẽ tiến trình |
+| Mọi nhánh ghi cùng tập vị trí, chỉ khác giá trị? | **ĐƯỢC** chỉ khi cùng một cách tính (tiêu chí A–E, Rule 1); khác thuật toán/thực thể theo mode/tuỳ chọn là **KHÔNG được** |
 | Core dùng `VirtualMachineState.run()` hoặc object map chọn hàm? | **KHÔNG được** — vẫn là rẽ nhánh (Rule 1); chỉ Workflow/Router được dùng |
 | Code cũ (trước khi rule ra đời) vi phạm? | **Vẫn FAIL** — ghi trong sổ vi phạm; Rule 0.5 chỉ quyết định khi nào sửa |
 | Function có tự `appState.get()` bên trong (kể cả dạng `get([...])` mới)? | **KHÔNG được** — nhận qua tham số |

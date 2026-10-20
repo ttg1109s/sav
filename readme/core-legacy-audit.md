@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **548 FAIL** ở **57 file**; 0 chờ chốt; 868 dòng máy quét báo nhưng review loại (mục 5).
+- **569 FAIL** ở **66 file**; 0 chờ chốt; 565 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -62,11 +62,12 @@
 
 Đơn vị: hàm ngoài cùng ở core/workflow (mỗi method của object workflow tính riêng; bỏ arrow trong bảng object map), từng `case` ở router, từng lệnh gắn sự kiện ở listener. Dòng code = dòng có mã thật (không tính dòng trống, dòng chỉ có comment). Không gồm `components/`, `service/`, `core/workers/`.
 - Cập nhật 20/10/2026 (**Cut MP3 · Bottom Player · bảng 7 màu**, kèm phán quyết "khác thuật toán = khác tiến trình"): **Màu effect** — `getComputedColor()`/`getActiveBlurMult()` (core tự đọc `frameEffectConfig`, gọi `getActiveEffectConfig()`/`interpolateColor()`, rẽ 3 luật màu trong 1 hàm) thay bằng 1 core thuần mỗi luật (`computeUniformEffectColor`, `computeGradientHslEffectColor`, `computeGradientPaletteRgb` + `computePaletteEffectColor`, `computeEffectBlurMult`; khoá luật `resolveEffectColorRule()`), Workflow chọn luật 1 lần/frame bằng map `VIZ_COLOR_RULE_BY_KEY` (event/workflow/visualizer-render.js), 24 nơi vẽ gọi `workflowVisualizerRender.colorAt()`; xoá `getActiveEffectConfig()` (2 Workflow gọi `currentEffectConfig()`). Cửa sổ Rain glass: `resolveRainCityLitColor()` (rẽ 3 luật) tách `resolveRainCityLitColorHsl()`/`resolveRainCityLitColorFromRgb()` + `interpolateRgb()` (core/color-utils.js), Workflow chọn bằng `RAIN_CITY_LIT_COLOR_BY_RULE`. Harness so với bản cũ: 28.000 lượt (4 mode, màu effect + cửa sổ, blur) khớp tuyệt đối. **Subtitle Editor** — `cutMp3FromRegion` hết ghi DOM + rAF thô (`setSubtitleToolButtonBusy()`, `taskManager.onceFrame`), `_encodeMp3FromRegion` thay bằng core/mp3-cut.js (cắt theo frame / mã hoá lại), giải mã AudioContext sang core `decodeAudioArrayBuffer()` (core/audio-segment.js — hết `ctx.close()` trong Workflow), `_showCutResultModal`/`_insertCutBlobAsNewSong` gộp `get([…])`, tên file qua `buildCutMp3FileName()`. **#record-art** Song/Video dựng qua `mountRecordArt()` + `renderRecordArtHtml(isPaused)` (hết markup + `innerHTML` trong Workflow; sửa kèm bug cover Song không quay). Mục 5 bỏ 4 dòng CORE-1 đã loại sai theo phán quyết trên (effect-paint.js:28/29/48, glass.js:105). Tổng 565 → 548 (58 → 57 file).
+- Cập nhật 20/10/2026 (**rà lại mục 5 theo phán quyết "khác thuật toán = khác tiến trình"** + ghi lamejs): quét AST lại toàn bộ `core/` (172 file, trừ `core/workers/`) — 393 nhánh ≥2 vế (if/else, else-if, ternary) mà các vế khác hình dạng tính toán, review tay từng nhánh. **20 FAIL mới** vào mục 4.1 Rule 1 (contain/cover ×3, chọn ngẫu nhiên/kế tiếp, `parseFloat`/`parseInt`, popup combo, nhãn layer theo loại, lấy giá trị + luật so của Filter, hạt karaoke reveal/vanish ×2, card phụ đề theo mode, xuất stream/buffer ×2, hình trục Dot + khép kín/mở ×4, MAX/nội suy dải Mirror, răng cóc Clock); 16 nhánh đã có dòng FAIL sẵn; 357 nhánh PASS — mục 5 thay 660 dòng CORE-1 cũ (vị trí mốc 07/10, đã lệch) bằng 357 dòng vị trí hiện tại, mỗi dòng ghi tiêu chí A/B/C-D/E. Nhánh 1 vế (guard, bật/tắt 1 bước) không chịu ảnh hưởng của phán quyết — giữ kết luận cũ, bỏ liệt kê. **Rule 3d** — `core/mp3-cut.js::encodeMp3FromPcm16` (lamejs) tự nhận wrapper, chưa audit → FAIL (mục 4.1 mới). Tổng 548 → 569.
 
 ## 2. Cách chấm
 
 - **Rule 1 (core) và §7 (workflow) — chấm theo nội dung nhánh, không xét điều kiện.** PASS khi nhánh chỉ dừng sớm (guard), chỉ tính giá trị vào biến cục bộ, chỉ kiểm tra phần tử tồn tại (`if (el) el.x()`), hoặc mọi nhánh ghi **đúng cùng tập vị trí** (thuộc tính, class, lời gọi, field của object kết quả) và chỉ khác giá trị. Lệch một vị trí là FAIL. `VirtualMachineState.run()` hay object map dùng trong core cũng là rẽ nhánh (Rule 1).
-- **Khác thuật toán = khác tiến trình (Giang chốt 20/10/2026):** các nhánh trả/ghi cùng tập field nhưng tính bằng thuật toán khác nhau (vd mode màu `dynamic` nội suy 2 màu vs `gradient` dải hue HSL vs bảng 7 màu) là **chọn luật tính → FAIL**, không phải "chọn giá trị". "Chọn giá trị" chỉ khi các nhánh cùng một cách tính, khác hằng số/dữ liệu đầu vào. Các dòng mục 5 đã loại theo cách hiểu cũ cần rà lại theo quy tắc này.
+- **Khác thuật toán = khác tiến trình (Giang chốt 20/10/2026):** các nhánh trả/ghi cùng tập field nhưng tính bằng thuật toán khác nhau (vd mode màu `dynamic` nội suy 2 màu vs `gradient` dải hue HSL vs bảng 7 màu) là **chọn luật tính → FAIL**, không phải "chọn giá trị". "Chọn giá trị" chỉ khi các nhánh cùng một cách tính, khác hằng số/dữ liệu đầu vào. Tiêu chí PASS A–E và ranh giới: core-function-conventions.md Rule 1 ("chọn GIÁ TRỊ hay chọn THUẬT TOÁN?").
 - **Switch A/B trên cùng một đối tượng** (play/pause, mở/đóng, hiện/ẩn, bật/tắt task, chọn/bỏ chọn, nạp/gỡ nền) và `if` bật/tắt một bước là **1 nghiệp vụ, không vi phạm** (Giang chốt 07/10/2026). Áp cho cả core lẫn workflow. Chỉ áp khi đúng là chuyển trạng thái A↔B; chọn hình vẽ, chọn luật tính, `moveTo`/`lineTo`, migrate dữ liệu… vẫn FAIL.
 - **Guard có kèm việc rồi return:** chỉ báo lỗi (`alertModal`, `_showFatalError`…) rồi thoát = guard, PASS. Dọn/huỷ/đổi state rồi thoát, hoặc chuyển sang tiến trình khác (`back()`, `goToNextTrack()`, `_abortSeekGate()`…) rồi thoát = FAIL.
 - **Listener:** ủy quyền bằng `closest()`/bảng tuyến rồi `eventBus.send` là hợp lệ. Đọc `appState`, sửa DOM, gọi Workflow/Core là vi phạm.
@@ -82,11 +83,12 @@
 
 | Nhóm | Rule | FAIL | Chờ chốt |
 |---|---|---|---|
-| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 20 |  |
+| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 40 |  |
 | Core rule | Rule 2 — Core tự appState.get() | 25 |  |
 | Core rule | Rule 3a — Core gọi Core | 67 |  |
 | Core rule | Rule 3b — Core tự đọc DB/service | 0 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 3 |  |
+| Core rule | Rule 3d — wrapper thư viện ngoài chưa audit | 1 |  |
 | Core rule | Rule 4 — ghi state thiếu console.log | 7 |  |
 | Core rule | Rule 5a — Core gắn sự kiện | 28 |  |
 | Core rule | Rule 5c — thiếu hậu tố -ui | 3 |  |
@@ -106,7 +108,7 @@
 | TaskManager | Timer thô | 4 |  |
 | TaskManager | requestAnimationFrame thô | 7 |  |
 | TaskManager | taskManager dùng trong Core | 1 |  |
-| **Tổng** | | **548** | **0** |
+| **Tổng** | | **569** | **0** |
 
 ## 4. Chi tiết
 
@@ -114,7 +116,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 
 ### 4.1 Core rule
 
-#### Rule 1 — rẽ nhánh nghiệp vụ (20)
+#### Rule 1 — rẽ nhánh nghiệp vụ (40)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -138,6 +140,26 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/visualizer/groups/shape/clock.js:488` | `paintClockGear` | if-else: nhánh ghi/gọi khác chỗ — {call ctx.moveTo} / {call ctx.lineTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/visualizer/groups/shape/clock.js:552` | `paintClockBalance` | if-else: nhánh ghi/gọi khác chỗ — {call ctx.moveTo} / {call ctx.lineTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/webgl/three-connector.js:452` | `triggerCinematicCameraShift` | if-elseif: ORBIT/CLOSE animate camera.position + target, TRACK chỉ target | FAIL | Review (máy quét bỏ sót) | Có |  |
+| `core/auto-switch-visual.js:77` | `pickNextAutoSwitchStyleFromGroupList` | if-else theo selectMode: chọn ngẫu nhiên / chọn kế tiếp — 2 thuật toán chọn | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/custom-effect.js:434` | `resolveCustomEffectSliderInput` | ternary theo isFloat: parseFloat / parseInt — 2 luật đọc số | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/file-manager/photo-ui.js:95` | `computeInteractPos` | ternary theo fitMode: contain (min) / cover (max) — 2 luật khớp khung | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/gameplay/engine-ui.js:36` | `showTapTierPopup` | if-else theo comboStreak: popup combo (chữ ×n + scale + class) / popup thường — 2 dạng hiển thị, lệch vị trí ghi | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/image-edit-ui.js:17` | `measureEditCanvasFit` | ternary theo fitMode: contain (min) / cover (max) — 2 luật khớp khung | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/image-edit-ui.js:27` | `canvasPointToClient` | ternary theo fitMode: contain (min) / cover (max) — 2 luật khớp khung | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/photo-editor-engine.js:675` | `computeImageEditLayerRows` | ternary theo layer.type: text (dòng đầu nội dung) / shape / image (nhãn tĩnh) — mỗi loại 1 cách lấy nhãn | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/playlist/filter.js:80` | `applyPlaylistFilter` | if-elseif ×9 theo field: mỗi field 1 cách lấy giá trị (addedAt quy đầu ngày) | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/playlist/filter.js:91` | `applyPlaylistFilter` | if-elseif ×4 theo rule.mode/isText: range / outRange / so chữ / so số — 4 luật so | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/subtitle/subtitle-karaoke-display.js:176` | `buildKaraokeParticles` | ternary theo reverse (reveal/vanish): trễ 0 / trễ ngẫu nhiên — luật phát hạt khác nhau | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/subtitle/subtitle-karaoke-display.js:177` | `buildKaraokeParticles` | ternary theo reverse (reveal/vanish): đời cố định / đời ngẫu nhiên — luật phát hạt khác nhau | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/subtitle/subtitles-ui.js:46` | `buildLineCard` | if-elseif ×4 theo mode (chọn dòng / đang sửa / bị khoá / thường): mỗi mode 1 kiểu dựng card | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/video-editor/webcodecs-engine.js:131` | `processVideo` | ternary theo writable: StreamTarget (ghi file) / BufferTarget (RAM) — 2 cách xuất | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/video-editor/webcodecs-engine.js:173` | `processVideo` | ternary theo writable: không Blob / dựng Blob từ buffer — cùng nhánh xuất ở trên | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/visualizer/groups/bar/dot.js:91` | `buildDotAxisGeometry` | if-elseif ×7 theo hình trục (sin/wave/circle/…): mỗi hình 1 công thức dựng | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/visualizer/groups/bar/dot.js:143` | `buildDotAxisGeometry` | ternary theo closed: số đoạn đường khép kín / mở | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/visualizer/groups/bar/dot.js:151` | `buildDotAxisGeometry` | ternary theo closed: quấn vòng (modulo) / kẹp biên — 2 luật lấy điểm | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/visualizer/groups/bar/dot.js:152` | `buildDotAxisGeometry` | ternary theo closed: quấn vòng (modulo) / kẹp biên — 2 luật lấy điểm | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/visualizer/groups/bar/mirror.js:78` | `computeBarMirrorLevels` | if-else theo độ rộng dải: lấy MAX các bin / nội suy tuyến tính — 2 thuật toán lấy mức | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
+| `core/visualizer/groups/shape/clock.js:133` | `buildClockGearOutline` | if-else theo ratchet: răng cóc / răng thường — 2 hình răng | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
 
 #### Rule 2 — Core tự appState.get() (25)
 
@@ -255,6 +277,12 @@ _Đã dọn hết 19/10/2026 (plan-debt-domains đợt 16, 17a)._
 | `core/custom-effect.js:368` | `getActiveEffectConfig` | appConfigViz.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Không | Giữ lại ở đợt 3 (13/10/2026): cùng lý do dòng Rule 3a của hàm này — gỡ cùng đợt 23a |
 | `core/player-controls.js:515` | `handleAudioLoadedMetadata` | appConfigViz.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/visual-bg-common.js:231` | `getVisualBgFillStyle` | appConfigVisualBg.getAll() — Core tự đọc AppConfig | FAIL | Review (máy quét bỏ sót) | Không |  |
+
+#### Rule 3d — wrapper thư viện ngoài chưa audit (1)
+
+| Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
+|---|---|---|---|---|---|---|
+| `core/mp3-cut.js:210` | `encodeMp3FromPcm16` | Core gọi thẳng lamejs (thư viện ngoài) — tự ghi lý do cô lập trong docstring, chưa được chỉ định/audit | FAIL | Review 20/10 | Không | Hướng: Giang audit chính thức (thành wrapper hợp lệ Rule 3d) hoặc đổi bộ mã hoá |
 
 #### Rule 4 — ghi state thiếu console.log (7)
 
@@ -794,7 +822,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 
 | Rule máy | Lý do loại | Số dòng |
 |---|---|---|
-| CORE-1 | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng | 660 |
+| CORE-1 | Rà lại 20/10/2026 trên code hiện tại (nhánh ≥2 vế: if/else, else-if, ternary) theo phán quyết "khác thuật toán = khác tiến trình" — PASS theo tiêu chí A/B/C-D/E (core-function-conventions.md Rule 1); FAIL đã chuyển lên mục 4.1 | 357 |
 | CORE-5A | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) | 99 |
 | EV-LISTENER-1 | Ủy quyền closest()/bảng tuyến chỉ để xác định phần tử rồi eventBus.send — không phải rẽ nhánh nghiệp vụ (review) | 42 |
 | CORE-3A | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core | 18 |
@@ -805,7 +833,7 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | EV-LISTENER-1 | Trùng với dòng "Listener đọc appState" (EV-LISTENER-2) — gộp, không đếm 2 lần | 7 |
 | CORE-1 | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 | 4 |
 
-<details><summary>Danh sách đầy đủ (868 dòng)</summary>
+<details><summary>Danh sách đầy đủ (565 dòng)</summary>
 
 | Rule máy | Vị trí | Lý do |
 |---|---|---|
@@ -813,666 +841,363 @@ _Đã dọn hết 13/10/2026 (plan-event-bus-wiring đợt 6b-2, 6b-4)._
 | CORE-1 (FAIL) | `core/player-controls.js:333` | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 |
 | CORE-1 (FAIL) | `core/visual-bg-video.js:17` | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 |
 | CORE-1 (FAIL) | `core/visualizer-control-center.js:55` | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 |
-| CORE-1 (REVIEW) | `core/about-stats.js:42` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/app-panel-nav.js:26` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/app-panel-nav.js:29` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/app-panel-nav.js:41` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/app-settings-ui.js:199` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:148` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:313` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:338` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:369` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:453` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:458` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:464` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:493` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:502` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:502` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:524` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:542` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:550` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-analysis.js:597` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-segment.js:85` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:132` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:165` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:198` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:205` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:207` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:221` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/audio-tempo.js:229` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:87` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:99` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:118` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:135` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:136` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:143` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:144` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:238` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:243` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:248` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:253` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:258` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:260` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:267` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:273` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/auto-switch-visual.js:310` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:41` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:41` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:66` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:66` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:68` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/canvas-scene-setup.js:68` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:9` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:47` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:51` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:124` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:125` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:152` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/color-utils.js:162` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:850` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:865` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:874` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:911` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:935` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:941` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:973` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:973` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:1029` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:1064` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:1065` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/config.js:1125` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/custom-effect.js:141` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/custom-effect.js:396` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/custom-effect.js:403` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/dropdown-menu.js:58` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/dropdown-menu.js:93` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/dropdown-menu.js:123` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:63` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:63` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:75` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:81` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:116` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:127` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:128` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:129` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:131` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:136` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:138` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:141` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:143` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:145` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:145` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:146` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:148` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:150` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:152` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:154` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:156` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:158` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:160` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:162` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/element-style-editor.js:164` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/eq-presets.js:40` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/cleanup.js:145` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:161` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:163` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:212` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:212` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:239` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:239` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:353` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/folder.js:395` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/image.js:93` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/photo-ui.js:40` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/photo-ui.js:373` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/video.js:150` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/video.js:150` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/video.js:217` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/file-manager/video.js:230` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:35` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:50` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:78` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:80` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:92` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:94` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:108` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:111` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:123` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:126` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:142` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:155` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:208` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:236` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/circle-mode.js:348` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/engine-ui.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/engine-ui.js:110` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/engine.js:11` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/engine.js:80` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:61` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:69` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:69` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:74` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:76` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:78` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/gameplay/game-panel-ui.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/generic-drawer.js:49` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/hud.js:68` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/hud.js:71` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/info-icon-ui.js:102` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/info-icon-ui.js:108` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/info-icon-ui.js:113` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/info-icon-ui.js:117` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/info-icon-ui.js:119` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-picker-drawer-ui.js:86` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-picker-drawer-ui.js:88` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-picker-drawer-ui.js:90` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:37` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:61` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:63` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:64` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:94` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:96` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:97` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:98` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:99` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:100` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:100` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:110` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:111` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:112` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:113` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:114` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:118` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/media-transform.js:118` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/modal-choice-ui.js:79` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/modal-choice-ui.js:112` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/modal-choice-ui.js:135` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/modal-choice-ui.js:192` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/modal-choice-ui.js:251` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-engine.js:218` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-engine.js:241` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-engine.js:514` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:277` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:278` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:282` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:284` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:286` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:287` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:288` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:289` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:290` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:291` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:292` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:293` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:294` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:295` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:296` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:297` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:299` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:300` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:301` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:315` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:326` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:328` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:329` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:345` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:347` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:360` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:361` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:362` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:364` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:380` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:381` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:382` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:383` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:384` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:385` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:388` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:390` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:392` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:395` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:396` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:398` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:399` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:402` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:403` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:405` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:406` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:409` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:410` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:412` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:413` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:446` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:460` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:472` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:477` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/motion-presets.js:478` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:59` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:66` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:69` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:82` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:97` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:97` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:101` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/pagination-ui.js:105` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:33` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:34` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:35` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:41` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:46` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:59` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:60` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:61` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:92` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:99` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:116` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:144` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/perf-hud.js:144` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:94` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:94` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:96` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:96` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:124` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:124` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:250` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:253` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:258` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:263` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-editor-engine.js:283` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/photo-player.js:90` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-controls.js:291` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-controls.js:384` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-controls.js:385` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-display-apply.js:92` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-display-apply.js:93` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-display-settings.js:54` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-display-settings.js:114` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-display-settings.js:161` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/player-zoom.js:129` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/actions.js:136` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/actions.js:136` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/actions.js:169` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/actions.js:350` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/actions.js:383` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter-presets.js:59` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter-presets.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter-presets.js:70` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter-presets.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter-presets.js:85` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter-presets.js:104` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:86` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:105` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:167` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:168` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:169` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:170` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:171` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:172` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:173` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/filter.js:174` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/loader.js:31` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/loader.js:218` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/main.js:86` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/main.js:87` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/main.js:152` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:59` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:63` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:68` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:74` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:75` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:76` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:82` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:180` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:183` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:197` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/order.js:218` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:92` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:111` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:111` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:156` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:167` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:175` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:315` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:333` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/render.js:333` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/state.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/state.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/playlist/state.js:46` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/point-move-timing-ui.js:54` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/point-move-timing-ui.js:55` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/point-move-timing-ui.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/point-move-timing-ui.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/point-move-timing-ui.js:97` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/point-move-timing-ui.js:183` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder-ui.js:41` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder-ui.js:74` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder-ui.js:98` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder-ui.js:112` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder.js:101` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/recorder.js:106` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:16` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:16` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:16` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:17` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:17` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:17` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:18` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/rubik-math.js:18` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/settings-carousel-ui.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/settings-carousel-ui.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/settings-carousel-ui.js:82` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/settings-carousel-ui.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/slider-panel-scroll.js:77` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:90` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:177` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:178` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:179` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:200` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:215` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:216` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:216` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:221` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:226` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:231` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:232` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:235` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:245` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/statis-panel-ui.js:245` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:87` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:94` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:156` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:159` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:284` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:289` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:401` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:406` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:428` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:494` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/storage-manager.js:499` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:88` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:243` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:244` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:358` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:361` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:375` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:379` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/streaming-zip.js:387` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:44` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:61` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:66` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:86` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle-transition.js:87` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display-ui.js:70` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:63` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:109` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:168` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:169` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:172` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:173` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:174` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:175` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:176` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:177` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke-display.js:187` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke.js:25` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke.js:86` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke.js:111` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke.js:112` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke.js:117` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-karaoke.js:123` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-transition.js:44` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-transition.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-transition.js:61` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-transition.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-transition.js:65` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitle-transition.js:66` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:46` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:48` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:49` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:51` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:77` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:85` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:102` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:103` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:105` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:137` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:141` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:161` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:166` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:186` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:192` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:194` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:200` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/subtitle/subtitles-ui.js:261` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:52` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:94` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:96` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:100` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:106` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/theme-background-ui.js:116` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/time-picker-modal.js:81` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/time-picker-modal.js:98` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/time-picker-modal.js:181` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/ui-theme/apply-ui.js:38` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/ui-theme/icon-svg-ui.js:29` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/ui-theme/icon-svg-ui.js:30` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/ui-theme/icon-svg-ui.js:31` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/ui-theme/status-bar-color.js:32` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/upload-validation.js:48` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:50` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:73` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:73` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:131` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:133` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:138` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:145` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:160` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:161` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:164` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-editor/webcodecs-engine.js:173` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-player.js:50` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-player.js:53` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-player.js:99` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/video-player.js:130` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-common.js:49` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-common.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-common.js:96` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-common.js:235` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-photo.js:18` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-video.js:35` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-video.js:37` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-video.js:38` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-video.js:54` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visual-bg-video.js:55` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer-gesture.js:31` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer-gesture.js:38` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer-gesture.js:78` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer-gesture.js:79` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer-gesture.js:80` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/beat-window.js:42` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/draw/screen-flash-alpha.js:29` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/frame-clock.js:9` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:130` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:155` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:156` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:170` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:190` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:207` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:208` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:219` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:234` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:254` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:280` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:369` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:405` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:409` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:427` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:428` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:448` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:506` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/black-hole.js:514` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/common.js:29` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/common.js:33` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/common.js:40` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:83` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:91` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:95` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:97` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:103` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:111` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:117` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:120` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:138` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:143` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:151` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:152` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:166` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:207` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:207` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:239` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:241` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:251` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:294` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:357` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:375` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:377` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:379` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:384` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:384` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:384` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:384` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:385` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:385` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:385` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:385` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:414` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:414` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:439` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/dot.js:444` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/mirror.js:78` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/mirror.js:92` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/bar/mirror.js:92` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:50` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:53` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:78` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:112` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:113` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:190` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:191` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/connector/circuit.js:198` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:93` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:146` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:165` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:168` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:320` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:321` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:412` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:413` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/lighting/fireworks.js:455` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:82` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:84` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:87` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:119` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:120` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:120` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:121` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:131` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/glass.js:132` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:53` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:99` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:100` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:104` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:107` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:112` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:147` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/rain/street.js:170` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:115` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:115` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:115` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:115` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:135` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:169` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:170` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:216` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:217` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:220` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:221` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:222` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:223` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:224` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:232` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:258` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:259` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:273` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:276` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:315` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:426` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:432` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:465` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:488` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/clock.js:552` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/rubik.js:55` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/rubik.js:70` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/rubik.js:96` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/shape/rubik.js:97` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/groups/vortex/common.js:62` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/tonotopic.js:57` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/visualizer-display.js:76` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/visualizer-display.js:91` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/visualizer-display.js:91` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/visualizer-display.js:123` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/visualizer/visualizer-display.js:127` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:45` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:64` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:118` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:138` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:138` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:207` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:247` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:247` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:247` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:249` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:283` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:310` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:313` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:416` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:416` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:452` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-connector.js:457` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-vortex.js:108` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-vortex.js:108` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-vortex.js:109` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
-| CORE-1 (REVIEW) | `core/webgl/three-vortex.js:109` | Thay bằng chấm theo nội dung nhánh (review) — guard/chọn giá trị/kiểm tra tồn tại = PASS; còn lại đã có dòng riêng |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:311` | `computeBandOnsetStrengths` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:367` | `computeDominantFrequency` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:456` | `computeMidiFloatFromFrequency` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:462` | `resolveMelodyDirection` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:491` | `measureVibrato` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:500` | `measureVibrato` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:500` | `measureVibrato` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-analysis.js:522` | `computeTimeDomainLevels` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/audio-tempo.js:62` | `buildOnsetBandEdges` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/audio-tempo.js:132` | `resampleOnsetEnvelope` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-tempo.js:198` | `estimateTempoFromOnsets` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/audio-tempo.js:205` | `estimateTempoFromOnsets` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/audio-tempo.js:229` | `computeArrayMedian` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:26` | `normalizeAutoSwitchGroupList` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:41` | `normalizeAutoSwitchStyleList` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:60` | `pickNextAutoSwitchStyleFromStyleList` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:78` | `pickNextAutoSwitchStyleFromGroupList` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:85` | `pickNextAutoSwitchStyleFromGroupList` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:156` | `setAutoSwitchVisualItemEnabled` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/auto-switch-visual.js:163` | `setAutoSwitchVisualGroupStyle` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/canvas-scene-setup.js:56` | `buildBlackHoleStars` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/canvas-scene-setup.js:57` | `buildBlackHoleStars` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/canvas-scene-setup.js:59` | `buildBlackHoleStars` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:18` | `interpolateColor` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:18` | `interpolateColor` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:19` | `interpolateColor` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:19` | `interpolateColor` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:38` | `updateDOMBackground` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:51` | `updatePlaylistBg` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/color-utils.js:76` | `setAppBgVideoPlayback` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/config.js:562` | `parseSavedVizConfig` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/config.js:636` | `migrateVizConfig` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/config.js:711` | `migrateVizConfig` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/config.js:712` | `migrateVizConfig` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/config.js:742` | `computeAppBgMediaFallback` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/config.js:755` | `resolveModeIndexFromConfig` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:354` | `resolveEffectConfig` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:356` | `resolveEffectConfig` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:357` | `resolveEffectConfig` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:394` | `resolveConnectorGlowMult` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:410` | `replaceGradientPaletteColor` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:435` | `resolveCustomEffectSliderInput` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:440` | `toggleFireworksStyleList` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/custom-effect.js:463` | `replaceCustomLampField` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/debug-console.js:94` | `computeDebugConsoleListPlan` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/debug-console.js:95` | `computeDebugConsoleListPlan` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/dom-refs.js:384` |  A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/dom-refs.js:384` |  A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:18` | `resolveElementStyleFieldValue` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:50` | `sizeValue` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:87` | `_parseValueUnit` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:102` | `parseElementStyleCssString` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:103` | `parseElementStyleCssString` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/element-style-editor.js:123` | `parseElementStyleCssString` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/eq-presets.js:34` | `replaceEqPresetGains` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/eq-presets.js:42` | `resolveEqPresetRename` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/eq-presets.js:73` | `resolveNextEqPresetId` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/cleanup.js:72` | `cleanupOrphanedZipTempFiles` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/folder.js:38` | `resolveFolderIndexIds` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/folder.js:115` | `computeMigratedActivePlayListFolder` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/folder.js:157` | `computeFolderSelectionOrder` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/folder.js:171` | `resolveFolderPickerOptions` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/folder.js:190` | `toggleFolderSelection` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/gallery-window.js:14` | `computeGalleryTileStates` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/image.js:30` | `computePhotoDurationSec` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/image.js:141` | `buildEditedImageFilename` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/image.js:142` | `buildEditedImageFilename` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/file-manager/video.js:149` | `stripFileExtension` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode-ui.js:39` | `paintArrowStripProgress` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:39` | `buildArrowRoundArrows` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:54` | `computeArrowRoundTiming` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:84` | `applyArrowInput` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:84` | `applyArrowInput` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:85` | `applyArrowInput` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:85` | `applyArrowInput` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:98` | `classifyArrowCommitTier` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:99` | `classifyArrowCommitTier` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:105` | `computeNextArrowLevel` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-mode.js:105` | `computeNextArrowLevel` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/arrow-stage.js:41` | `paintArrowStripProgress` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:29` | `computeShrinkDurationMs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:38` | `computeChainSpacingMs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:60` | `generateRowMajorOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:62` | `generateRowMajorOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:73` | `generateColumnMajorOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:75` | `generateColumnMajorOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:86` | `generateBoustrophedonRowOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:89` | `generateBoustrophedonRowOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:100` | `generateBoustrophedonColumnOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:103` | `generateBoustrophedonColumnOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:128` | `generateSpiralOrder` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:185` | `tryOffset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:193` | `findAvailableCell` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:193` | `findAvailableCell` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/circle-mode.js:317` | `computeHardChainLevel` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:10` | `classifyTapTier` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:30` | `computeComboScoreGain` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:31` | `computeComboScoreGain` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:34` | `computeComboScoreGain` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:35` | `computeComboScoreGain` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:103` | `computeStarRating` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/gameplay/engine.js:126` | `computeScoreRingPercent` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/info-icon-ui.js:77` | `placeInfoPopover` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:37` | `setCropSessionAspectRatio` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:94` | `computeFreeResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:95` | `computeFreeResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:96` | `computeFreeResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:97` | `computeFreeResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:98` | `computeFreeResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:99` | `computeFreeResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:100` | `computeFreeResizedRect` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:100` | `computeFreeResizedRect` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:110` | `computeRatioLockedResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:111` | `computeRatioLockedResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:112` | `computeRatioLockedResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:113` | `computeRatioLockedResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:114` | `computeRatioLockedResizedRect` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:118` | `computeRatioLockedResizedRect` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:118` | `computeRatioLockedResizedRect` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/media-transform.js:131` | `computeCropDragStep` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:112` | `alertModal` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:135` | `_buildCancelButton` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:192` | `_appendDropdownRow` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-engine.js:514` | `computeMotionEngineBeatReactNextPolarity` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:277` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:282` | `sanitizeMotionPreset` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:315` | `sanitizeMotionPointMoves` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:381` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:383` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:384` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:385` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:478` | `fillLinear` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:55` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:56` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:57` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:85` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:87` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:195` | `sliceAudioBufferToPcm16` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:196` | `sliceAudioBufferToPcm16` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/pagination.js:131` | `sanitizePaginationPlace` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/perf-hud.js:35` | `normalizePerfHudConfig` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/perf-hud.js:60` | `computePerfFrameStats` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/perf-hud.js:61` | `computePerfFrameStats` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/perf-hud.js:99` | `computePerfDroppedPerSec` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/perf-hud.js:144` | `describePerfTapTarget` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/perf-hud.js:144` | `describePerfTapTarget` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:84` | `applyColorAdjustments` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:85` | `applyColorAdjustments` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:86` | `applyColorAdjustments` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:246` | `buildNewShapeLayer` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:305` | `computeLayerOpacity` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:315` | `computeLayerRotate90` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:354` | `computeTextLayerStylePatch` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:355` | `computeTextLayerStylePatch` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:356` | `computeTextLayerStylePatch` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:359` | `computeTextLayerStylePatch` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:370` | `computeShapeLayerStylePatch` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:516` | `measureShapeLayerBox` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:532` | `computeLayerFrame` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:532` | `computeLayerFrame` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:675` | `computeImageEditLayerRows` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/photo-editor-engine.js:686` | `findLayerDropDisplayIndex` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/photo-player.js:46` | `computePhotoPlayerTickView` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/player-control-style.js:24` | `computePlayerControlView` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/player-controls.js:335` | `togglePlayPause` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/player-display-apply.js:39` | `measureVideoPlayerLayerB` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/player-display-apply.js:40` | `measureVideoPlayerLayerB` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/player-display-settings.js:170` | `computeVideoPointMoveAdvanceMs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/actions.js:83` | `resolveMediaDeletePlan` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/actions.js:87` | `resolveMediaDeletePlan` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/actions.js:211` | `readVideoEditInputs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/actions.js:219` | `readPhotoEditInputs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/actions.js:264` | `resolveSongMediaSessionInfo` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter-presets.js:44` | `sanitizePlaylistFilterPresets` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter-presets.js:56` | `sanitizePlaylistFilterActiveIdMap` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter-presets.js:67` | `sanitizePlaylistFilterAppliedConfig` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter-presets.js:73` | `sanitizePlaylistFilterAppliesToFolderMap` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter-presets.js:89` | `computePlaylistFilterLiveConfig` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter-presets.js:130` | `hasValidPlaylistFilterField` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter.js:37` | `_parseFilterNumberInput` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter.js:53` | `_formatFilterNumberForInput` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/filter.js:83` | `applyPlaylistFilter` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/loader.js:178` | `formatUploadErrorMessage` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:30` | `rankKeysByName` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:79` | `sortKeysByRank` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:80` | `sortKeysByRank` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:82` | `sortKeysByRank` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:128` | `computeListStep` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:131` | `computeListStep` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:170` | `resolvePlaylistEmptyPlayAction` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/order.js:171` | `resolvePlaylistEmptyPlayAction` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/render.js:116` | `showPlaylistLoading` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/render.js:123` | `updatePlaylistLoading` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/render.js:219` | `resolvePlayingMediaType` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/playlist/scope.js:40` | `resolveFolderMapKeys` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/scope.js:46` | `pairRecordsWithKeys` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/playlist/scope.js:67` | `resolveFolderScopeFilter` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/point-move-timing-ui.js:83` | `buildPointMoveTimingCurveEl` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/point-move-timing-ui.js:183` | `buildPointMoveTimingCurveEl` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/recorder-ui.js:49` | `wireRecorderReviewBody` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/recorder-ui.js:115` | `setRecorderCountIn` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/recorder.js:235` | `computeRecorderMeterView` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/recorder.js:394` | `computeRecorderPreviewProgress` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:16` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:16` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:17` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:17` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:18` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:18` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/settings-carousel-ui.js:29` | `measureSettingsCarousel` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/settings-carousel-ui.js:29` | `measureSettingsCarousel` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/statis-panel.js:36` | `computeStatisAggregates` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/statis-panel.js:40` | `computeStatisAggregates` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/statis-panel.js:41` | `computeStatisAggregates` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/statis-panel.js:42` | `computeStatisAggregates` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/statis-panel.js:43` | `computeStatisAggregates` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/statis-panel.js:55` | `rankStatisItems` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:42` | `computeBarPercents` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:89` | `pickStorageFreeFigures` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:148` | `resolveStorageActionConfirmKeys` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:170` | `resolveStorageActionReport` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:171` | `resolveStorageActionReport` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:172` | `resolveStorageActionReport` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:187` | `describeZipError` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:206` | `planZipEntries` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:245` | `buildZipPartFilename` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:246` | `buildZipPartFilename` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:283` | `precheckMediaRecordBlob` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:295` | `judgeSongDuration` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:308` | `judgeVideoProbe` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:309` | `judgeVideoProbe` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:311` | `judgeVideoProbe` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:316` | `judgeImageDecode` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:409` | `formatRepairReport` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/storage-manager.js:439` | `formatScanResultSummary` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-display-ui.js:72` | `pinSubtitlePhaseAnimationUi` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke-display.js:172` | `buildKaraokeParticles` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke-display.js:173` | `buildKaraokeParticles` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke-display.js:188` | `pruneKaraokeParticles` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke.js:25` | `buildDefaultKaraokeWordMs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke.js:86` | `computeKaraokeInputBoundary` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke.js:111` | `fitSubtitlesKaraokeToDuration` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke.js:112` | `fitSubtitlesKaraokeToDuration` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-karaoke.js:117` | `fitSubtitlesKaraokeToDuration` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-style-settings.js:98` | `computeSignedSubtitleTransitionMs` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-transition.js:60` | `computeSubtitleLineStates` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-transition.js:62` | `computeSubtitleLineStates` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitle-transition.js:95` | `resolveSubtitlePhaseAnimation` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitles-ui.js:102` | `buildLineCard` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitles-ui.js:103` | `buildLineCard` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/subtitle/subtitles-ui.js:137` | `buildLineCard` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/theme-background.js:40` | `computeThemeBackgroundView` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/theme-background.js:41` | `computeThemeBackgroundView` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/theme-background.js:55` | `computeThemeBackgroundView` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/theme-background.js:122` | `computeUiThemeChangeBgMode` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/time-picker-modal.js:62` | `parseTimePickerFormat` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/time-picker-modal.js:162` | `buildColumn` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/ui-theme/apply-ui.js:15` | `applyUiThemeToDom` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/ui-theme/apply-ui.js:27` | `applyUiThemeToDom` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/ui-theme/status-bar-color.js:18` | `parseHex` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/upload-validation.js:43` | `validateFileType` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/video-editor/webcodecs-engine.js:50` | `_mapPointToOutputFrame` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/video-editor/webcodecs-engine.js:73` | `_computeOutputFrameMatrix` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/video-editor/webcodecs-engine.js:145` | `processVideo` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/video-editor/webcodecs-engine.js:160` | `processVideo` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/video-editor/webcodecs-engine.js:164` | `processVideo` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/video-player.js:99` | `connectVideoElementToAnalyser` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/video-player.js:130` | `decodeForcedBgThumb` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visual-bg-common.js:49` | `advanceVisualBgList` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visual-bg-common.js:84` | `sortVisualBgItemsByName` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visual-bg-common.js:96` | `sortVisualBgItemsByAddedAt` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visual-bg-photo.js:18` | `applyVisualBgImageToDOM` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/visual-bg-video.js:17` | `syncVisualBgVideoPlayback` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/visualizer-gesture.js:17` | `computeGestureTouchStart` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer-gesture.js:40` | `classifyGestureRelease` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer-gesture.js:42` | `classifyGestureRelease` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer-gesture.js:44` | `classifyGestureRelease` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/beat-window.js:42` | `takeBeatIntervalMean` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/draw/screen-flash-alpha.js:29` | `computeScreenFlashAlpha` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/effect-paint.js:17` | `resolveEffectColorRule` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/effect-paint.js:65` | `computeEffectBlurMult` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/frame-clock.js:9` | `computeFrameDeltaMs` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:130` | `resolveBlackHoleRgb` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:156` | `smoothBlackHoleBarRadius` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:170` | `resolveBlackHoleBarHalfCount` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:190` | `computeBlackHoleBarLevels` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:207` | `computeBlackHoleBarLevels` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:208` | `computeBlackHoleBarLevels` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:219` | `resampleBlackHoleLevels` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:254` | `computeBlackHoleBarsFrame` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:369` | `updateBlackHoleBeatAverage` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:405` | `ray` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:409` | `ray` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:427` | `computeBlackHoleRayReach` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:428` | `computeBlackHoleRayReach` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:448` | `createBlackHoleRayGradient` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:95` | `buildDotAxisGeometry` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:138` | `pointAt` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:207` | `computeDotTargetBoosts` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:207` | `computeDotTargetBoosts` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:239` | `stepDotLineVibration` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:241` | `stepDotLineVibration` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:251` | `computeDotLineDisplacement` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:294` | `stepDotSnake` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:357` | `sampleDotSnakeBody` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:384` | `paintDotAxisDot` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:384` | `paintDotAxisDot` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:384` | `paintDotAxisDot` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:414` | `blendDotPositions` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:414` | `blendDotPositions` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/mirror.js:92` | `computeBarMirrorLevels` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/connector/circuit.js:50` | `pickCircuitFireTargets` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/connector/circuit.js:53` | `pickCircuitFireTargets` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/connector/circuit.js:78` | `at` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/connector/circuit.js:112` | `updateCircuitSignal` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/connector/circuit.js:113` | `updateCircuitSignal` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/connector/circuit.js:198` | `stepFollowCircuitCamera` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/lighting/fireworks.js:311` | `explodeFireworksChrysanthemum` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/lighting/fireworks.js:403` | `explodeFireworksCrackle` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/glass.js:77` | `computeRainCityFrame` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/glass.js:82` | `computeRainCityFrame` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/glass.js:107` | `resolveRainCityLitColorFromRgb` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/glass.js:108` | `resolveRainCityLitColorFromRgb` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/glass.js:119` | `resolveRainCityOffColor` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/street.js:48` | `computeRainIntensity` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/rain/street.js:95` | `advanceRainLampsAndBuildSpecs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:113` | `computeClockGearLayout` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:113` | `computeClockGearLayout` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:113` | `computeClockGearLayout` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:168` | `advanceClockDrive` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:215` | `advanceClockPitchHands` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:219` | `advanceClockPitchHands` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:256` | `advanceClockPendulum` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:271` | `ease` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/clock.js:313` | `stepClockTickGlow` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/rubik.js:46` | `advanceRubikSelfSpin` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/rubik.js:61` | `maybeTriggerRubikLayerTurn` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/shape/rubik.js:87` | `computeRubikCubeBase` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/vortex/common.js:48` | `wrapVortexObjectZ` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/tonotopic.js:57` | `findTonotopicNodeForBin` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/visualizer-display.js:42` | `updateCanvasVisibility` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/visualizer-display.js:57` | `computeProgressBarFillColor` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/visualizer/visualizer-display.js:58` | `computeProgressBarFillColor` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:64` | `buildCircuitCubeCells` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:207` | `assignCircuitPinTargets` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:247` | `buildCircuitWires` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:247` | `buildCircuitWires` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:247` | `buildCircuitWires` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:310` | `collectCircuitJunctions` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:108` | `computeVortexCurveTarget` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:108` | `computeVortexCurveTarget` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:109` | `computeVortexCurveTarget` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:109` | `computeVortexCurveTarget` A — giá trị dự phòng / guard dữ liệu |
 | CORE-3A (FAIL) | `core/color-utils.js:144` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/color-utils.js:181` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/color-utils.js:184` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
