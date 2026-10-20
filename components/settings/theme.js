@@ -1,16 +1,20 @@
 /**
  * Component: màn Settings > System > Theme — select "Color" (Light/Dark/Morphin) và, chỉ khi Color = Morphin, cụm 3 card nền
  * (None / Gradient / Background media) + hàng "Panel glass" (2 slider kính Playlist chính, chỉ hiện khi đang dùng nền media).
+ * Card "Player control" (mọi Color): kiểu nền + độ đục của Bottom Player, có khung xem trước — computePlayerControlView()
+ * (core/player-control-style.js), wire/vá: core/player-control-settings-ui.js.
  *
  * Logic: event/workflow/app-settings.js (_renderTheme) + event/workflow/theme.js. Trạng thái card: computeThemeBackgroundView()
  * (core/theme-background.js). Wiring: core/app-settings-ui.js::wireAppSettingsTheme(), core/theme-background-ui.js::
  * wireThemeBackgroundCards(); vá tại chỗ: patchThemeBackgroundCards() (giữ đúng các `data-theme-bg-*`/id dưới đây).
- * NẠP SAU: lang/lang.js (t), core/ui-theme/icon-svg-ui.js (iconSvg). Lúc chạy: core/theme-background.js (THEME_GLASS_*).
+ * NẠP SAU: lang/lang.js (t), core/ui-theme/icon-svg-ui.js (iconSvg). Lúc chạy: core/theme-background.js (THEME_GLASS_*),
+ * core/player-control-style.js (PLAYER_CONTROL_OPACITY_*).
  */
 
 /** Thân màn Theme. @param {string[]} themeNames - getSelectableUiThemeNames() @param {string} activeUiTheme
- * @param {string} backgroundHtml - renderThemeBackgroundCardsHtml() khi Color = Morphin, '' nếu không @returns {string} */
-function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml) {
+ * @param {string} backgroundHtml - renderThemeBackgroundCardsHtml() khi Color = Morphin, '' nếu không
+ * @param {string} playerControlHtml - renderPlayerControlSettingsHtml() @returns {string} */
+function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml, playerControlHtml) {
     const optionsHtml = themeNames.map((name) => `<option value="${name}"${name === activeUiTheme ? ' selected' : ''}>${t('appSettings.theme.uiTheme.option.' + name)}</option>`).join('');
     return `
             <div class="flex flex-col gap-2">
@@ -23,8 +27,40 @@ function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml) {
                     </div>
                     ${backgroundHtml}
                 </div>
+                ${playerControlHtml}
             </div>
         `;
+}
+
+/** Card "Player control" — khung xem trước (nền giả lập Visualizer + thanh điều khiển thu nhỏ, cùng CSS với Bottom Player
+ * thật), nút kiểu nền, slider độ đục. @param {ReturnType<typeof computePlayerControlView>} view @returns {string} */
+function renderPlayerControlSettingsHtml(view) {
+    const styleButtons = view.items.map((item) => `<button type="button" data-pc-style-pick="${item.style}" aria-pressed="${item.selected}" class="h-8 px-3 rounded-full text-xs font-semibold transition-colors" data-uitk="${item.uitk}" data-i18n="${item.labelKey}">${t(item.labelKey)}</button>`).join('');
+    return `
+                <div id="player-control-settings" class="rounded-2xl flex flex-col gap-3 px-4 py-4" data-uitk="cardBg cardBorder">
+                    <p class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.playerControl.section">${t('appSettings.theme.playerControl.section')}</p>
+                    <div class="pc-preview" style="--progress-fill:${view.accentColor};" aria-hidden="true">
+                        <div class="pc-surface" data-pc-preview-surface data-pc-style="${view.style}" style="--pc-alpha:${view.alpha};">
+                            <div class="pc-preview-track"><div class="pc-preview-fill"></div><div class="pc-preview-thumb"></div></div>
+                            <div class="pc-preview-row">
+                                <div class="pc-preview-art"></div>
+                                <div class="pc-preview-lines"><div class="pc-preview-line"></div><div class="pc-preview-line"></div></div>
+                                <div class="pc-preview-play"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.background">${t('appSettings.theme.playerControl.background')}</span>
+                        <div class="flex flex-wrap gap-2 mt-2">${styleButtons}</div>
+                    </div>
+                    <div id="player-control-opacity-row" class="${view.showOpacity ? '' : 'hidden'}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.opacity">${t('appSettings.theme.playerControl.opacity')}</span>
+                            <span id="player-control-opacity-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${view.opacityPct}%</span>
+                        </div>
+                        <input type="range" id="player-control-opacity" min="${PLAYER_CONTROL_OPACITY_MIN_PCT}" max="${PLAYER_CONTROL_OPACITY_MAX_PCT}" step="1" value="${view.opacityPct}" class="w-full ce-slider">
+                    </div>
+                </div>`;
 }
 
 /** 1 slider của hàng "Panel glass". @param {'blur'|'tint'} part @param {string} labelKey @param {number} value
