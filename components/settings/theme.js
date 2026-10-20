@@ -56,11 +56,14 @@ function renderPlayerControlSettingsHtml(view) {
                         <div class="pc-surface group" data-pc-preview-surface>
                             <div class="pc-preview-sub pc-preview-sub-out"></div>
                             <div class="pc-preview-sub pc-preview-sub-in"></div>
-                            <div class="pc-preview-title bg-current" data-uitk="pcText"></div>
+                            <div class="pc-preview-info">
+                                <span class="pc-preview-side bg-current" data-uitk="pcText"></span>
+                                <span class="pc-preview-title bg-current" data-uitk="pcText"></span>
+                                <span class="pc-preview-side bg-current" data-uitk="pcText"></span>
+                            </div>
                             <div class="pc-preview-track"><div class="pc-preview-fill"></div><div class="pc-preview-thumb"></div></div>
                             <div class="pc-preview-meta">
                                 <span class="pc-preview-meta-time bg-current" data-uitk="pcText"></span>
-                                <span class="pc-preview-meta-artist bg-current" data-uitk="pcText"></span>
                                 <span class="pc-preview-meta-time bg-current" data-uitk="pcTextMuted"></span>
                             </div>
                             <div class="pc-preview-controls">
