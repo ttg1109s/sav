@@ -18,7 +18,7 @@ const PLAYLIST_EMPTY_PLAY_BY_ACTION = {
     none: () => {}, // Nguồn rỗng
 };
 
-/** Trộn lại top-level theo trạng thái Shuffle: đang tắt -> bật + trộn (đúng việc của nút Shuffle Control Center); đã bật ->
+/** Trộn lại top-level theo trạng thái Shuffle: đang tắt -> bật + trộn (đúng việc của nút Shuffle ở Bottom Player); đã bật ->
  * trộn lại thẳng với cờ true (gọi toggle sẽ TẮT cờ). updateShuffleArrayFromQueue() luôn random mới. */
 const PLAYLIST_EMPTY_RESHUFFLE_BY_SHUFFLE_ON = {
     false: () => workflowPlayerControls.toggleShuffleAndReshuffle(), // event/workflow/player-controls.js

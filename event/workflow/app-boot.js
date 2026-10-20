@@ -57,7 +57,7 @@ const workflowAppBoot = {
         // Khôi phục `playlistFilterConfig` TRƯỚC khối Scope ngay dưới (applyAllSongsScope()/applyFolderScope() lọc theo nó).
         await workflowPlaylist.loadPersistedFilterConfigOnBoot();
 
-        // Khôi phục 3 toggle Control Center (shuffle/repeat/stats) — độc lập với dòng trên.
+        // Khôi phục Shuffle/Repeat (Bottom Player) + Stats panel — độc lập với dòng trên.
         await workflowPlayerControls.loadPersistedPlayerConfigOnBoot(); // event/workflow/player-controls.js
 
         // Nạp/seed meta.eqPresets — await để appState.eqPresets sẵn sàng trước khi người dùng kịp bấm phát (audio graph

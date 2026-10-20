@@ -90,7 +90,7 @@ const workflowPlaylistOrder = {
     },
 
     /** Reset shuffleIndices theo TOÀN BỘ top-level (boot / thêm bài / dọn lưu trữ / áp Scope) — Shuffle bật thì trộn. Khác
-     * nút Shuffle ở Control Center (trộn "hiện hành" — workflowPlayerControls.toggleShuffleAndReshuffle()). */
+     * nút Shuffle ở Bottom Player (trộn "hiện hành" — workflowPlayerControls.toggleShuffleAndReshuffle()). */
     updateShuffleArray() {
         const { playlistOrder, isShuffle } = appState.get(['playlistOrder', 'isShuffle']);
         updateShuffleArrayFromQueue([], playlistOrder, !!isShuffle); // core/playlist/order.js — không có nhóm hiện hành

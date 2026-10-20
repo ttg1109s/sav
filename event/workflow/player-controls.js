@@ -703,7 +703,7 @@ const workflowPlayerControls = {
     },
 
     /**
-     * Khôi phục 2 icon toggle Control Center đã lưu bền LÚC BOOT (Shuffle/Repeat) — gọi từ
+     * Khôi phục 2 nút toggle Shuffle/Repeat (Bottom Player) đã lưu bền LÚC BOOT — gọi từ
      * event/workflow/app-boot.js. Đồng bộ UI qua syncShuffleUI()/syncRepeatUI() (core/player-
      * controls.js — 2 hàm đó LUÔN "set thẳng", khác toggleShuffle()/cycleRepeatMode() luôn đảo
      * ngược giá trị hiện tại). Stats panel dùng chung domain config này (KHÔNG còn là icon Control

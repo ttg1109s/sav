@@ -47,8 +47,8 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
     x: { '-1': 'gestureActionSwipeLeft', '1': 'gestureActionSwipeRight' },
 };
 
-/** Nút Control Center gán được cho 3 Action slot (key khớp <option> ở components/gesture-settings-drawer.js). Key cũ
- * không còn trong bảng (vd editEq đã bỏ) tự im lặng bỏ qua. */
+/** Nút gán được cho 3 Action slot — Control Center + Shuffle/Repeat (Bottom Player); key khớp <option> ở
+ * components/gesture-settings-drawer.js. Key cũ không còn trong bảng (vd editEq đã bỏ) tự im lặng bỏ qua. */
 const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     cycleMode: btnCycleMode,
     shuffle: btnShuffle,
