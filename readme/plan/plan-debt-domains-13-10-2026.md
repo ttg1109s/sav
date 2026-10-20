@@ -102,6 +102,8 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 
 Còn 565 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18a, 18b, 18c; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3; đợt 26 +1 dòng `number-countup.js` mode `'interval'` phát hiện ở đợt 14; đợt 19a +1 dòng `handlePlaybackError` dời từ 18a). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
 
+20/10/2026 (ngoài đợt — Cut MP3 · Bottom Player · bảng 7 màu): −17 dòng → **548 FAIL**; phần màu effect của 23a đã làm (xoá `getActiveEffectConfig()`, `effect-paint.js` sạch) — xem sổ, mục Tổng quan.
+
 ### Ghi chú theo đợt
 
 - **18b ✓** — Xong 20/10/2026: 3 Workflow Playlist chỉ còn chuẩn bị + điều phối — node dựng từ HTML hoàn chỉnh của components + core -ui MỚI `core/playlist/node-ui.js`; kế hoạch diff, view node, cuộn, Search, Filter folder ở core thuần. Kèm sửa `sortKeysByMode()` (Rule 1, sổ chưa ghi) thành xếp hạng + `workflowPlaylistOrder.sortKeys()`. Bug sửa kèm: tên có ký tự HTML chèn thô vào node. Chi tiết: sổ, mục 1.
@@ -154,7 +156,7 @@ Còn 565 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 
 - **20** — `swapBgVideoSource`: K6 cho 3 URL; mỗi hook/cờ (`onLayerBFilled`/`runTransition`, `isTransition`/`isSurfaceEntry`/`hideVideoUntilReady`/`skipAutoplay`) 1 method có guard, gọi đúng thứ tự cũ; "transition hook có / không" -> K3. `playVideoByKey`, `showStaticBgThumb`, `clearBgVideoSource`, `startFromPlaylist`: K2/K3.
 - **21a** — `visual-bg-common.js::loadPersistedSettingsOnBoot` gần như toàn K5 -> core thuần `sanitizeVisualBgConfig(saved, defaults)`; `_tickGradientMovement` là hot path (K8). Test boot với config VBG cũ/hỏng/thiếu field.
 - **18–22** — Giữ yêu cầu "không đổi hành vi"; mỗi lượt test máy đủ Next/Prev/auto-next cả 3 loại media, seek khi đang phát/dừng, khoá màn hình + Media Session.
-- **23** — 23a gỡ luôn `getActiveEffectConfig()` (core/custom-effect.js): `effect-paint.js`/`visualizer-display.js` nhận config đã resolve từ Workflow (hoặc `frameEffectConfig` luôn có giá trị), rồi xoá hàm. Chỉ object map + guard; đo FPS trước/sau (Perf HUD) trên máy; giữ thứ tự tiêu thụ `Math.random()`.
+- **23** — (20/10/2026: `getActiveEffectConfig()` đã xoá, `effect-paint.js` sạch — luật màu chọn ở Workflow, `colorAt()`.) Chỉ object map + guard; đo FPS trước/sau (Perf HUD) trên máy; giữ thứ tự tiêu thụ `Math.random()`.
 - **26 (cuối, Giang chốt)** — `dropdown-menu`, `slider-input-modal`, `time-picker-modal` còn gắn sự kiện gọi callback (R5a) và
   thiếu hậu tố `-ui` (R5c, đổi tên file kéo theo `index.html` + 2 trang + script-load-order.md). `modalChoice()` giữ ngoại lệ
   đã audit, chỉ dọn phần R1/R3a. Đổi API ở đây kéo theo sửa lại nơi gọi ở các miền đã dọn — chấp nhận, gom vào cùng đợt.
