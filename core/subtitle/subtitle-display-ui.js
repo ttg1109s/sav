@@ -11,13 +11,17 @@ const SUBTITLE_PHASE_ANIMATION_ID = 'sub-phase';
 const SUBTITLE_REFLOW_ANIMATION_ID = 'sub-reflow';
 const SUBTITLE_REFLOW_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
-/** Dựng khối <p> cho 1 dòng thường. @param {{id: string, start: number, text: string}} sub @returns {HTMLElement} */
+/** Dựng khối <p> cho 1 dòng thường. Chữ phụ đề (file .srt người dùng nạp) chèn dạng text — không thông dịch HTML;
+ * xuống dòng -> <br>. @param {{id: string, start: number, text: string}} sub @returns {HTMLElement} */
 function buildPlainSubtitleBlockUi(sub) {
     const block = document.createElement('p');
     block.id = `sub-active-${sub.id}`;
     block.dataset.subId = sub.id;
     block.dataset.start = String(sub.start);
-    block.innerHTML = sub.text.replace(/\n/g, '<br>');
+    sub.text.split('\n').forEach((line, i) => {
+        if (i > 0) block.appendChild(document.createElement('br'));
+        block.appendChild(document.createTextNode(line));
+    });
     return block;
 }
 
