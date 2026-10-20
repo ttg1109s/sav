@@ -9,7 +9,8 @@
  *   - Video nền chỉ phát ở màn App Panel khi tab đang hiện (`syncBackgroundVideoPlayback()`).
  *   - Picker media: `workflowGenericDrawerHelpers.mountMediaPicker()` (updateInPlace, đang đứng trong Settings); chọn
  *     xong/đóng thì dựng lại màn Theme.
- *   - Player control: kiểu nền + độ đục của Bottom Player (`syncPlayerControlStyle()`, core/player-control-style.js).
+ *   - Player control: kiểu nền, độ đục, bìa nút Play, chỗ neo phụ đề của Bottom Player (`syncPlayerControlStyle()`,
+ *     core/player-control-style.js).
  *
  * NẠP SAU: core/config.js, core/color-utils.js, core/theme-background.js, core/theme-background-ui.js,
  * core/player-control-style.js, core/player-control-settings-ui.js, core/custom-effect.js,
@@ -33,6 +34,13 @@ const THEME_MEDIA_PICKER_BY_KIND = {
         mount: (scrollEl, items) => workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos: items, badgeMode: null }), // event/workflow/video-gallery-window.js
         unmount: () => workflowVideoGalleryWindow.unmount('genericDrawer'),
     },
+};
+
+// Chỗ neo #subtitle-display theo `subtitleDock` (computePlayerControlView()) — phần tử ở core/dom-refs.js.
+const PLAYER_CONTROL_SUBTITLE_HOST_BY_DOCK = {
+    inbox: () => pcSubSlot,
+    outside: () => playerContainer,
+    overlay: () => subtitleOverlayDock,
 };
 
 const workflowTheme = {
@@ -206,6 +214,27 @@ const workflowTheme = {
         this.syncPlayerControlStyle();
     },
 
+    /** Ứng với 'theme.playerControlCover.change' — bìa trong nút Play. @param {boolean} checked */
+    setPlayerControlCover(checked) {
+        setPlayerControlCoverConfig(checked); // core/player-control-style.js
+        workflowConfig.save();
+        this.syncPlayerControlStyle();
+    },
+
+    /** Ứng với 'theme.playerControlSubtitle.click' — phụ đề trong / ngoài thanh. @param {string} placement */
+    setPlayerControlSubtitlePlacement(placement) {
+        setPlayerControlSubtitlePlacementConfig(placement); // core/player-control-style.js
+        workflowConfig.save();
+        this.syncPlayerControlStyle();
+    },
+
+    /** Ứng với 'theme.playerControlSubtitleGap.input' — gọi liên tục lúc kéo. @param {string} value */
+    setPlayerControlSubtitleGap(value) {
+        setPlayerControlSubtitleGapConfig(value); // core/player-control-style.js
+        workflowConfig.save();
+        this.syncPlayerControlStyle();
+    },
+
     /** Giá trị hiển thị Player control theo config hiện tại (kèm màu effect đang chạy cho khung xem trước). */
     getPlayerControlView() {
         const cfg = appConfigViz.getAll();
@@ -213,11 +242,12 @@ const workflowTheme = {
         return computePlayerControlView(cfg, accentColor); // core/player-control-style.js
     },
 
-    /** Áp kiểu nền + độ đục lên Bottom Player, vá cụm Player control nếu màn Theme đang mở. Gọi lúc boot (app-boot.js) và sau mỗi
-     * lần đổi. */
+    /** Áp Player control lên Bottom Player (bề mặt + chỗ neo phụ đề), vá cụm ở Settings nếu màn Theme đang mở. Gọi lúc boot
+     * (app-boot.js), sau mỗi lần đổi, và khi ẩn/hiện thanh (workflowVisualizerDisplay.setBottomPlayerVisible()). */
     syncPlayerControlStyle() {
         const view = this.getPlayerControlView();
         paintPlayerControlSurface(playerPanel, view); // core/player-control-style.js + core/dom-refs.js
+        dockSubtitleDisplay(subtitleDisplay, PLAYER_CONTROL_SUBTITLE_HOST_BY_DOCK[view.subtitleDock](), view); // core/player-control-style.js
         const cluster = patchPlayerControlSettings(genericDrawerBody, view); // core/player-control-settings-ui.js
         if (cluster) applyUiThemeToDom(cluster, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     },

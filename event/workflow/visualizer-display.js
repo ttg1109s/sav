@@ -5,7 +5,7 @@
  *
  * NẠP SAU: core/visualizer/visualizer-display.js, core/visualizer/effect-picker-ui.js, core/visualizer-control-center.js,
  * core/visualizer-ui-visibility.js, core/custom-effect.js, core/modal-choice-ui.js, components/settings/visualizer-display-
- * panel.js. Gọi lúc chạy: event/workflow/visualizer-render.js, player-controls.js.
+ * panel.js. Gọi lúc chạy: event/workflow/visualizer-render.js, player-controls.js, theme.js.
  */
 const workflowVisualizerDisplay = {
     _effectPickerStyleSelect: null, // dropdown style của modal chọn effect đang mở (đọc .value lúc bấm "Chọn")
@@ -33,6 +33,7 @@ const workflowVisualizerDisplay = {
         setBottomPlayerVisible(checked); // core cùng tên
         appConfigViz.mutateAll(cfg => { cfg.bottomPlayerVisible = checked; });
         workflowConfig.save();
+        workflowTheme.syncPlayerControlStyle(); // event/workflow/theme.js — phụ đề neo theo thanh: thanh ẩn thì về vị trí gốc
     },
     setPlaylistButtonVisible(checked) {
         setPlaylistButtonVisible(checked); // core cùng tên
