@@ -21,7 +21,6 @@ const TPL_BOTTOM_PLAYER = `
                 <div class="pc-info">
                     <div class="relative shrink-0 pc-art" id="record-container">
                         <img id="record-art" src="" class="w-full h-full rounded-full object-cover shadow-lg relative z-20" alt="Record">
-                        <div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>
                     </div>
                     <div class="pc-meta">
                         <h2 id="player-title" class="text-white font-bold text-xs sm:text-sm truncate drop-shadow-md" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
@@ -43,8 +42,8 @@ const TPL_BOTTOM_PLAYER = `
 `;
 
 /** #record-art dựng lại mỗi lần đổi media (Song / Video / Photo). `src`/`alt` là dữ liệu từng media — slot rỗng, ghi qua
- * core/record-art-ui.js::mountRecordArt(). @param {string} stateClass - 'animate-spin-slow' (đang quay) hoặc 'paused'
- * @returns {string} */
-function renderRecordArtHtml(stateClass) {
-    return `<img id="record-art" src="" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 ${stateClass}" alt=""><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
+ * core/record-art-ui.js::mountRecordArt(). Luôn mang `animate-spin-slow`; play/pause chỉ bật/tắt `paused` (dừng tại chỗ).
+ * @param {boolean} isPaused - media đang dừng lúc dựng @returns {string} */
+function renderRecordArtHtml(isPaused) {
+    return `<img id="record-art" src="" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow${isPaused ? ' paused' : ''}" alt="">`;
 }
