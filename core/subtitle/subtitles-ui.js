@@ -275,3 +275,10 @@ function updateActiveSubtitleLineHighlight(containerEl, activeSubId) {
         card.classList.toggle('bg-emerald-900/20', card.dataset.subId === activeSubId);
     });
 }
+
+/** Khoá/mở 1 nút thanh công cụ trong lúc chạy việc nặng (vd Cut MP3): mờ + không nhận chạm. KHÔNG addEventListener.
+ * @param {HTMLElement} btnEl @param {boolean} busy */
+function setSubtitleToolButtonBusy(btnEl, busy) {
+    btnEl.classList.toggle('opacity-40', busy);
+    btnEl.classList.toggle('pointer-events-none', busy);
+}
