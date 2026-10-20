@@ -55,21 +55,18 @@ function _renderCeColorSection(cfg) {
     `;
 }
 
-/** Hàng "Bảng 7 màu" của mode gradient (music-driven): 7 ô màu theo thứ tự + nút Reset về màu mặc định. Chưa tuỳ chỉnh -> ô hiện
- * CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE, Reset mờ (core/custom-effect.js). */
+/** Hàng "Bảng 7 màu" của mode gradient (music-driven): 7 ô màu theo thứ tự + nút Reset về màu mặc định. Màu từng ô, trạng thái
+ * và nút Reset là slot — gán qua fillCustomEffectGradientPaletteUi() (core/custom-effect-drawer-ui.js) sau khi dựng. */
 function _renderCeGradientPaletteRow(cfg) {
-    const isCustom = cfg.gradientPalette.length === CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE;
-    const colors = isCustom ? cfg.gradientPalette : CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE;
-    const swatches = colors.map((c, i) => `<div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" data-ce-palette-index="${i}" value="${c}" class="w-10 h-10 -m-1 cursor-pointer" aria-label="${tFormat('customEffectDrawer.gradientPalette.swatch', { n: i + 1 })}"></div>`).join('');
-    const statusKey = isCustom ? 'customEffectDrawer.gradientPalette.statusCustom' : 'customEffectDrawer.gradientPalette.statusDefault';
+    const swatches = Array.from({ length: CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE }, (_, i) => `<div class="w-8 h-8 rounded-full overflow-hidden shrink-0" data-uitk="inputBorder"><input type="color" data-ce-palette-index="${i}" class="w-10 h-10 -m-1 cursor-pointer" aria-label="${tFormat('customEffectDrawer.gradientPalette.swatch', { n: i + 1 })}"></div>`).join('');
     return `
             <div id="ce-gradient-palette-row" class="${cfg.mode === 'gradient' ? 'flex' : 'hidden'} flex-col gap-2.5 px-4 py-3">
                 <div class="flex justify-between items-center gap-2">
                     <div class="flex flex-col min-w-0">
                         <span class="text-sm" data-uitk="textSecondary" data-i18n="customEffectDrawer.gradientPalette.label">${t('customEffectDrawer.gradientPalette.label')}</span>
-                        <span id="ce-gradient-palette-status" class="text-xs" data-uitk="textMutedIcon">${t(statusKey)}</span>
+                        <span id="ce-gradient-palette-status" class="text-xs" data-uitk="textMutedIcon"></span>
                     </div>
-                    <button type="button" id="ce-gradient-palette-reset" class="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${isCustom ? '' : 'opacity-40'}" data-uitk="btnNeutralBg btnNeutralText" ${isCustom ? '' : 'disabled'} data-i18n="customEffectDrawer.gradientPalette.reset">${t('customEffectDrawer.gradientPalette.reset')}</button>
+                    <button type="button" id="ce-gradient-palette-reset" class="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors opacity-40" data-uitk="btnNeutralBg btnNeutralText" disabled data-i18n="customEffectDrawer.gradientPalette.reset">${t('customEffectDrawer.gradientPalette.reset')}</button>
                 </div>
                 <div class="flex items-center justify-between">${swatches}</div>
             </div>`;
