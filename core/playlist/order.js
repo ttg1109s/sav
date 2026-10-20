@@ -116,7 +116,7 @@ function updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, shuffleEnabl
 // (shuffleIndices hay displayOrder) — Workflow chọn trước khi gọi (workflowPlayerControls.goToNextTrack()/goToPrevTrack()).
 
 /**
- * Chỉ số kế tiếp trong 1 danh sách theo 1 hướng — chỉ toán học chỉ số, quyết định tại biên ở decideBoundaryAction().
+ * Chỉ số kế tiếp trong 1 danh sách theo 1 hướng — chỉ toán học chỉ số, quyết định tại biên ở resolveNextTrackAction().
  * Không tìm thấy `currentKey` (index -1) tính là biên cho cả Next lẫn Prev; Prev: biên khi vị trí <= 0.
  * @param {string[]} list - shuffleIndices hoặc displayOrder @param {string|null} currentKey @param {1|-1} direction - 1 = Next, -1 = Prev
  * @returns {{index: number, atBoundary: boolean}} `index` chỉ có nghĩa khi `atBoundary===false`
@@ -132,21 +132,29 @@ function computeListStep(list, currentKey, direction) {
 }
 
 /**
- * Hành động khi Next chạm cuối danh sách (chính sách lặp lại, tách khỏi toán học chỉ số). Chỉ Next — Prev luôn wrap
- * (workflowPlayerControls.goToPrevTrack() không gọi hàm này).
- * @param {number} repeatMode @param {boolean} force @returns {'wrapToStart'|'stopAtEnd'}
+ * Việc cần làm của Next. 'restart': lặp 1 bài (repeatMode 2) mà không force — bấm nút Next luôn force, chỉ auto-next lúc
+ * hết bài mới không; 'step': còn bài kế; tại biên: 'wrap' (lặp danh sách hoặc force) / 'stopAtEnd'. Prev không dùng hàm này
+ * (luôn wrap, không lặp 1 bài).
+ * @param {number} repeatMode @param {boolean} force @param {boolean} atBoundary - computeListStep().atBoundary
+ * @returns {'restart'|'step'|'wrap'|'stopAtEnd'}
  */
-function decideBoundaryAction(repeatMode, force) {
-    return (repeatMode === 1 || force) ? 'wrapToStart' : 'stopAtEnd';
+function resolveNextTrackAction(repeatMode, force, atBoundary) {
+    if (!force && repeatMode === 2) return 'restart';
+    if (!atBoundary) return 'step';
+    return (repeatMode === 1 || force) ? 'wrap' : 'stopAtEnd';
 }
 
-/**
- * Chỉ Next: lặp 1 bài (repeatMode 2) mà không force (bấm nút Next luôn force; chỉ auto-next lúc hết bài mới không) ->
- * phát lại đúng bài đang phát từ đầu. Prev không có nhánh này.
- * @param {number} repeatMode @param {boolean} force @returns {boolean}
- */
-function shouldRestartInsteadOfAdvance(repeatMode, force) {
-    return !force && repeatMode === 2;
+/** Danh sách để wrap khi Next/Prev chạm biên: Shuffle -> 'shuffle'; tuần tự có bài mới thêm lúc đang nghe -> 'resort' (áp
+ * lại sort thật trước); còn lại 'sequential'. @param {boolean} isShuffle @param {number} pendingResortCount
+ * @returns {'shuffle'|'resort'|'sequential'} */
+function resolveWrapQueueMode(isShuffle, pendingResortCount) {
+    if (isShuffle) return 'shuffle';
+    return pendingResortCount > 0 ? 'resort' : 'sequential';
+}
+
+/** Key phát khi chạm biên: Next về đầu, Prev về cuối. @param {string[]} queue @param {1|-1} direction @returns {string} */
+function resolveWrapKey(queue, direction) {
+    return direction === 1 ? queue[0] : queue[queue.length - 1];
 }
 
 /** Thêm bài mới vào hàng đợi phát (workflowPlaylistOrder.applyNewSongsToDisplayOrder()): không có bài mới -> 'resync'

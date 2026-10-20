@@ -226,3 +226,20 @@
             if (currentKey == null) return false; // guard — chưa phát gì
             return playingMediaType === activeMediaSource && renderOrder.includes(currentKey);
         }
+
+        /** Loại media của 1 mục playlistCache — mục không có (hoặc thiếu field) đi luồng Song. @param {object|undefined} cached
+         * @returns {'song'|'video'|'photo'} */
+        function resolvePlaylistItemMediaType(cached) {
+            return (cached && cached.mediaType) || 'song';
+        }
+
+        /** Media vừa bị thay nội dung đang được dùng ở đâu (workflowMediaInUse.handleContentReplaced()): node Playlist (đúng
+         * Nguồn đang xem, có trong cache), Player chính (đúng key + loại đang phát + đã nạp), Visual Background (không ở Player
+         * Video/Photo, VBG đúng loại, đúng item đang chạy). @returns {{playlistNode: boolean, mainPlayer: boolean, visualBg: boolean}} */
+        function computeMediaInUse({ type, key, activeMediaSource, isCached, currentKey, playingMediaType, isMainPlayerLoaded, isVideoPlayerMode, isPhotoPlayerMode, visualBgType, visualBgCurrentKey }) {
+            return {
+                playlistNode: activeMediaSource === type && isCached,
+                mainPlayer: currentKey === key && playingMediaType === type && isMainPlayerLoaded,
+                visualBg: !isVideoPlayerMode && !isPhotoPlayerMode && visualBgType === type && visualBgCurrentKey === key,
+            };
+        }
