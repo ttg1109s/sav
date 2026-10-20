@@ -19,14 +19,9 @@
  *     Khi nốt hiện tại đổi khác nốt vừa kích hoạt lượt xoay gần nhất VÀ năng lượng nhạc đủ cao,
  *     kích hoạt lượt xoay lớp tương ứng — không còn chọn random như bản cũ.
  *
- * [SỬA — rà soát Rule 3, không ngoại lệ] TRƯỚC ĐÂY `drawRubik(ctx, isPlaying)` tự `appState.get()`
- * (Rule 2, ~7 khoá) + tự gọi `getActiveEffectConfig()`/`getComputedColor()`/`rotate3D()`/
- * `project3D()`/`rotateRubikIndices()` (Rule 3 — `rotate3D`/`project3D`/`rotateRubikIndices` ở
- * KHÁC file, core/rubik-math.js, và dù cùng file cũng không đạt điều kiện Rule 3c vì KHÔNG tự chứa
- * vòng lặp). SỬA: `drawRubik()` xoá hẳn. Workflow (`_tickRubik()`, event/workflow/
- * visualizer-render.js) tự gom appState/cfg TRƯỚC, tự vòng lặp gọi RIÊNG LẺ `rotate3D()`/
- * `project3D()`/`getComputedColor()`/`rotateRubikIndices()` cho từng đỉnh/khối — các hàm dưới đây
- * chỉ nhận toạ độ ĐÃ xoay/chiếu sẵn hoặc trả về toạ độ THÔ (trước khi xoay) để Workflow tự xoay.
+ * Workflow (`_tickRubik()`, event/workflow/visualizer/shape.js) gom state, tự lặp gọi riêng `rotate3D()`/`project3D()`
+ * (core/rubik-math.js), `workflowVisualizerRender.colorAt()`, `rotateRubikIndices()` cho từng đỉnh/khối — các hàm dưới đây chỉ
+ * nhận toạ độ đã xoay/chiếu sẵn hoặc trả toạ độ thô để Workflow tự xoay.
  * `rubikRotX`/`rubikRotY`/`rubikAnim`/`rubikSelfSpinDirX/Y`/`rubikLastTurnNote` là biến module-level
  * (khai báo ở `core/dom-refs.js`, tự ghi chú "KHÔNG thuộc STATE") — đọc/ghi trực tiếp KHÔNG vi phạm
  * Rule 2 (rule chỉ cấm `appState.get()`), Workflow cũng đọc trực tiếp được (cùng phạm vi global).
@@ -110,7 +105,7 @@ function computeRubikVertexLocalPos(pos, uv, cubeSize, scale) {
 
 /** Vẽ 6 mặt khối (chỉ mặt quay ra ngoài, test `crossZ > 0` giống hệt bản gốc) từ 8 đỉnh ĐÃ CHIẾU
  * (`projVerts`, toạ độ màn hình — Workflow tự `rotate3D()`/`project3D()` sẵn) + màu ĐÃ resolve sẵn
- * (Workflow tự `getComputedColor()` sẵn). Chỉ gọi Canvas API (không tính Rule 3). */
+ * (Workflow tự `colorAt()` sẵn). Chỉ gọi Canvas API (không tính Rule 3). */
 function paintRubikCubeFaces(ctx, projVerts, fillColor, dpr) {
     ctx.lineWidth = 1.5 * dpr;
     ctx.lineJoin = 'round';

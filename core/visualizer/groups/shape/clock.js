@@ -17,7 +17,7 @@
  *   - Kim: giờ thật của máy (mặc định) hoặc thời gian đã phát của bài (kiểu bấm giờ).
  *
  * SỬA (26/09/2026, Giang, lượt 2):
- *   - Màu: mọi phần giờ đọc đúng {fill, glow} của getComputedColor() (trước đây truyền nguyên object vào
+ *   - Màu: mọi phần giờ đọc đúng {fill, glow} của colorAt() (trước đây truyền nguyên object vào
  *     fillStyle -> canvas bỏ qua, color mode không ăn). Có phát sáng theo khối Blur (glowPx) của Custom Effect.
  *   - Kim giây chạy trơn (bỏ kiểu nhảy nấc). Chế độ 'track' làm mượt currentTime (lượt 5 đã bỏ chế độ này).
  *   - (lượt 2, đã thay ở lượt 4) Bánh răng xếp trên 1 vòng sát mép; kính phủ kín mặt số (paintClockGlass/
@@ -49,9 +49,9 @@
  * BỎ hẳn cơ chế lật "Moving flip" của thân đồng hồ (advanceClockFlip() + toggle clockFlip).
  * SỬA (lượt 9b, Giang) — 4 vòng cùng 1 bán kính, chỉnh chung bằng `clockRingRadius` (CLOCK_ORBIT_RADII).
  *
- * THUẦN, không side-effect, không đọc appState/getActiveEffectConfig, không gọi hàm tự viết khác (Rule
+ * THUẦN, không side-effect, không đọc appState/config effect, không gọi hàm tự viết khác (Rule
  * 1/2/3) — Workflow `_tickClock()` (event/workflow/visualizer-render.js) gom state, cache hình học, resolve
- * màu qua getComputedColor() rồi gọi RIÊNG LẺ từng hàm dưới đây.
+ * màu qua colorAt() rồi gọi RIÊNG LẺ từng hàm dưới đây.
  */
 
 /** Bánh răng phủ kín mặt số — SỬA (26/09/2026, lượt 4, Giang: "bánh răng vẫn đè lên nhau" + "thêm bánh răng
