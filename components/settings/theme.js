@@ -1,14 +1,14 @@
 /**
  * Component: màn Settings > System > Theme — select "Color" (Light/Dark/Morphin) và, chỉ khi Color = Morphin, cụm 3 card nền
  * (None / Gradient / Background media) + hàng "Panel glass" (2 slider kính Playlist chính, chỉ hiện khi đang dùng nền media).
- * Card "Player control" (mọi Color): kiểu nền + độ đục của Bottom Player, có khung xem trước — computePlayerControlView()
- * (core/player-control-style.js), wire/vá: core/player-control-settings-ui.js.
+ * Card "Player control" (mọi Color): kiểu nền, độ đục, bìa trong nút Play, vị trí phụ đề của Bottom Player, có khung xem
+ * trước — computePlayerControlView() (core/player-control-style.js), wire/vá: core/player-control-settings-ui.js.
  *
  * Logic: event/workflow/app-settings.js (_renderTheme) + event/workflow/theme.js. Trạng thái card: computeThemeBackgroundView()
  * (core/theme-background.js). Wiring: core/app-settings-ui.js::wireAppSettingsTheme(), core/theme-background-ui.js::
  * wireThemeBackgroundCards(); vá tại chỗ: patchThemeBackgroundCards() (giữ đúng các `data-theme-bg-*`/id dưới đây).
  * NẠP SAU: lang/lang.js (t), core/ui-theme/icon-svg-ui.js (iconSvg). Lúc chạy: core/theme-background.js (THEME_GLASS_*),
- * core/player-control-style.js (PLAYER_CONTROL_OPACITY_*).
+ * core/player-control-style.js (PLAYER_CONTROL_OPACITY_*, PLAYER_CONTROL_SUBTITLE_GAP_*).
  */
 
 /** Thân màn Theme. @param {string[]} themeNames - getSelectableUiThemeNames() @param {string} activeUiTheme
@@ -33,25 +33,40 @@ function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml, p
 }
 
 /** Card "Player control" — khung xem trước (nền giả lập Visualizer + thanh điều khiển thu nhỏ, cùng CSS bề mặt + key `pc*`
- * với Bottom Player thật; Shuffle vẽ ở trạng thái bật), nút kiểu nền, slider độ đục. Kiểu nền/độ đục/màu effect của khung xem trước là slot — gán qua
- * patchPlayerControlSettings() (core/player-control-settings-ui.js) sau khi dựng. @param {ReturnType<typeof computePlayerControlView>} view
- * @returns {string} */
+ * với Bottom Player thật; Shuffle vẽ ở trạng thái bật), nút kiểu nền, slider độ đục, công tắc bìa trong nút Play, vị trí phụ
+ * đề (Inside/Outside) + slider khoảng cách (chỉ Outside). Thuộc tính khung xem trước là slot — gán qua
+ * patchPlayerControlSettings() (core/player-control-settings-ui.js) sau khi dựng.
+ * @param {ReturnType<typeof computePlayerControlView>} view @returns {string} */
 function renderPlayerControlSettingsHtml(view) {
-    const styleButtons = view.items.map((item) => `<button type="button" data-pc-style-pick="${item.style}" aria-pressed="${item.selected}" class="h-8 px-3 rounded-full text-xs font-semibold transition-colors" data-uitk="${item.uitk}" data-i18n="${item.labelKey}">${t(item.labelKey)}</button>`).join('');
+    const pickBtn = (attr, value, item) => `<button type="button" ${attr}="${value}" aria-pressed="${item.selected}" class="h-8 px-3 rounded-full text-xs font-semibold transition-colors" data-uitk="${item.uitk}" data-i18n="${item.labelKey}">${t(item.labelKey)}</button>`;
+    const styleButtons = view.items.map((item) => pickBtn('data-pc-style-pick', item.style, item)).join('');
+    const subtitleButtons = view.subtitleItems.map((item) => pickBtn('data-pc-sub-pick', item.placement, item)).join('');
+    const sliderRow = (rowId, labelKey, inputId, min, max, value, unit, visible) => `
+                    <div id="${rowId}" class="${visible ? '' : 'hidden'}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs" data-uitk="textSecondary" data-i18n="${labelKey}">${t(labelKey)}</span>
+                            <span id="${inputId}-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${value}${unit}</span>
+                        </div>
+                        <input type="range" id="${inputId}" min="${min}" max="${max}" step="1" value="${value}" class="w-full ce-slider">
+                    </div>`;
     return `
                 <div id="player-control-settings" class="rounded-2xl flex flex-col gap-3 px-4 py-4" data-uitk="cardBg cardBorder">
                     <p class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.playerControl.section">${t('appSettings.theme.playerControl.section')}</p>
                     <div class="pc-preview" data-pc-preview aria-hidden="true">
                         <div class="pc-surface group" data-pc-preview-surface>
-                            <div class="pc-preview-info">
-                                <div class="pc-preview-art"></div>
-                                <div class="pc-preview-lines"><div class="pc-preview-line bg-current" data-uitk="pcText"></div><div class="pc-preview-line bg-current" data-uitk="pcAccentText"></div></div>
-                            </div>
+                            <div class="pc-preview-sub pc-preview-sub-out"></div>
+                            <div class="pc-preview-sub pc-preview-sub-in"></div>
+                            <div class="pc-preview-title bg-current" data-uitk="pcText"></div>
                             <div class="pc-preview-track"><div class="pc-preview-fill"></div><div class="pc-preview-thumb"></div></div>
+                            <div class="pc-preview-meta">
+                                <span class="pc-preview-meta-time bg-current" data-uitk="pcText"></span>
+                                <span class="pc-preview-meta-artist bg-current" data-uitk="pcText"></span>
+                                <span class="pc-preview-meta-time bg-current" data-uitk="pcTextMuted"></span>
+                            </div>
                             <div class="pc-preview-controls">
-                                <span class="pc-preview-btn" aria-pressed="true" data-uitk="pcToggleBtn">${iconSvg('switch-horizontal', 'w-3 h-3')}</span>
+                                <span class="pc-preview-btn" aria-pressed="true" data-uitk="pcToggleBtn">${iconSvg('switch-horizontal', 'pc-icon-off w-3 h-3')}${iconSvg('shuffle', 'pc-icon-on w-3 h-3')}</span>
                                 <span class="pc-preview-btn" data-uitk="pcIconBtn">${iconSvg('rewind', 'w-3.5 h-3.5')}</span>
-                                <span class="pc-preview-btn pc-preview-play" data-uitk="pcPlayBtn">${iconSvg('play', 'w-3 h-3 ml-px')}</span>
+                                <span class="pc-preview-btn pc-preview-play" data-uitk="pcPlayBtn"><span class="pc-preview-cover"></span>${iconSvg('play', 'pc-play-icon w-3 h-3 ml-px')}</span>
                                 <span class="pc-preview-btn" data-uitk="pcIconBtn">${iconSvg('fast-forward', 'w-3.5 h-3.5')}</span>
                                 <span class="pc-preview-btn" aria-pressed="false" data-uitk="pcToggleBtn">${iconSvg('repeat', 'w-3 h-3')}</span>
                             </div>
@@ -61,13 +76,19 @@ function renderPlayerControlSettingsHtml(view) {
                         <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.background">${t('appSettings.theme.playerControl.background')}</span>
                         <div class="flex flex-wrap gap-2 mt-2">${styleButtons}</div>
                     </div>
-                    <div id="player-control-opacity-row" class="${view.showOpacity ? '' : 'hidden'}">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.opacity">${t('appSettings.theme.playerControl.opacity')}</span>
-                            <span id="player-control-opacity-value" class="text-xs font-mono tabular-nums" data-uitk="accentText">${view.opacityPct}%</span>
-                        </div>
-                        <input type="range" id="player-control-opacity" min="${PLAYER_CONTROL_OPACITY_MIN_PCT}" max="${PLAYER_CONTROL_OPACITY_MAX_PCT}" step="1" value="${view.opacityPct}" class="w-full ce-slider">
+                    ${sliderRow('player-control-opacity-row', 'appSettings.theme.playerControl.opacity', 'player-control-opacity', PLAYER_CONTROL_OPACITY_MIN_PCT, PLAYER_CONTROL_OPACITY_MAX_PCT, view.opacityPct, '%', view.showOpacity)}
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.coverPlay">${t('appSettings.theme.playerControl.coverPlay')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="player-control-cover" class="sr-only peer" ${view.coverOn ? 'checked' : ''}>
+                            <div class="w-9 h-5 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner" data-uitk="toggleTrackOff toggleTrackOn"></div>
+                        </label>
                     </div>
+                    <div>
+                        <span class="text-xs" data-uitk="textSecondary" data-i18n="appSettings.theme.playerControl.subtitle">${t('appSettings.theme.playerControl.subtitle')}</span>
+                        <div class="flex flex-wrap gap-2 mt-2">${subtitleButtons}</div>
+                    </div>
+                    ${sliderRow('player-control-sub-gap-row', 'appSettings.theme.playerControl.subtitleGap', 'player-control-sub-gap', PLAYER_CONTROL_SUBTITLE_GAP_MIN_PX, PLAYER_CONTROL_SUBTITLE_GAP_MAX_PX, view.subtitleGapPx, 'px', view.showSubtitleGap)}
                 </div>`;
 }
 
