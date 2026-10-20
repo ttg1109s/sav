@@ -62,7 +62,7 @@
                 // hiện/có ý nghĩa khi field khác 'none'. field='none' -> chỉ còn displaySortMode
                 // (trục tên/ngày) quyết định, hành vi CŨ giữ nguyên. field khác 'none' -> LÀ trục
                 // CHÍNH, displaySortMode chỉ còn vai trò phá thế bằng (tie-break) khi bằng nhau —
-                // xem core/playlist/order.js::sortKeysByMode().
+                // xem workflowPlaylistOrder.sortKeys().
                 displayStatSortField: 'string',
                 displayStatSortDirection: 'string',
                 // MỚI (Filter subpanel, mục 1d) — CHỈ áp dụng lúc playlistOrder được TÍNH LẠI (boot/
