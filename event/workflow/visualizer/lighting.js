@@ -32,12 +32,12 @@ const FIREWORKS_PARTICLE_BY_STATUS = {
 /** Màu 1 spec hạt: màu cố định có sẵn hay tra color mode theo colorArgs. */
 const FIREWORKS_SPEC_COLOR_BY_FIXED = {
     true: (spec) => spec.fixedColor,
-    false: (spec) => getComputedColor(...spec.colorArgs).fill, // core/visualizer/effect-paint.js
+    false: (spec) => workflowVisualizerRender.colorAt(...spec.colorArgs).fill, // event/workflow/visualizer-render.js
 };
 
 /** Tuỳ chọn hạt: có màu đích (hiệu ứng "ghost" đổi màu giữa vòng đời) hay giữ nguyên. */
 const FIREWORKS_SPEC_OPTIONS_BY_TARGET = {
-    true: (spec) => ({ ...spec.options, targetColor: getComputedColor(...spec.targetColorArgs).fill }), // core
+    true: (spec) => ({ ...spec.options, targetColor: workflowVisualizerRender.colorAt(...spec.targetColorArgs).fill }), // core
     false: (spec) => spec.options,
 };
 
@@ -90,7 +90,7 @@ const workflowVizLighting = {
     _spawnBolt(frame, energySpike) {
         const cfg = frame.cfg;
         if (!shouldSpawnLightningBolt(frame.isPlaying, energySpike, cfg.boltThreshold, cfg.boltSpawnChance, appState.get('activeLightnings').length, cfg.maxBoltCount)) return; // core
-        const color = getComputedColor(Math.floor(Math.random() * 10), 10, 255); // core/visualizer/effect-paint.js
+        const color = workflowVisualizerRender.colorAt(Math.floor(Math.random() * 10), 10, 255); // event/workflow/visualizer-render.js
         const bolt = createLightningBolt(frame.canvas.width, frame.canvas.height, frame.dpr, cfg.boltHorizontalDeviation, cfg.boltSegmentLength, color); // core
         appState.mutate('activeLightnings', (arr) => arr.push(bolt), { skipCheck: true });
     },
@@ -184,7 +184,7 @@ const workflowVizLighting = {
         const targetX = Math.random() * (canvas.width * 0.8) + canvas.width * 0.1;
         const rawStartX = targetX + (Math.random() - 0.5) * canvas.width * 0.35;
         const startX = Math.min(canvas.width * 0.95, Math.max(canvas.width * 0.05, rawStartX));
-        const color = getComputedColor(0, 1, 0).fill; // core/visualizer/effect-paint.js
+        const color = workflowVisualizerRender.colorAt(0, 1, 0).fill; // event/workflow/visualizer-render.js
         const binRange = FIREWORKS_SIZE_BIN_MAX - FIREWORKS_SIZE_BIN_MIN;
         this._fwNextBinIndex = FIREWORKS_SIZE_BIN_MIN + ((this._fwNextBinIndex - FIREWORKS_SIZE_BIN_MIN + 7) % binRange);
         const rocket = createFireworksRocket(startX, canvas.height, targetX, targetY, style, color, depthScale, this._fwNextBinIndex, beatScale || 0); // core

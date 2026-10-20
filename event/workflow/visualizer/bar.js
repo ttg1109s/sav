@@ -48,10 +48,10 @@ const BAR_DOT_IMPACT_COLOR_BY_TWO_COLOR = {
 };
 
 /** Dot: màu từng dot — SỬA (28/09/2026, Giang "mode màu thứ 3 hiển cả dải màu như các bar effect"): mode gradient
- * trải dải màu theo VỊ TRÍ dot (getComputedColor(i, dotCount, mức phồng) — cùng cách bar mirror/cascade tô), các mode
+ * trải dải màu theo VỊ TRÍ dot (workflowVisualizerRender.colorAt(i, dotCount, mức phồng) — cùng cách bar mirror/cascade tô), các mode
  * khác dùng 1 màu chung như cũ. */
 const BAR_DOT_COLORS_BY_GRADIENT = {
-    true: (dotCount, smoothed) => Array.from({ length: dotCount }, (_, i) => getComputedColor(i, dotCount, 128 + 127 * Math.min(1, smoothed[i]))), // core/visualizer/effect-paint.js
+    true: (dotCount, smoothed) => Array.from({ length: dotCount }, (_, i) => workflowVisualizerRender.colorAt(i, dotCount, 128 + 127 * Math.min(1, smoothed[i]))), // event/workflow/visualizer-render.js
     false: (dotCount, smoothed, shared) => new Array(dotCount).fill(shared),
 };
 
@@ -112,7 +112,7 @@ const workflowVizBar = {
         const { ctx, canvas, cfg, dpr } = frame;
         const keys = computeBarCascadeFrame(cfg, canvas.width, canvas.height, dpr, frame.audio.spectrum(BAR_FFT_SIZE)); // core
         keys.forEach((k) => {
-            const color = getComputedColor(...k.colorArgs); // core/visualizer/effect-paint.js
+            const color = workflowVisualizerRender.colorAt(...k.colorArgs); // event/workflow/visualizer-render.js
             paintBarRects(ctx, [k.shadowRect, k.capRect], color.fill, color.glow, dpr, frame.perf.blurMult, 10); // core
         });
         ctx.shadowBlur = 0;
@@ -164,7 +164,7 @@ const workflowVizBar = {
         const cfg = frame.cfg;
         if (!frame.isPlaying || frame.audio.smoothedEnergy() <= cfg.flareThreshold) return;
         const flareAlpha = (frame.audio.smoothedEnergy() - cfg.flareThreshold) * 2.5;
-        const rgb = resolveBlackHoleRgb(frame.ctx, getComputedColor(0, 1, Math.round(frame.audio.smoothedEnergy() * 255)).glow); // core + core/visualizer/effect-paint.js
+        const rgb = resolveBlackHoleRgb(frame.ctx, workflowVisualizerRender.colorAt(0, 1, Math.round(frame.audio.smoothedEnergy() * 255)).glow); // core + core/visualizer/effect-paint.js
         paintBlackHoleFlare(frame.ctx, frame.canvas.width, frame.canvas.height, centerX, centerY, currentRadius, rgb, flareAlpha); // core
     },
 
@@ -186,7 +186,7 @@ const workflowVizBar = {
     /** Bảng màu Color mode dọc thân tia (tâm -> mép), dạng "r, g, b" — resolve 1 lần/frame, chỉ khi có tia. */
     _resolveHawkingPalette(frame) {
         if (this._blackHole.bursts.length === 0) return [];
-        return Array.from({ length: BLACK_HOLE_BURST_PALETTE_SIZE }, (_, k) => resolveBlackHoleRgb(frame.ctx, getComputedColor(k, BLACK_HOLE_BURST_PALETTE_SIZE, 200).glow)); // core + core/visualizer/effect-paint.js
+        return Array.from({ length: BLACK_HOLE_BURST_PALETTE_SIZE }, (_, k) => resolveBlackHoleRgb(frame.ctx, workflowVisualizerRender.colorAt(k, BLACK_HOLE_BURST_PALETTE_SIZE, 200).glow)); // core + core/visualizer/effect-paint.js
     },
 
     /** Vẽ 1 nửa (sau/trước) của mọi tia đang bay — mỗi nửa dài tới hết mép màn hình theo góc của nó: dải nhiệt (shadowBlur)
@@ -240,7 +240,7 @@ const workflowVizBar = {
         bh.meanHeight = computeBlackHoleMeanBarHeight(bars); // core — frame sau đếm cột theo đầu cột
         // Cột tô màu ĐẶC (fillNoAlpha) để cột trên che hẳn cột dưới (29/09/2026).
         const colors = bars.map((b) => {
-            const c = getComputedColor(...b.colorArgs); // core/visualizer/effect-paint.js
+            const c = workflowVisualizerRender.colorAt(...b.colorArgs); // event/workflow/visualizer-render.js
             return { fill: c.fillNoAlpha, glow: c.glow };
         });
         const entries = orderBlackHoleBarsClockwise(bars, colors); // core
@@ -288,7 +288,7 @@ const workflowVizBar = {
         const levels = spreadBarMirrorLevels(rawLevels, cfg.mirrorSmoothSpread); // core
         const mirrorFrame = computeBarMirrorFrame(cfg, canvas.width, canvas.height, dpr, levels); // core
         mirrorFrame.bars.forEach((b) => {
-            const color = getComputedColor(...b.colorArgs); // core/visualizer/effect-paint.js
+            const color = workflowVisualizerRender.colorAt(...b.colorArgs); // event/workflow/visualizer-render.js
             paintBarRects(ctx, b.rects, color.fill, color.glow, dpr, frame.perf.blurMult, 15); // core
         });
         ctx.shadowBlur = 0;
@@ -334,7 +334,7 @@ const workflowVizBar = {
         const vibrate = !moving && dnaMax <= 0 && base.shape === 'line' && cfg.dotLineVibrate !== false; // DNA còn dở (đang nhập lại) thì chưa rung
         const vibAmpPx = BAR_DOT_VIBRATION_BY_ON[vibrate](frame, dt);
 
-        const color = getComputedColor(0, 1, 128); // core/visualizer/effect-paint.js
+        const color = workflowVisualizerRender.colorAt(0, 1, 128); // event/workflow/visualizer-render.js
         const colors = BAR_DOT_COLORS_BY_GRADIENT[cfg.mode === 'gradient'](dotCount, dot.smoothed, color);
         const mode = cfg.dotImpactMode === 'height' ? 'height' : 'radius';
         const paint = {

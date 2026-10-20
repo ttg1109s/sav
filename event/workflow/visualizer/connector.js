@@ -126,7 +126,7 @@ const workflowVizConnector = {
         const slots = buildCircuitPinSlots(metrics, pinTotal); // core
         const chipGeometry = buildChipGeometry(metrics, slots); // core
         const chips = cube.cells.map((cell, i) => {
-            const colorHex = new THREE.Color(getComputedColor(i, cube.cells.length, 128).fillNoAlpha).getHex(); // core/visualizer/effect-paint.js
+            const colorHex = new THREE.Color(workflowVisualizerRender.colorAt(i, cube.cells.length, 128).fillNoAlpha).getHex(); // event/workflow/visualizer-render.js
             const chip = assembleCircuitChip(cell, i, colorHex, createChipMesh(colorHex, chipGeometry, cube.spacing * 0.9), slots); // core
             attachThreeChild(group, chip.group); // core
             return chip;
@@ -302,7 +302,7 @@ const workflowVizConnector = {
 
         // Lượt 1: màu + năng lượng dải tần + độ tăng của MỌI chip (lượt 2 cần biết dải nào đang onset để chọn chân).
         chips.forEach((chip, i) => {
-            applyChipLiveColor(chip, getComputedColor(i, chips.length, 128).fillNoAlpha); // core/visualizer/groups/connector/circuit.js + effect-paint.js
+            applyChipLiveColor(chip, workflowVisualizerRender.colorAt(i, chips.length, 128).fillNoAlpha); // core/visualizer/groups/connector/circuit.js + effect-paint.js
             const rawPeak = computeBinRangePeak(spectrum, tonotopicBinRange(i, chips.length, spectrum.length)); // core/visualizer/tonotopic.js
             this._rebaselineWhenSettling(chip, rawPeak, wf.isSettling);
             chip.frameEnergy = applyTonotopicSmoothing(chip, rawPeak, i, chips.length); // core

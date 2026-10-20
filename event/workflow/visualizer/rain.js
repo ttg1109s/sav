@@ -16,6 +16,14 @@ const RAIN_GLASS_WINDOW_COLOR_BY_LIT = {
     false: (litColor) => resolveRainCityOffColor(litColor.h, litColor.s, litColor.l), // core
 };
 
+/** Màu cửa SÁNG (glass) theo luật màu (resolveEffectColorRule(), core/visualizer/effect-paint.js) — mỗi luật 1 core riêng. */
+const RAIN_CITY_LIT_COLOR_BY_RULE = {
+    gradient: (p, t, value) => resolveRainCityLitColorHsl(p.hueOffset, t, value), // core
+    palette: (p, t, value) => resolveRainCityLitColorFromRgb(computeGradientPaletteRgb(p.gradientRgb, p.hueOffset, t, value)), // core + core/visualizer/effect-paint.js
+    dynamic: (p, t) => resolveRainCityLitColorFromRgb(interpolateRgb(p.dynA, p.dynB, t)), // core + core/color-utils.js
+    solid: (p) => resolveRainCityLitColorFromRgb(p.solid), // core
+};
+
 /** Nền mặt đường (street) theo color mode — mode lạ dùng nền tối mặc định (nhánh `else` cũ). */
 const RAIN_STREET_GROUND_STOPS_BY_MODE = {
     solid: (cfg) => [{ offset: 0, color: interpolateColor('#0f141c', cfg.solidColor, 0.08) }, { offset: 1, color: '#08090f' }], // core/color-utils.js
@@ -102,10 +110,12 @@ const workflowVizRain = {
         const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
         const cityFrame = computeRainCityFrame(canvas.width, canvas.height, appState.get('cityBuildings'), dpr, vizDataArray, isPlaying); // core
         const palette = {
-            mode: cfg.mode, solid: hexToRgb(cfg.solidColor), dynA: hexToRgb(cfg.dynA), dynB: hexToRgb(cfg.dynB), // core/color-utils.js
+            solid: hexToRgb(cfg.solidColor), dynA: hexToRgb(cfg.dynA), dynB: hexToRgb(cfg.dynB), // core/color-utils.js
+            gradientRgb: cfg.gradientPaletteRgb,
             hueOffset: frame.audio.hueOffset(),
         };
-        const windowColors = cityFrame.windows.map((w) => RAIN_GLASS_WINDOW_COLOR_BY_LIT[!!w.lit](resolveRainCityLitColor(palette, w.t, w.value))); // core
+        const litColorOf = RAIN_CITY_LIT_COLOR_BY_RULE[resolveEffectColorRule(cfg)]; // core/visualizer/effect-paint.js
+        const windowColors = cityFrame.windows.map((w) => RAIN_GLASS_WINDOW_COLOR_BY_LIT[!!w.lit](litColorOf(palette, w.t, w.value)));
         paintRainCity(ctx, cityFrame, windowColors, cityOpacity); // core
     },
 
@@ -150,7 +160,7 @@ const workflowVizRain = {
         const streetLamps = appState.get('streetLamps');
         const lampSpecs = advanceRainLampsAndBuildSpecs(streetLamps, isPlaying, beatScale, dpr); // core
         lampSpecs.forEach((spec) => {
-            const lampColor = getComputedColor(...spec.colorArgs); // core/visualizer/effect-paint.js
+            const lampColor = workflowVisualizerRender.colorAt(...spec.colorArgs); // event/workflow/visualizer-render.js
             const lampFill = workflowVisualizerRender.modeColor(cfg, spec.colorArgs[0], lampColor.fill, 'gradient');
             paintRainLamp(ctx, spec, lampFill, dpr); // core
         });
@@ -166,7 +176,7 @@ const workflowVizRain = {
         if (Math.random() <= 0.92) return;
         const mainLamp = streetLamps.find((l) => l.main);
         if (!mainLamp) return;
-        const rippleColor = getComputedColor(0, 1, 200); // core/visualizer/effect-paint.js
+        const rippleColor = workflowVisualizerRender.colorAt(0, 1, 200); // event/workflow/visualizer-render.js
         spawnRainRipple(mainLamp.x, groundY, frame.canvas.height, frame.dpr, rippleColor.fill, rippleColor.glow); // core
     },
 };

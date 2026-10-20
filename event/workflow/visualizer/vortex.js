@@ -211,7 +211,7 @@ const workflowVizVortex = {
             placeVortexRingZ(ring, wrapVortexObjectZ(ring.position.z, motion.tWarpSpeed * VORTEX_RINGS_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (rings.js + common.js)
             const center = getVortexCenterAt(ring.position.z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
             const val = spectrum[idx % spectrum.length] || 0;
-            const color = getComputedColor(idx, tRings.length, val); // core/visualizer/effect-paint.js
+            const color = workflowVisualizerRender.colorAt(idx, tRings.length, val); // event/workflow/visualizer-render.js
             const colorToApply = workflowVisualizerRender.modeColor(cfg, idx, color.fill, 'solid');
             finishVortexRingFrame(ring, center, val, frame.audio.smoothedEnergy(), colorToApply); // core
         });
@@ -230,7 +230,7 @@ const workflowVizVortex = {
             const z = tBarRingZs[r];
             const center = getVortexCenterAt(z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
             const val = spectrum[r % 40] || 0;
-            const color = getComputedColor(r, barsRingCount, val); // core/visualizer/effect-paint.js
+            const color = workflowVisualizerRender.colorAt(r, barsRingCount, val); // event/workflow/visualizer-render.js
             const threeColor = new THREE.Color(workflowVisualizerRender.modeColor(cfg, r, color.fill, 'solid'));
             computeVortexBarsRingFrame(dummy, tBarsMesh, r, barsPerRing, z, center, val, frame.audio.smoothedEnergy(), twistPerRing, globalTwist, threeColor); // core
         }
@@ -252,7 +252,7 @@ const workflowVizVortex = {
             placeVortexWaveZ(wave, wrapVortexObjectZ(wave.position.z, motion.tWarpSpeed * VORTEX_WAVE_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (wave.js + common.js)
             const center = getVortexCenterAt(wave.position.z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
             const val = spectrum[idx % spectrum.length] || 0;
-            const color = getComputedColor(idx, tWaveMeshes.length, val); // core/visualizer/effect-paint.js
+            const color = workflowVisualizerRender.colorAt(idx, tWaveMeshes.length, val); // event/workflow/visualizer-render.js
             const colorToApply = workflowVisualizerRender.modeColor(cfg, idx, color.fill, 'solid');
             finishVortexWaveFrame(wave, center, cfg.waveRotationBase, cfg.waveRotationEnergyMult, cfg.waveScaleBase, cfg.waveScaleEnergyMult, frame.audio.smoothedEnergy(), colorToApply); // core
         });

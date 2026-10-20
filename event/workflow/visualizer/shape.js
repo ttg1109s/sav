@@ -97,7 +97,7 @@ const workflowVizShape = {
 
         drawnCubes.sort((a, b) => b.centerZ - a.centerZ);
         drawnCubes.forEach((c) => {
-            const colors = getComputedColor(c.rc.binIdx, 27, c.val); // core/visualizer/effect-paint.js
+            const colors = workflowVisualizerRender.colorAt(c.rc.binIdx, 27, c.val); // event/workflow/visualizer-render.js
             const inTurningLayer = rubikAnim.active && c.rc['c' + rubikAnim.axis] === rubikAnim.layer;
             const projVerts = RUBIK_UNIT_VERTICES.map((uv) => {
                 const vertPos = RUBIK_VERTEX_BY_LAYER_TURN[inTurningLayer](computeRubikVertexLocalPos(c.pos, uv, cubeSize, c.scale), c); // core
@@ -154,7 +154,7 @@ const workflowVizShape = {
         clock.pendulum = advanceClockPendulum(clock.pendulum, dt, cfg.clockPendulumEnabled !== false, isPlaying, smoothedEnergy, jam); // core
         const caseR = dialR * (caseVisible ? 1.08 : 1.0);
         const pl = computeClockPendulumLayout(H, dialR, clock.pendulum.progress, caseVisible, caseR, 1, cfg.clockPendulumLength); // core
-        const caseColor = getComputedColor(0, 1, 200); // core/visualizer/effect-paint.js
+        const caseColor = workflowVisualizerRender.colorAt(0, 1, 200); // event/workflow/visualizer-render.js
         const paint = { ctx, cfg, dpr, dialR, glowPx, caseColor, isPlaying, smoothedEnergy, beatScale };
 
         this._syncClockBackground(cfg);
@@ -168,13 +168,13 @@ const workflowVizShape = {
 
         ctx.save();
         clock.layout.gears.forEach((g, i) => {
-            const color = getComputedColor(i, gearCount + 1, levels[i]); // core/visualizer/effect-paint.js
+            const color = workflowVisualizerRender.colorAt(i, gearCount + 1, levels[i]); // event/workflow/visualizer-render.js
             paintClockGear(ctx, g, clock.outlines[i], gearAngles[i], color.fill, color.glow, glowPx, levels[i] / 255, dpr); // core
         });
         const balLevel = levels[gearCount] / 255;
         const swing = Math.sin(clock.drive.balancePhase) * (0.5 + (isPlaying ? smoothedEnergy : 0) * 1.6) + jitter.gear * 3;
         const escapeGear = clock.layout.gears.find((g) => g.ratchet);
-        const balColor = getComputedColor(gearCount, gearCount + 1, levels[gearCount]); // core/visualizer/effect-paint.js
+        const balColor = workflowVisualizerRender.colorAt(gearCount, gearCount + 1, levels[gearCount]); // event/workflow/visualizer-render.js
         paintClockBalance(ctx, clock.layout.balance, escapeGear, swing, balColor.fill, balColor.glow, glowPx, balLevel, dpr); // core
 
         const glassVisible = cfg.clockGlassVisible !== false;
@@ -235,7 +235,7 @@ const workflowVizShape = {
     _paintClockTicks(paint) {
         if (paint.cfg.clockTicksVisible === false) return;
         const glows = this._clock.tickGlow;
-        const tickColors = Array.from(glows, (g, i) => getComputedColor(i, 60, 150 + g * 105)); // core/visualizer/effect-paint.js
+        const tickColors = Array.from(glows, (g, i) => workflowVisualizerRender.colorAt(i, 60, 150 + g * 105)); // event/workflow/visualizer-render.js
         paintClockTicks(paint.ctx, paint.dialR, glows, tickColors, paint.glowPx, paint.dpr); // core
     },
 
