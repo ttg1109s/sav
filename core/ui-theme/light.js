@@ -228,7 +228,8 @@ const UI_THEME_LIGHT = {
 //
 // CẬP NHẬT (23/09/2026, rà soát theme toàn app) — phần App Panel (Settings, drawer feature, modal, Playlist, Game, Storage...) đã
 // chuyển hết màu sang `data-uitk`; thêm key inputBorderColor/successText/cautionText/hoverAccentSoftBg/insetBg/dangerSoftSurface/
-// cautionSoftSurface/selectionTintBg/themeVars + nhóm iconHue/iconTone/chipTone. CỐ Ý GIỮ class cứng: UI phía Visualizer (bottom player,
-// Control Center, overlay, photo editor, effect picker, phụ đề), subtitle-editor.html, và màu NHẬN DIỆN dữ liệu (thanh/legend Storage,
+// cautionSoftSurface/selectionTintBg/themeVars + nhóm iconHue/iconTone/chipTone. CỐ Ý GIỮ class cứng: UI phía Visualizer còn lại (overlay Game/Ghi âm,
+// photo editor, effect picker, phụ đề) — Bottom Player, 2 nút tròn trên cùng, Control Center và Volume/Speed HUD theo theme qua bộ
+// biến `--viz-*` (assets/css/glass.css, 20/10/2026), subtitle-editor.html, và màu NHẬN DIỆN dữ liệu (thanh/legend Storage,
 // loại media Statistics, cover game, nút Áp dụng/Gỡ xanh-đỏ của Motion, chấm cảnh báo kết quả quét Storage).
 
