@@ -21,17 +21,26 @@
  * service/db.js, lang/lang.js, WaveSurfer.js (CDN) + Regions plugin (CDN), core/mp3-cut.js (Cut MP3).
  */
 
-// Cut MP3: sample rate giải mã khi nguồn KHÔNG phải MP3 (phải mã hoá lại) — 44.1 kHz chuẩn lamejs/MPEG1.
-const SUBTITLE_CUT_MP3_DECODE_SAMPLE_RATE = 44100;
-
-/** Cut MP3 theo nguồn (khoá = indexMp3Frames() có lập được bảng frame không): MP3 -> ghép frame gốc; khác -> mã hoá lại. */
-const SUBTITLE_CUT_MP3_BY_SOURCE = {
-    true: (bytes, index, startSec, endSec) => workflowSubtitleEditor._cutMp3Lossless(bytes, index, startSec, endSec),
-    false: (bytes, index, startSec, endSec) => workflowSubtitleEditor._cutMp3Reencode(startSec, endSec),
+/** Cut MP3 theo cách cắt (resolveCutMp3Plan(), core/mp3-cut.js): ghép frame gốc / giải mã + fade + mã hoá lại. */
+const SUBTITLE_CUT_MP3_BY_METHOD = {
+    frames: (job) => workflowSubtitleEditor._cutMp3Frames(job),
+    reencode: (job) => workflowSubtitleEditor._cutMp3Reencode(job),
 };
+
+/** Đích của file cắt (lựa chọn ở modal Cut). */
+const SUBTITLE_CUT_MP3_DELIVER_BY_TARGET = {
+    download: (cut, fileName) => workflowSubtitleEditor._downloadCutBlob(cut.blob, fileName),
+    insert: (cut, fileName) => workflowSubtitleEditor._insertCutBlobAsNewSong(cut.blob, fileName, cut.durationSec),
+};
+
+/** Tiêu đề time picker theo đầu fade. */
+const SUBTITLE_CUT_FADE_TITLE_KEY = { in: 'subtitleEditor.cutMp3.fadeInTitle', out: 'subtitleEditor.cutMp3.fadeOutTitle' };
+/** Đầu fade bên kia (fade tối đa = vùng chọn trừ fade bên kia). */
+const SUBTITLE_CUT_FADE_OTHER = { in: 'out', out: 'in' };
 
 const workflowSubtitleEditor = {
     _cutMp3Busy: false, // đang cắt — chặn bấm chồng
+    _cutFadeMs: { in: 0, out: 0 }, // Fade in/out của modal Cut (giữ trong phiên trang)
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
         const encoded = new URLSearchParams(window.location.search).get('song');
@@ -458,7 +467,7 @@ const workflowSubtitleEditor = {
      * sửa (nút start/end chỉ hiện trong chế độ đó). Xác nhận -> cập nhật PENDING + đồng bộ ngược
      * vào `_region`, KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
      * Wrapper mỏng của `core/time-picker-modal.js::openTimePickerModal()` (dùng chung): tính min/max/giá trị hiện tại
-     * theo GIÂY, quy đổi sang MILI GIÂY (đơn vị của modal), `format: 'h-m-s-ms'` (4 cột hh/mm/ss/x100ms), kết quả đổi
+     * theo GIÂY, quy đổi sang MILI GIÂY (đơn vị của modal), `format: 'h-m-s-ms'` (4 cột hh/mm/ss/ms 000-999), kết quả đổi
      * ngược về giây rồi cập nhật PENDING + đồng bộ `_region`.
      * @param {string} subId @param {'start'|'end'} kind @param {number} currentSeconds
      */
@@ -472,7 +481,7 @@ const workflowSubtitleEditor = {
 
         openTimePickerModal({ // core/time-picker-modal.js — DÙNG CHUNG
             title: kind === 'start' ? t('subtitleEditor.timePicker.titleStart') : t('subtitleEditor.timePicker.titleEnd'),
-            format: 'h-m-s-ms', // GIỮ NGUYÊN 4 cột hh/mm/ss/x100ms như bản gốc (xem docstring core, 'ms' = x100ms)
+            format: 'h-m-s-ms',
             valueMs: Math.max(0, Math.round(currentSeconds * 1000)),
             minMs: Math.round(minAllowed * 1000),
             maxMs: Math.round(maxAllowed * 1000),
@@ -1520,11 +1529,58 @@ const workflowSubtitleEditor = {
 
     // ============================== Toolbar: tool "Cut MP3" ==============================
 
-    /** Bấm "Cut" — cắt đúng vùng chọn thành file .mp3 rồi hiện modal Tải xuống/Chèn. Khoá nút suốt lúc cắt (chống bấm
-     * chồng). Nguồn đọc từ FILE GỐC của bài, không từ PCM 8000 Hz của waveform. */
-    async cutMp3FromRegion() {
+    /** Bấm "Cut" — mở modal Cut của vùng chọn hiện tại. Fade in/out giữ giá trị chọn gần nhất trong phiên trang (Huỷ time
+     * picker thì bấm Cut lại vẫn còn). */
+    cutMp3FromRegion() {
         const s = appState.get(['_region', '_record']);
         if (!s._region || !s._record || !s._record.blob || this._cutMp3Busy) return;
+        this._showCutOptionsModal();
+    },
+
+    /** Modal Cut (modalChoice() — core/modal-choice-ui.js): đoạn cắt + Fade in/out hiện tại; lựa chọn Fade in / Fade out
+     * (mở time picker, xong quay lại modal này), Tải xuống, Thêm vào thư viện. */
+    _showCutOptionsModal() {
+        const region = appState.get('_region');
+        const fade = this._cutFadeMs;
+        modalChoice(
+            tFormat('subtitleEditor.cutMp3.resultDesc', {
+                start: secToStr(region.start), end: secToStr(region.end), // core/subtitle/subtitles.js
+                fadeIn: formatCutFadeSeconds(fade.in), fadeOut: formatCutFadeSeconds(fade.out), // core/mp3-cut.js
+            }),
+            [
+                { label: tFormat('subtitleEditor.cutMp3.fadeInChoice', { value: formatCutFadeSeconds(fade.in) }), onClick: () => this._pickCutFade('in') },
+                { label: tFormat('subtitleEditor.cutMp3.fadeOutChoice', { value: formatCutFadeSeconds(fade.out) }), onClick: () => this._pickCutFade('out') },
+                { label: t('subtitleEditor.cutMp3.download'), onClick: () => this._runCutMp3('download') },
+                { label: t('subtitleEditor.cutMp3.insert'), onClick: () => this._runCutMp3('insert') },
+            ],
+            { title: t('subtitleEditor.cutMp3.resultTitle') }
+        );
+    },
+
+    /** Chọn độ dài 1 đầu fade bằng time picker (giây + mili giây), tối đa = vùng chọn trừ fade bên kia; xác nhận thì quay
+     * lại modal Cut. @param {'in'|'out'} side */
+    _pickCutFade(side) {
+        const region = appState.get('_region');
+        const maxMs = computeCutFadeMaxMs(region.start, region.end, this._cutFadeMs[SUBTITLE_CUT_FADE_OTHER[side]]); // core/mp3-cut.js
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t(SUBTITLE_CUT_FADE_TITLE_KEY[side]),
+            format: 's-ms',
+            valueMs: this._cutFadeMs[side],
+            minMs: 0,
+            maxMs,
+            rangeHintText: tFormat('subtitleEditor.cutMp3.fadeRangeHint', { max: formatCutFadeSeconds(maxMs) }),
+            onConfirm: (ms) => {
+                this._cutFadeMs = { ...this._cutFadeMs, [side]: ms };
+                this._showCutOptionsModal();
+            },
+        });
+    },
+
+    /** Cắt theo vùng chọn + fade rồi giao file (tải xuống / thêm vào thư viện). Khoá nút Cut suốt lúc xử lý (chống bấm
+     * chồng). Nguồn đọc từ FILE GỐC của bài, không từ PCM 8000 Hz của waveform. @param {'download'|'insert'} target */
+    async _runCutMp3(target) {
+        const s = appState.get(['_region', '_record', '_songKey']);
+        if (this._cutMp3Busy) return;
         this._cutMp3Busy = true;
         setSubtitleToolButtonBusy(btnCutMp3, true); // core/subtitle/subtitles-ui.js
         try {
@@ -1532,8 +1588,11 @@ const workflowSubtitleEditor = {
             await new Promise((resolve) => { taskManager.onceFrame(resolve, 2, 'subtitleCutMp3Paint'); });
             const bytes = new Uint8Array(await (await rematerializeBlob(s._record.blob)).arrayBuffer()); // service/db.js
             const index = indexMp3Frames(bytes); // core/mp3-cut.js — null = nguồn không phải MP3
-            const cut = await SUBTITLE_CUT_MP3_BY_SOURCE[!!index](bytes, index, s._region.start, s._region.end);
-            this._showCutResultModal(cut);
+            const plan = resolveCutMp3Plan(index, this._cutFadeMs.in, this._cutFadeMs.out); // core/mp3-cut.js
+            const job = { bytes, index, sampleRate: plan.sampleRate, startSec: s._region.start, endSec: s._region.end, fadeInSec: plan.fadeInSec, fadeOutSec: plan.fadeOutSec };
+            const cut = await SUBTITLE_CUT_MP3_BY_METHOD[plan.method](job);
+            const fileName = buildCutMp3FileName(s._record.tag?.title || s._songKey, secToStr(s._region.start), secToStr(s._region.end)); // core/mp3-cut.js + core/subtitle/subtitles.js
+            await SUBTITLE_CUT_MP3_DELIVER_BY_TARGET[target](cut, fileName);
         } catch (err) {
             console.error('[subtitle-editor] Cắt MP3 thất bại:', err);
             await alertModal(t('subtitleEditor.cutMp3.error')); // core/modal-choice-ui.js
@@ -1543,36 +1602,18 @@ const workflowSubtitleEditor = {
         }
     },
 
-    /** Nguồn MP3: ghép nguyên frame gốc, không mã hoá lại. @returns {{blob: Blob, durationSec: number}} */
-    _cutMp3Lossless(bytes, index, startSec, endSec) {
-        const cut = buildMp3FrameCut(bytes, index, startSec, endSec); // core/mp3-cut.js
+    /** Ghép nguyên frame MP3 gốc, không mã hoá lại. @returns {{blob: Blob, durationSec: number}} */
+    _cutMp3Frames(job) {
+        const cut = buildMp3FrameCut(job.bytes, job.index, job.startSec, job.endSec); // core/mp3-cut.js
         return { blob: new Blob([cut.bytes], { type: 'audio/mpeg' }), durationSec: cut.durationSec };
     },
 
-    /** Nguồn khác MP3: giải mã ở SUBTITLE_CUT_MP3_DECODE_SAMPLE_RATE (không phải 8000 Hz của waveform) rồi mã hoá lamejs.
-     * @returns {Promise<{blob: Blob, durationSec: number}>} */
-    async _cutMp3Reencode(startSec, endSec) {
-        const audioBuffer = await this._decodeBlobAudio(appState.get('_record').blob, SUBTITLE_CUT_MP3_DECODE_SAMPLE_RATE);
+    /** Giải mã file gốc (không phải PCM 8000 Hz của waveform), cắt + fade, mã hoá lamejs. @returns {Promise<{blob: Blob, durationSec: number}>} */
+    async _cutMp3Reencode(job) {
+        const audioBuffer = await this._decodeBlobAudio(new Blob([job.bytes]), job.sampleRate);
         if (!audioBuffer) throw new Error('Không giải mã được file gốc để mã hoá MP3.');
-        const pcm = sliceAudioBufferToPcm16(audioBuffer, startSec, endSec); // core/mp3-cut.js
+        const pcm = sliceAudioBufferToPcm16(audioBuffer, job.startSec, job.endSec, job.fadeInSec, job.fadeOutSec); // core/mp3-cut.js
         return { blob: new Blob(encodeMp3FromPcm16(pcm), { type: 'audio/mpeg' }), durationSec: pcm.durationSec }; // core/mp3-cut.js
-    },
-
-    /** Modal 3 lựa chọn sau khi cắt xong — modalChoice() (core/modal-choice-ui.js). @param {{blob: Blob, durationSec: number}} cut */
-    _showCutResultModal(cut) {
-        const s = appState.get(['_region', '_record', '_songKey']);
-        const startStr = secToStr(s._region.start); // core/subtitle/subtitles.js
-        const endStr = secToStr(s._region.end);
-        const fileName = buildCutMp3FileName(s._record.tag?.title || s._songKey, startStr, endStr); // core/mp3-cut.js
-
-        modalChoice( // core/modal-choice-ui.js
-            tFormat('subtitleEditor.cutMp3.resultDesc', { start: startStr, end: endStr }),
-            [
-                { label: t('subtitleEditor.cutMp3.download'), onClick: () => this._downloadCutBlob(cut.blob, fileName) },
-                { label: t('subtitleEditor.cutMp3.insert'), onClick: () => this._insertCutBlobAsNewSong(cut.blob, fileName, cut.durationSec) },
-            ],
-            { title: t('subtitleEditor.cutMp3.resultTitle') }
-        );
     },
 
     _downloadCutBlob(blob, fileName) {

@@ -42,7 +42,7 @@ const workflowGestureSettings = {
         this._openSeekTimePicker('gestureSeekHoldIntervalMs', 'gestureSettings.seekHoldInterval.pickerTitle');
     },
 
-    /** Modal bánh xe cuộn số dùng chung (core/time-picker-modal.js), format 's-ms', 100–59900 ms cho cả 2 số. Xác nhận ->
+    /** Modal bánh xe cuộn số dùng chung (core/time-picker-modal.js), format 's-ms' (giây + mili giây), 100–59900 ms cho cả 2 số. Xác nhận ->
      * ghi field rồi đồng bộ lại panel (nhãn giá trị hiện đúng số mới).
      * @param {string} field @param {string} titleKey */
     _openSeekTimePicker(field, titleKey) {

@@ -582,7 +582,7 @@ const workflowVisualBg = {
     },
 
     /** Ứng nút "Seconds per video/photo" — áp cho cả video (`durationMode='fixtime'`), không riêng
-     * ảnh. Format 's-ms' để chọn được granularity dưới giây (x100ms). */
+     * ảnh. Format 's-ms' để chọn được tới mili giây. */
     openDurationSecondsPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll();
