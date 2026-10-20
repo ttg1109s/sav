@@ -59,12 +59,12 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 |---|---|
 | Giao diện danh sách, modal sửa bài, menu upload | `components/playlist-view.js`; cụm `playlist` |
 | Nạp file nhạc / thư mục | `event/workflow/playlist.js` (`uploadSongs()`), thời lượng `event/workflow/audio-duration.js`, kiểm file `core/upload-validation.js` (`validateFileType()`), menu "Thêm nhạc" `core/playlist/loader.js` |
-| Dựng node danh sách, cuộn tới bài hiện tại | `core/playlist/render.js`, `event/workflow/playlist-render.js` |
+| Dựng node danh sách, cuộn tới bài hiện tại | markup `components/playlist-view.js` (`render*SongNodeHtml`), dữ liệu/kế hoạch diff/cuộn `core/playlist/render.js`, thao tác node `core/playlist/node-ui.js`, điều phối `event/workflow/playlist-render.js` |
 | Thứ tự, xáo trộn, lặp | `core/playlist/order.js`, `event/workflow/playlist-order.js`; state `service/state/shuffle-repeat.js` |
 | Phạm vi folder ↔ playlist | `core/playlist/scope.js`, `event/workflow/playlist-scope.js` |
 | Chọn nhiều, thao tác hàng loạt | `core/playlist/selection.js`, `core/playlist/bulk-actions.js`, `core/playlist/actions.js` |
 | Filter, preset Filter | `components/playlist-filter-drawer.js`, `core/playlist/filter.js`, `core/playlist/filter-presets.js`, `core/playlist/filter-rule-ui.js`, `event/workflow/filter-rule-edit.js`; cụm `playlistFilterPresets` |
-| Sort | `components/playlist-sort-drawer.js`; cài đặt hiển thị `components/settings/playlist-view.js` |
+| Sort | `components/playlist-sort-drawer.js`; cài đặt hiển thị `components/settings/playlist-view.js`; thuật toán `core/playlist/order.js` (`rankKeysBy*`/`collectStatSortValues`/`sortKeysByRank`), chọn theo cài đặt `workflowPlaylistOrder.sortKeys()` |
 | Tìm kiếm | `core/song-search.js` |
 | Màn trống khi chưa có bài | cụm `playlistEmptyState` |
 | Logo SAV góc Playlist | `core/sav-logo.js` (`setSavLogoExpanded()`); cụm `savLogo` |

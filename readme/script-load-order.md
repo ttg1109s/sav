@@ -422,6 +422,7 @@ của group.
 194. `core/playlist/state.js`
 195. `core/playlist/order.js`
 196. `core/playlist/render.js`
+196a. `core/playlist/node-ui.js` — MỚI 20/10/2026 (đợt 18b: tạo/ẩn/hiện/gỡ/đặt chỗ node Playlist); lúc chạy: `service/component-dynamic.js` (instantiateComponent)
 197. `core/playlist/loader.js`
 198. `core/playlist/actions.js` — cần: `event/store.js` (EventStore — tạo `playlistStore` lúc nạp)
 199. `core/playlist/main.js` — không chạy gì lúc nạp (đồng bộ Kiểu xem/Nguồn lúc boot: `workflowPlaylist.syncPlaylistSettingsUI()`)
