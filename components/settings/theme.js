@@ -32,8 +32,8 @@ function renderAppSettingsThemeBody(themeNames, activeUiTheme, backgroundHtml, p
         `;
 }
 
-/** Card "Player control" — khung xem trước (nền giả lập Visualizer + thanh điều khiển thu nhỏ, cùng CSS với Bottom Player
- * thật), nút kiểu nền, slider độ đục. Kiểu nền/độ đục/màu effect của khung xem trước là slot — gán qua
+/** Card "Player control" — khung xem trước (nền giả lập Visualizer + thanh điều khiển thu nhỏ, cùng CSS bề mặt + key `pc*`
+ * với Bottom Player thật; Shuffle vẽ ở trạng thái bật), nút kiểu nền, slider độ đục. Kiểu nền/độ đục/màu effect của khung xem trước là slot — gán qua
  * patchPlayerControlSettings() (core/player-control-settings-ui.js) sau khi dựng. @param {ReturnType<typeof computePlayerControlView>} view
  * @returns {string} */
 function renderPlayerControlSettingsHtml(view) {
@@ -42,12 +42,18 @@ function renderPlayerControlSettingsHtml(view) {
                 <div id="player-control-settings" class="rounded-2xl flex flex-col gap-3 px-4 py-4" data-uitk="cardBg cardBorder">
                     <p class="text-sm font-semibold" data-uitk="textSecondaryStrong" data-i18n="appSettings.theme.playerControl.section">${t('appSettings.theme.playerControl.section')}</p>
                     <div class="pc-preview" data-pc-preview aria-hidden="true">
-                        <div class="pc-surface" data-pc-preview-surface>
-                            <div class="pc-preview-track"><div class="pc-preview-fill"></div><div class="pc-preview-thumb"></div></div>
-                            <div class="pc-preview-row">
+                        <div class="pc-surface group" data-pc-preview-surface>
+                            <div class="pc-preview-info">
                                 <div class="pc-preview-art"></div>
-                                <div class="pc-preview-lines"><div class="pc-preview-line"></div><div class="pc-preview-line"></div></div>
-                                <div class="pc-preview-play"></div>
+                                <div class="pc-preview-lines"><div class="pc-preview-line bg-current" data-uitk="pcText"></div><div class="pc-preview-line bg-current" data-uitk="pcAccentText"></div></div>
+                            </div>
+                            <div class="pc-preview-track"><div class="pc-preview-fill"></div><div class="pc-preview-thumb"></div></div>
+                            <div class="pc-preview-controls">
+                                <span class="pc-preview-btn" aria-pressed="true" data-uitk="pcToggleBtn">${iconSvg('switch-horizontal', 'w-3 h-3')}</span>
+                                <span class="pc-preview-btn" data-uitk="pcIconBtn">${iconSvg('rewind', 'w-3.5 h-3.5')}</span>
+                                <span class="pc-preview-btn pc-preview-play" data-uitk="pcPlayBtn">${iconSvg('play', 'w-3 h-3 ml-px')}</span>
+                                <span class="pc-preview-btn" data-uitk="pcIconBtn">${iconSvg('fast-forward', 'w-3.5 h-3.5')}</span>
+                                <span class="pc-preview-btn" aria-pressed="false" data-uitk="pcToggleBtn">${iconSvg('repeat', 'w-3 h-3')}</span>
                             </div>
                         </div>
                     </div>
