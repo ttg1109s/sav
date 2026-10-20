@@ -2,8 +2,8 @@
  * Component: Bottom Player (thanh điều khiển phát nhạc ở dưới cùng) — components/app-mount.js chèn lúc khởi động.
  *
  * Bố cục 1 cột mọi khổ màn (assets/css/player-control.css, `.pc-layout`; màn rộng chỉ giới hạn bề ngang + căn giữa):
- *   [phụ đề — chỉ khi Settings > Theme > Player control chọn "Inside"] · tên media · thanh tiến trình ·
- *   giờ đang phát | nghệ sĩ (chỉ Song có) | tổng · Shuffle · Prev · Play · Next · Repeat.
+ *   [phụ đề — chỉ khi Settings > Theme > Player control chọn "Inside"] · nghệ sĩ 25% | tên media 50% | album 25% (ô không có
+ *   tag tự ẩn) · thanh tiến trình · giờ đang phát | tổng · Shuffle · Prev · Play · Next · Repeat.
  * Ảnh bìa (#record-container) nằm TRONG nút Play/Pause — hiện/ẩn theo `data-pc-cover` của `.pc-surface`; nốt nhạc bay
  * (core/visualizer/draw/flying-note-ui.js) cũng sinh từ đây. #pc-sub-slot là chỗ neo #subtitle-display khi chọn "Inside"
  * (core/player-control-style.js::dockSubtitleDisplay()).
@@ -17,13 +17,17 @@ const TPL_BOTTOM_PLAYER = `
         <div id="player-panel" class="pc-surface group" data-pc-style="glass" data-pc-cover="on">
             <div class="pc-layout">
                 <div id="pc-sub-slot" class="pc-sub-slot"></div>
-                <h2 id="player-title" class="pc-title" data-uitk="pcText" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
+                <!-- Nghệ sĩ 25% · tên 50% · album 25%; ô rỗng tự ẩn (:empty), tên giãn ra chiếm chỗ. Ghi qua setPlayerTrackLabels(). -->
+                <div class="pc-info-row">
+                    <p id="player-artist" class="pc-artist" data-uitk="pcText"></p>
+                    <h2 id="player-title" class="pc-title" data-uitk="pcText" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
+                    <p id="player-album" class="pc-album" data-uitk="pcText"></p>
+                </div>
 
                 <!-- step 0.001 = seek mịn tới ms; listener gửi thẳng e.target.value. Photo Player mode chỉ ẩn #progress-bar-row. -->
                 <div id="progress-bar-row" class="pc-bar"><input type="range" id="progress-bar" value="0" step="0.001" min="0" class="music-slider block"></div>
                 <div class="pc-meta-row">
                     <span id="current-time" class="pc-time pc-time-current" data-uitk="pcText">0:00</span>
-                    <p id="player-artist" class="pc-artist" data-uitk="pcText"></p>
                     <span id="duration-time" class="pc-time pc-time-total" data-uitk="pcTextMuted">0:00</span>
                 </div>
 
