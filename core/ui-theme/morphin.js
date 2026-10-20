@@ -160,6 +160,20 @@ const UI_THEME_MORPHIN = {
     selectionTintBg: 'bg-white/20', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
     themeVars: 'uitk-vars-morphin', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
 
+    // ===================== UI phía Visualizer (MỚI 20/10/2026) — xem chú thích nhóm này ở light.js =====================
+    vizChromeBtn: 'glass-control-center hover:bg-white/25 text-white transition-colors', // nút tròn trên cùng: nền + viền + bóng + icon + hover
+    vizPanelSurface: 'glass-control-center text-white', // panel Control Center + Volume/Speed HUD (chữ con thừa kế)
+    vizCcItem: 'text-white/75 hover:bg-white/15 aria-pressed:text-violet-300 transition-colors', // ô trong lưới Control Center — chữ/icon mờ, hover, bật (aria-pressed) = màu nhấn
+    vizCcLabel: 'text-white', // nhãn nổi trong ô (tên effect đang chạy)
+    vizAccentText: 'text-violet-300', // icon nhấn trong Control Center (icon effect)
+    vizChip: 'text-white/70 aria-pressed:bg-white/25 aria-pressed:text-white transition-colors', // nút mốc tốc độ ở Speed HUD — bật (aria-pressed) có nền
+    pcText: 'text-white', // tên bài + giờ đang phát
+    pcTextMuted: 'text-white/70 group-data-[pc-style=none]:text-white/75', // tổng thời lượng
+    pcAccentText: 'text-violet-200 group-data-[pc-style=none]:text-white/80', // nghệ sĩ
+    pcIconBtn: 'text-white hover:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Prev/Next
+    pcToggleBtn: 'text-white/55 group-data-[pc-style=none]:text-white/60 aria-pressed:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:aria-pressed:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Shuffle/Repeat — bật (aria-pressed) = màu effect + chấm dưới (player-control.css)
+    pcPlayBtn: 'bg-white text-slate-900', // nút Play/Pause tròn (nền + icon; quầng sáng màu effect ở player-control.css)
+
     // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).
     iconHue: {
         sky: 'text-sky-300',

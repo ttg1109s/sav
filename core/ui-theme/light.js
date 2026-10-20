@@ -15,23 +15,11 @@
  * `applyUiThemeToDom()` (core/ui-theme/apply-ui.js) tự đọc key này + gán `className` tương ứng theo
  * theme đang active, xem event/workflow/ui-theme.js::switchUiTheme().
  *
- * PHẠM VI HIỆN TẠI (09/09/2026) — MỚI áp `data-uitk` cho khung CHUNG Generic Drawer (components/
- * generic-drawer.js: panel/header/handle) làm ví dụ đầu tiên. ~20 file nội dung feature (Folder
- * Browser, EQ Presets, Custom Effect, mọi màn Settings...) HIỆN VẪN hardcode class Tailwind y hệt
- * bộ Light này (KHÔNG có gì đổi màu — đúng chủ đích, migrate xong ĐANG bằng đúng Light) nhưng CHƯA
- * gắn `data-uitk` — nghĩa là chuyển sang Dark/Morphin lúc này CHỈ đổi màu khung Generic Drawer
- * (panel/header), nội dung bên trong (card/nút/text của từng feature) CHƯA đổi theo. Migrate từng
- * file nội dung sang dùng key list này (thay class hardcode bằng `data-uitk`) là việc TIẾP THEO,
- * làm dần từng file — xem "CÒN NỢ" cuối file.
+ * PHẠM VI: mọi màn App Panel + UI phía Visualizer (Bottom Player, nút tròn trên cùng, Control Center, HUD) đã gắn
+ * `data-uitk`; phần còn class cứng xem "CÒN NỢ" cuối file.
  *
- * LƯU Ý riêng cho lúc viết Dark/Morphin sau này — Tailwind nạp qua CDN (Play CDN) tự tiêm CSS cho
- * class MỚI GẶP LẦN ĐẦU một cách BẤT ĐỒNG BỘ (xem bug đã fix ở Folder Browser, components/items.js::
- * buildFolderGridWrapperHtml()) — nếu Dark/Morphin dùng class CHƯA từng xuất hiện ở bất kỳ đâu
- * trong app (vd `bg-slate-900` có thể đã có sẵn đâu đó, nhưng 1 tổ hợp lạ như `backdrop-blur-xl`
- * cho Morphin thì chưa chắc), LẦN ĐẦU TIÊN switchUiTheme() sang theme đó có thể thấy 1 khung hình
- * chưa kịp lên màu (Tailwind chưa tiêm xong) rồi mới đúng ngay sau — nên cân nhắc "mồi" trước bằng
- * 1 phần tử ẩn tĩnh trong index.html liệt kê đủ mọi class của cả 3 theme, để Tailwind CDN quét/tiêm
- * sẵn lúc boot, không đợi tới lúc người dùng bấm đổi theme.
+ * Tailwind build sẵn (assets/css/tailwind.css) — tailwind.config.js quét cả file này, nên class viết NGUYÊN VẸN ở đây
+ * tự có CSS. Thêm class chưa từng xuất hiện trong project thì build lại Tailwind (readme/tailwind-build.md).
  */
 const UI_THEME_LIGHT = {
 
@@ -188,6 +176,29 @@ const UI_THEME_LIGHT = {
     selectionTintBg: 'bg-sky-500/10', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
     themeVars: 'uitk-vars-light', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
 
+    // ===================== UI phía Visualizer (MỚI 20/10/2026, Giang: "theme bottom player phải dùng theme key") =====================
+    // `viz*`: 2 nút tròn trên cùng (#btn-open-control-center, #btn-back-playlist), panel Control Center, Volume/Speed HUD.
+    // `pc*`: chữ/nút của Bottom Player (components/bottom-player.js) + khung xem trước ở Settings > Theme > Player control.
+    // Trạng thái bật (Zoom, mốc tốc độ, Shuffle/Repeat) dùng variant `aria-pressed:` — core chỉ ghi `aria-pressed`, không đổi key.
+    // Kiểu nền "none" của Bottom Player (chữ nằm thẳng trên Visualizer) dùng variant `group-data-[pc-style=none]:` — bề mặt
+    // `.pc-surface` mang class `group` + `data-pc-style`; bộ màu "trên nền media" (trắng) CỐ Ý giống nhau ở 3 theme.
+    // CSS của `group-data-*` sinh SAU `aria-pressed:`/`hover:` nên đè chúng — key nào có màu none + màu bật/hover phải khai thêm
+    // dạng chồng `group-data-[pc-style=none]:aria-pressed:` / `group-data-[pc-style=none]:hover:`.
+    // Màu nhấn của Shuffle/Repeat đang bật + hover Prev/Next = màu effect đang chạy (`--progress-fill`, không thuộc theme).
+    // Bề mặt Bottom Player (kiểu nền × độ đục) + track/thumb slider vẫn ở biến CSS `--viz-*` (themeVars) — cần calc()/pseudo-element.
+    vizChromeBtn: 'bg-white/80 hover:bg-white text-slate-700 border border-slate-900/10 shadow-lg backdrop-blur-xl transition-colors', // nút tròn trên cùng: nền + viền + bóng + icon + hover
+    vizPanelSurface: 'bg-white/90 text-slate-900 border border-slate-900/10 shadow-2xl backdrop-blur-2xl backdrop-saturate-150', // panel Control Center + Volume/Speed HUD (chữ con thừa kế)
+    vizCcItem: 'text-slate-500 hover:bg-slate-900/5 aria-pressed:text-sky-600 transition-colors', // ô trong lưới Control Center — chữ/icon mờ, hover, bật (aria-pressed) = màu nhấn
+    vizCcLabel: 'text-slate-900', // nhãn nổi trong ô (tên effect đang chạy)
+    vizAccentText: 'text-sky-600', // icon nhấn trong Control Center (icon effect)
+    vizChip: 'text-slate-500 aria-pressed:bg-sky-100 aria-pressed:text-sky-700 transition-colors', // nút mốc tốc độ ở Speed HUD — bật (aria-pressed) có nền
+    pcText: 'text-slate-900 group-data-[pc-style=none]:text-white', // tên bài + giờ đang phát
+    pcTextMuted: 'text-slate-500 group-data-[pc-style=none]:text-white/75', // tổng thời lượng
+    pcAccentText: 'text-sky-600 group-data-[pc-style=none]:text-white/80', // nghệ sĩ
+    pcIconBtn: 'text-slate-700 group-data-[pc-style=none]:text-white hover:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:hover:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Prev/Next
+    pcToggleBtn: 'text-slate-400 group-data-[pc-style=none]:text-white/60 aria-pressed:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:aria-pressed:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Shuffle/Repeat — bật (aria-pressed) = màu effect + chấm dưới (player-control.css)
+    pcPlayBtn: 'bg-slate-900 text-white group-data-[pc-style=none]:bg-white group-data-[pc-style=none]:text-slate-900', // nút Play/Pause tròn (nền + icon; quầng sáng màu effect ở player-control.css)
+
     // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).
     iconHue: {
         sky: 'text-sky-500',
@@ -220,16 +231,10 @@ const UI_THEME_LIGHT = {
     },
 };
 
-// CÒN NỢ (09/09/2026) — migrate ~20 file nội dung feature (Folder Browser, Add-to-Folder picker,
-// EQ Presets, Custom Effect, Element Style Editor, Storage Management, mọi màn Settings...) từ
-// hardcode class Tailwind sang `data-uitk` + key list này, xem docstring đầu file mục "PHẠM VI HIỆN
-// TẠI". Làm dần từng file, KHÔNG đổi 1 lần — mỗi file migrate xong vẫn PHẢI trông y hệt bây giờ
-// (đang là Light), chỉ khác ở chỗ giờ đổi được sang Dark/Morphin.
+// CÒN NỢ — CỐ Ý GIỮ class cứng: UI phía Visualizer còn lại (overlay Game/Ghi âm, photo editor, effect picker, phụ đề, cụm
+// BPM/Pitch/Energy chữ trắng trên Visualizer), subtitle-editor.html, và màu NHẬN DIỆN dữ liệu (thanh/legend Storage, loại media
+// Statistics, cover game, nút Áp dụng/Gỡ xanh-đỏ của Motion, chấm cảnh báo kết quả quét Storage).
 //
-// CẬP NHẬT (23/09/2026, rà soát theme toàn app) — phần App Panel (Settings, drawer feature, modal, Playlist, Game, Storage...) đã
-// chuyển hết màu sang `data-uitk`; thêm key inputBorderColor/successText/cautionText/hoverAccentSoftBg/insetBg/dangerSoftSurface/
-// cautionSoftSurface/selectionTintBg/themeVars + nhóm iconHue/iconTone/chipTone. CỐ Ý GIỮ class cứng: UI phía Visualizer còn lại (overlay Game/Ghi âm,
-// photo editor, effect picker, phụ đề) — Bottom Player, 2 nút tròn trên cùng, Control Center và Volume/Speed HUD theo theme qua bộ
-// biến `--viz-*` (assets/css/glass.css, 20/10/2026), subtitle-editor.html, và màu NHẬN DIỆN dữ liệu (thanh/legend Storage,
-// loại media Statistics, cover game, nút Áp dụng/Gỡ xanh-đỏ của Motion, chấm cảnh báo kết quả quét Storage).
-
+// Lịch sử: 23/09/2026 phần App Panel chuyển hết sang `data-uitk` (thêm inputBorderColor/successText/cautionText/hoverAccentSoftBg/
+// insetBg/dangerSoftSurface/cautionSoftSurface/selectionTintBg/themeVars + nhóm iconHue/iconTone/chipTone). 20/10/2026 thêm nhóm
+// `viz*`/`pc*` cho UI phía Visualizer (trước đó tạm theo theme bằng biến CSS `--viz-*` — sai quy ước themeVars).

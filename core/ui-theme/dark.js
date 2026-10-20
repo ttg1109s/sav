@@ -173,6 +173,20 @@ const UI_THEME_DARK = {
     selectionTintBg: 'bg-violet-500/15', // nền hàng/tile đang được CHỌN trong chế độ chọn nhiều Playlist (core/playlist/selection.js)
     themeVars: 'uitk-vars-dark', // class khai biến CSS theo theme (assets/css/glass.css) — cho phần CHỈ vẽ được bằng CSS thuần (thumb/track slider, header ngày lưới ảnh/video); gắn 1 lần trên <body>
 
+    // ===================== UI phía Visualizer (MỚI 20/10/2026) — xem chú thích nhóm này ở light.js =====================
+    vizChromeBtn: 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 border border-white/10 shadow-lg shadow-black/50 backdrop-blur-xl transition-colors', // nút tròn trên cùng: nền + viền + bóng + icon + hover
+    vizPanelSurface: 'bg-zinc-900/90 text-zinc-100 border border-white/10 shadow-2xl shadow-black/60 backdrop-blur-2xl backdrop-saturate-150', // panel Control Center + Volume/Speed HUD (chữ con thừa kế)
+    vizCcItem: 'text-zinc-400 hover:bg-white/10 aria-pressed:text-violet-400 transition-colors', // ô trong lưới Control Center — chữ/icon mờ, hover, bật (aria-pressed) = màu nhấn
+    vizCcLabel: 'text-zinc-100', // nhãn nổi trong ô (tên effect đang chạy)
+    vizAccentText: 'text-violet-400', // icon nhấn trong Control Center (icon effect)
+    vizChip: 'text-zinc-400 aria-pressed:bg-violet-500/20 aria-pressed:text-zinc-100 transition-colors', // nút mốc tốc độ ở Speed HUD — bật (aria-pressed) có nền
+    pcText: 'text-zinc-100 group-data-[pc-style=none]:text-white', // tên bài + giờ đang phát
+    pcTextMuted: 'text-zinc-400 group-data-[pc-style=none]:text-white/75', // tổng thời lượng
+    pcAccentText: 'text-violet-400 group-data-[pc-style=none]:text-white/80', // nghệ sĩ
+    pcIconBtn: 'text-zinc-200 group-data-[pc-style=none]:text-white hover:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:hover:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Prev/Next
+    pcToggleBtn: 'text-zinc-500 group-data-[pc-style=none]:text-white/60 aria-pressed:text-[color:var(--progress-fill,#38bdf8)] group-data-[pc-style=none]:aria-pressed:text-[color:var(--progress-fill,#38bdf8)] transition-colors', // Shuffle/Repeat — bật (aria-pressed) = màu effect + chấm dưới (player-control.css)
+    pcPlayBtn: 'bg-zinc-50 text-zinc-900 group-data-[pc-style=none]:bg-white group-data-[pc-style=none]:text-slate-900', // nút Play/Pause tròn (nền + icon; quầng sáng màu effect ở player-control.css)
+
     // Icon trang trí theo HUE (icon hành động trong menu nổi...) — cùng tinh thần categoryAccent nhưng cho icon nhỏ (Light bậc -500).
     iconHue: {
         sky: 'text-sky-400',
