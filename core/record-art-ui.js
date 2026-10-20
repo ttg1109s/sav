@@ -14,8 +14,10 @@ function mountRecordArt(containerEl, html, src, alt) {
     })); // service/component-dynamic.js
 }
 
-/** Đổi ảnh của #record-art đang hiện (không dựng lại). @param {string} src */
+/** Đổi ảnh của #record-art đang hiện (không dựng lại). @param {string} src
+ * @returns {HTMLImageElement|null} phần tử vừa đổi (null nếu chưa mount) — để nơi gọi gắn lại fallback lỗi ảnh */
 function setRecordArtSrc(src) {
     const recordArtEl = document.getElementById('record-art');
     if (recordArtEl) recordArtEl.src = src;
+    return recordArtEl;
 }

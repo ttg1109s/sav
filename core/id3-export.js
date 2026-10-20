@@ -9,7 +9,7 @@
  * phối nhiều bước phụ thuộc + side-effect UI), NẰM SAI chỗ khi còn ở 1 file `core/` (core CẤM gọi
  * `withLoadingShield`/`alertModal` theo core-function-conventions.md). File này giờ còn 4 hàm
  * Core THUẦN dưới đây — dùng CHUNG cho cả Song lẫn Video (Video bỏ qua `buildTaggedBlob()`, xem
- * `exportVideoFile()`/`exportSelectedVideosZip()`, event/workflow/playlist.js). `triggerDownload()`/
+ * `_exportOriginalFile()`/`_exportSelectedOriginalsZip()`, event/workflow/playlist.js). `triggerDownload()`/
  * `promptDownloadReady()` MỚI (10/09/2026) dùng chung rộng hơn nữa — cả Storage Management/Folder
  * Download (event/workflow/file-manager-storage.js, file-manager-folder-browser.js).
  */

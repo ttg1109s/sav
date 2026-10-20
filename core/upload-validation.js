@@ -28,7 +28,8 @@
         /**
          * Kiểm tra định dạng 1 file theo luật (AUDIO_UPLOAD_RULE / IMAGE_UPLOAD_RULE) — xem chiến lược 2 lớp ở đầu file.
          * @param {File} file @param {{mimes: Set<string>, exts: Set<string>, labelKey: string}} rule
-         * @returns {{valid: boolean, reason?: string}} reason chỉ có khi valid=false (thông báo cho người dùng)
+         * @returns {{valid: boolean, reason?: string}} reason chỉ có khi valid=false — chữ thường, chứa tên file / MIME thô;
+         *   nơi chèn vào modal (HTML) phải escape.
          */
         function validateFileType(file, rule) {
             const typeLabel = t(rule.labelKey);

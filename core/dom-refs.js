@@ -9,8 +9,8 @@
         // tên #audio-upload/#audio-upload-folder thành #media-upload/#media-upload-folder: 2 input
         // này giờ DÙNG CHUNG cho cả Song/Video/Photo (trước đây chỉ Song, Video có input riêng
         // #video-upload-input/btnUploadVideo — CẢ 2 ĐÃ XOÁ, không còn UI upload riêng theo Nguồn
-        // nào nữa). `accept` của 2 input đổi ĐỘNG theo Nguồn — xem event/workflow/playlist.js::
-        // _applyUploadInputAccept().
+        // nào nữa). `accept` của 2 input đổi ĐỘNG theo Nguồn — xem core/playlist/main.js::
+        // applyPlaylistSourceChrome().
         const fileInput = document.getElementById('media-upload'), audioPlayer = document.getElementById('audio-player');
         // Input "Chọn cả thư mục" + "Chọn file" — CẢ 2 đều nằm trong #upload-action-menu (template
         // playlist-view.js), mỗi input bọc trong 1 <label> riêng (KHÔNG còn ở index.html ngoài

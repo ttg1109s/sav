@@ -202,6 +202,13 @@
             playerArtist.textContent = artist;
         }
 
+        /** Thông tin media trên thông báo/màn khoá (Media Session); trình duyệt không hỗ trợ thì bỏ qua.
+         * @param {string} title @param {string} artist @param {Array<{src: string, sizes: string, type: string}>} artwork */
+        function setMediaSessionMetadata(title, artist, artwork) {
+            if (!('mediaSession' in navigator)) return; // guard — trình duyệt không có Media Session
+            navigator.mediaSession.metadata = new MediaMetadata({ title, artist, artwork });
+        }
+
         function setVisualizerActiveFalse() {
             appState.set('isVisualizerActive', false);
             console.log(`writer: "setVisualizerActiveFalse", page: "isVisualizerActive", content: "false"`);

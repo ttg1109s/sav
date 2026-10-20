@@ -342,7 +342,7 @@
             return !!(record && record.blob && record.thumbFullBlob && record.thumbFullBlack !== true);
         }
 
-        /** Kết quả đo khung (workflowPlaylist._probeVideoFrame()) -> 'ok' | 'black' | 'undecodable'. */
+        /** Kết quả đo khung (workflowVideoThumbExtract.probeFrame()) -> 'ok' | 'black' | 'undecodable'. */
         function classifyThumbProbe(probe) {
             if (!probe.drawn) return 'undecodable';
             return probe.isBlack ? 'black' : 'ok';
