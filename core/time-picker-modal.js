@@ -11,45 +11,26 @@
  * ĐÂY. `event/workflow/subtitle-editor.js` giờ CHỈ còn 1 wrapper mỏng gọi vào đây (hành vi cũ GIỮ
  * NGUYÊN 100% — xem ghi chú "KHÔNG ĐỔI HÀNH VI" ở đó).
  *
- * THAM SỐ min/max: LUÔN nhận bằng MILI GIÂY (đơn vị canonical DUY NHẤT — Giang yêu cầu rõ: "Min
- * max này được quy đổi ra hết thành mili giây. Sau đó mới đọc format để xác định biên thực tế
- * theo định dạng") — hàm tự đọc `format` để quy đổi ra biên HIỂN THỊ thật cho từng cột, KHÔNG nhận
- * biên theo đơn vị hiển thị trực tiếp (tránh nhầm đơn vị giữa các nơi gọi khác nhau — nơi gọi Giây
- * (Slideshow) và nơi gọi Giờ-Phút-Giây-x100ms (Subtitle) đều truyền chung 1 đơn vị mili giây).
+ * THAM SỐ min/max: LUÔN nhận bằng MILI GIÂY (đơn vị canonical duy nhất) — hàm tự đọc `format` để quy đổi ra biên hiển thị
+ * của từng cột.
  *
- * `format`: chuỗi các đơn vị nối bằng "-", theo thứ tự THÔ -> MỊN. VÍ DỤ:
- *   - 'h-m-s-ms' — giờ, phút, giây, PHẦN MƯỜI GIÂY (Subtitle Editor dùng, giữ NGUYÊN hành vi cũ —
- *     token 'ms' ở đây là x100ms (0-9), KHÔNG phải mili giây thật 0-999 — 1 wheel 1000 dòng không
- *     thực tế cho UX cuộn tay, đây là diễn giải CHỦ Ý, không phải sơ suất).
- *   - 's' — CHỈ giây, KHÔNG giới hạn modulo 60 (vì là đơn vị THÔ NHẤT/DUY NHẤT trong format) —
- *     hiển thị thẳng giá trị thật (vd 5, 60, 120...) — Slideshow interval (5-60s) dùng dạng này.
- *   - 'm-s' — phút + giây (giây bị giới hạn 0-59 vì đã có phút đứng trước nó lo phần thô hơn).
- * QUY TẮC CHUNG: đơn vị ĐẦU TIÊN (thô nhất) trong format KHÔNG bị giới hạn modulo cố định — số
- * dòng cuộn của nó tính từ `maxMs` (bao nhiêu đơn vị đó thì tới hết `maxMs`). MỌI đơn vị SAU nó bị
- * giới hạn modulo tự nhiên (60 cho phút/giây, 10 cho phần mười giây, 24 cho giờ nếu giờ KHÔNG phải
- * đơn vị đầu — hiếm khi xảy ra trong thực tế vì giờ luôn đứng đầu nếu có mặt).
+ * `format`: chuỗi các đơn vị nối bằng "-", theo thứ tự THÔ -> MỊN. Đơn vị: 'h' giờ, 'm' phút, 's' giây, 'ms' mili giây
+ * (000-999, SỬA 20/10/2026 — trước đây là x100ms 0-9). Ví dụ: 'h-m-s-ms' (Subtitle Editor), 's-ms', 's', 'm-s'.
+ * Đơn vị ĐẦU TIÊN (thô nhất) không bị giới hạn modulo — số dòng tính từ `maxMs`; mọi đơn vị sau giới hạn theo trần tự
+ * nhiên (24 giờ, 60 phút/giây, 1000 mili giây).
  *
- * NẠP SAU: lang/lang.js (t()) — file này chỉ gán text qua `textContent` (KHÔNG `innerHTML`), nên KHÔNG cần escapeHtml()/core/modal-choice-ui.js.
+ * NẠP SAU: lang/lang.js (t()) — chỉ gán text qua `textContent`.
  *
- * LƯU Ý RULE 3 (CẤM taskManager trong core) — 2 nơi dùng timer THUẦN của trình duyệt (KHÔNG phải
- * `taskManager` của project):
- *   1. Debounce "chờ lướt tay dừng hẳn rồi mới kẹp biên" — `setTimeout`/`clearTimeout` (bản gốc
- *      Subtitle Editor dùng `taskManager.once()`, hợp lệ vì đó là Workflow).
- *   2. Trì hoãn set vị trí cuộn ban đầu tới SAU khi layout đã chắc chắn xong — `requestAnimationFrame`
- *      (x2 liên tiếp, MỚI 18/07/2026 — fix bug "mở lần đầu hiện 0 0 0", xem cuối `openTimePickerModal()`).
- * CẢ 2 đều là timer PRIVATE, chỉ phục vụ tiểu tiết UI hoàn toàn NỘI BỘ trong chính các phần tử DOM
- * mà hàm này tự tạo ra, KHÔNG điều phối bất kỳ tiến trình nghiệp vụ nhiều bước nào xuyên file —
- * không vi phạm TINH THẦN Rule 3 (vốn nhắm tới việc core "giấu" orchestration nhiều bước qua
- * taskManager), dù có dùng timer.
+ * Nợ còn trong sổ (đợt 26): `setTimeout` (debounce kẹp biên) + `requestAnimationFrame` (đặt vị trí cuộn ban đầu) thô
+ * trong core, listener gọi callback thay vì eventBus, thiếu hậu tố `-ui`.
  */
 
-/** 1 đơn vị = bao nhiêu mili giây — 'ms' ở đây CỐ Ý là PHẦN MƯỜI GIÂY (x100ms), xem docstring đầu
- * file để biết lý do (giữ đúng hành vi Subtitle Editor cũ, tránh wheel 1000 dòng phi thực tế). */
-const TIME_PICKER_UNIT_MS = { h: 3600000, m: 60000, s: 1000, ms: 100 };
+/** 1 đơn vị = bao nhiêu mili giây. */
+const TIME_PICKER_UNIT_MS = { h: 3600000, m: 60000, s: 1000, ms: 1 };
 /** Trần modulo tự nhiên — CHỈ áp dụng cho đơn vị KHÔNG phải đơn vị đầu tiên (thô nhất) trong format. */
-const TIME_PICKER_UNIT_CAP = { h: 24, m: 60, s: 60, ms: 10 };
+const TIME_PICKER_UNIT_CAP = { h: 24, m: 60, s: 60, ms: 1000 };
 /** Nhãn hiển thị dưới mỗi cột — mặc định theo token, dùng chung mọi nơi gọi (đơn giản, dễ đoán). */
-const TIME_PICKER_UNIT_LABEL = { h: 'HH', m: 'MM', s: 'SS', ms: 'x100ms' };
+const TIME_PICKER_UNIT_LABEL = { h: 'HH', m: 'MM', s: 'SS', ms: 'MS' };
 
 /**
  * Core thuần: parse chuỗi `format` (vd 'h-m-s-ms') + `maxMs` thành mảng mô tả từng cột cuộn, theo
@@ -66,8 +47,8 @@ const TIME_PICKER_UNIT_LABEL = { h: 'HH', m: 'MM', s: 'SS', ms: 'x100ms' };
  *   - Slideshow ('s' đứng đầu MỘT MÌNH, `maxMs` = 60000 hoặc hơn) -> số dòng suy từ `maxMs` THẮNG
  *     (61 dòng, hơn hẳn trần tự nhiên 60 của giây) -> hiển thị ĐÚNG tới giá trị thật yêu cầu (vd
  *     tới 60, hoặc xa hơn nếu maxMs lớn hơn — "5, 60, 120" theo đúng ví dụ Giang).
- * Mọi đơn vị SAU đơn vị đầu (KHÔNG topmost) LUÔN lấy trần tự nhiên (60 cho phút/giây, 10 cho phần
- * mười giây) — KHÔNG bao giờ bị ảnh hưởng bởi `maxMs`.
+ * Mọi đơn vị SAU đơn vị đầu (KHÔNG topmost) LUÔN lấy trần tự nhiên (60 cho phút/giây, 1000 cho mili
+ * giây) — KHÔNG bao giờ bị ảnh hưởng bởi `maxMs`.
  * @param {string} format
  * @param {number} maxMs
  * @returns {Array<{token: string, unitMs: number, isTop: boolean, count: number, label: string}>}

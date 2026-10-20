@@ -37,11 +37,10 @@ function hideHudPanel(panelEl) {
     panelEl.classList.add('hidden');
 }
 
-/** Tô phần "đã kéo" của slider volume (`.setting-slider` dùng chung không tự tô).
+/** Phần "đã kéo" của slider volume — biến `--hud-fill-pct`, `.setting-slider` (sliders.css) tô theo UI theme.
  * @param {HTMLElement} sliderEl - #volume-hud-slider @param {number} volume - 0-100 */
 function syncVolumeHudSliderFill(sliderEl, volume) {
-    const percentage = Math.max(0, Math.min(100, volume));
-    sliderEl.style.background = `linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) ${percentage}%, rgba(255,255,255,0.1) ${percentage}%, rgba(255,255,255,0.1) 100%)`;
+    sliderEl.style.setProperty('--hud-fill-pct', `${Math.max(0, Math.min(100, volume))}%`);
 }
 
 // ===================== Speed HUD =====================
@@ -88,9 +87,9 @@ function resolveSpeedHudView(speed) {
 function syncSpeedHudUI(sliderEl, valueLabelEl, optionEls, badgeEl, view) {
     if (sliderEl) {
         sliderEl.value = view.speed;
-        sliderEl.style.background = `linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) ${view.fillPercent}%, rgba(255,255,255,0.1) ${view.fillPercent}%, rgba(255,255,255,0.1) 100%)`;
+        sliderEl.style.setProperty('--hud-fill-pct', `${view.fillPercent}%`); // tô theo UI theme — .setting-slider, sliders.css
     }
     if (valueLabelEl) valueLabelEl.textContent = view.label;
-    optionEls.forEach((el) => el.classList.toggle('bg-white/20', parseFloat(el.dataset.speedOption) === view.speed));
+    optionEls.forEach((el) => el.classList.toggle('viz-chip-active', parseFloat(el.dataset.speedOption) === view.speed)); // assets/css/glass.css
     if (badgeEl) badgeEl.textContent = view.label;
 }

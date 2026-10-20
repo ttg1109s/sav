@@ -359,8 +359,7 @@
          * repeat/stats") — cần "set thẳng" UI về giá trị ĐÃ LƯU lúc boot, không thể gọi
          * toggleShuffle() cho việc này vì hàm đó LUÔN đảo ngược giá trị hiện tại. */
         function syncShuffleUI(isShuffleNow) {
-            btnShuffle.classList.toggle('!text-sky-400', isShuffleNow);
-            btnShuffle.classList.toggle('text-slate-400', !isShuffleNow);
+            btnShuffle.classList.toggle('viz-cc-active', isShuffleNow); // màu nhấn theo UI theme — assets/css/glass.css
         }
 
         function toggleShuffle(isShuffleCurrent) {
@@ -383,9 +382,8 @@
          * icon repeat, components/visualizer-overlay.js) — cùng cơ chế ẩn/hiện qua class `hidden`,
          * chỉ đổi phần tử đích. */
         function syncRepeatUI(repeatModeNow) {
-            if (repeatModeNow === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatOneDigit.classList.add('hidden'); }
-            else if (repeatModeNow === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatOneDigit.classList.add('hidden'); }
-            else if (repeatModeNow === 2) { btnRepeat.classList.add('!text-sky-400'); repeatOneDigit.classList.remove('hidden'); }
+            btnRepeat.classList.toggle('viz-cc-active', repeatModeNow !== 0); // 1 = lặp danh sách, 2 = lặp 1 bài — màu nhấn theo UI theme
+            repeatOneDigit.classList.toggle('hidden', repeatModeNow !== 2);
         }
 
         function cycleRepeatMode() {

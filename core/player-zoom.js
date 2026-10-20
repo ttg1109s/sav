@@ -139,9 +139,9 @@ function setPlayerZoomButtonVisible(visible) {
     if (btnPlayerZoom) btnPlayerZoom.classList.toggle('hidden', !visible);
 }
 
-/** Trạng thái sáng của icon kính lúp (đang ở Zoom mode) — cùng class `!text-sky-400` của Shuffle. @param {boolean} active */
+/** Trạng thái sáng của icon kính lúp (đang ở Zoom mode) — cùng class `viz-cc-active` của Shuffle. @param {boolean} active */
 function setPlayerZoomButtonActive(active) {
-    if (btnPlayerZoom) btnPlayerZoom.classList.toggle('!text-sky-400', active);
+    if (btnPlayerZoom) btnPlayerZoom.classList.toggle('viz-cc-active', active);
 }
 
 /** Ép hiện nút mở Control Center trong lúc Zoom mode (vuốt rìa trên đã bị tắt cùng mọi cử chỉ — đây là lối DUY

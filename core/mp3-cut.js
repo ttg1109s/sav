@@ -2,16 +2,15 @@
  * core/mp3-cut.js — Core cắt 1 đoạn audio thành file .mp3 cho tool "Cut MP3" (Subtitle Editor). Điều phối:
  * event/workflow/subtitle-editor.js::cutMp3FromRegion().
  *
- * 2 đường, Workflow chọn theo kết quả `indexMp3Frames()`:
- *   - Nguồn là MP3 -> cắt THEO FRAME (`buildMp3FrameCut()`): chép nguyên các frame gốc, không giải mã/mã hoá lại -> âm thanh
- *     giống hệt bản gốc (đủ kênh, đúng sample rate, đúng bitrate). Điểm cắt làm tròn ra biên frame (~26 ms).
- *   - Nguồn khác (m4a, flac, wav...) -> giải mã ở sample rate gốc (Workflow) -> `sliceAudioBufferToPcm16()` ->
- *     `encodeMp3FromPcm16()` (lamejs, 192 kbps).
+ * 2 đường, Workflow chọn theo `resolveCutMp3Plan()`:
+ *   - 'frames' — nguồn MP3 và không fade: chép nguyên các frame gốc (`buildMp3FrameCut()`), không giải mã/mã hoá lại -> âm
+ *     thanh giống hệt bản gốc (đủ kênh, đúng sample rate, đúng bitrate). Điểm cắt làm tròn ra biên frame (~26 ms).
+ *   - 'reencode' — nguồn khác MP3 (m4a, flac, wav...) hoặc có Fade in/out: giải mã (Workflow) -> `sliceAudioBufferToPcm16()`
+ *     (cắt + fade tuyến tính) -> `encodeMp3FromPcm16()` (lamejs, MP3_REENCODE_KBPS).
  * Lỗi cũ (20/10/2026): bản trước mã hoá từ `getDecodedData()` của WaveSurfer — v7 giải mã ở 8000 Hz mặc định nên file cắt
  * bị đục/méo, khác bản gốc.
  *
- * Rule 3d — `encodeMp3FromPcm16()` là wrapper lamejs (CDN, pages/subtitle-editor.html), cô lập để sau này đổi bộ mã hoá
- * (WebCodecs/Mediabunny) mà Workflow giữ nguyên lời gọi.
+ * `encodeMp3FromPcm16()` gọi thẳng lamejs (CDN, pages/subtitle-editor.html) — chưa audit Rule 3d, đã ghi sổ vi phạm.
  *
  * NẠP SAU: không phụ thuộc gì (lamejs chỉ cần lúc chạy).
  */
@@ -22,7 +21,8 @@ const MP3_BITRATE_KBPS_V2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128,
 const MP3_SAMPLE_RATES_BY_VERSION = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
 const MP3_SYNC_SCAN_LIMIT_BYTES = 65536; // dò frame đầu trong 64 KB sau ID3v2
 const MP3_MIN_CHAINED_FRAMES = 3; // ≥3 frame nối liền mới coi là MP3 thật (tránh khớp nhầm 0xFFE trong dữ liệu rác)
-const MP3_REENCODE_KBPS = 192;
+const MP3_REENCODE_KBPS = 256;
+const MP3_REENCODE_DEFAULT_SAMPLE_RATE = 44100; // nguồn không phải MP3: giải mã về 44.1 kHz (chuẩn MPEG1)
 const MP3_REENCODE_BLOCK = 1152;
 
 /**
@@ -145,24 +145,56 @@ function buildMp3FrameCut(bytes, index, startSec, endSec) {
 }
 
 /**
- * Cắt [startSec, endSec] của AudioBuffer (giải mã ở sample rate gốc) thành PCM 16-bit — tối đa 2 kênh (lamejs chỉ nhận
- * mono/stereo), kẹp -1..1 trước khi đổi.
+ * Cách cắt + sample rate giải mã. 'frames' khi có bảng frame MP3 và không fade; còn lại 'reencode' (giải mã ở sample rate
+ * gốc của MP3 để không resample, nguồn khác ở MP3_REENCODE_DEFAULT_SAMPLE_RATE).
+ * @param {ReturnType<typeof indexMp3Frames>} index @param {number} fadeInMs @param {number} fadeOutMs
+ * @returns {{method: 'frames'|'reencode', sampleRate: number, fadeInSec: number, fadeOutSec: number}}
+ */
+function resolveCutMp3Plan(index, fadeInMs, fadeOutMs) {
+    const canCopyFrames = !!index && fadeInMs <= 0 && fadeOutMs <= 0;
+    return {
+        method: canCopyFrames ? 'frames' : 'reencode',
+        sampleRate: index ? index.sampleRate : MP3_REENCODE_DEFAULT_SAMPLE_RATE,
+        fadeInSec: Math.max(0, fadeInMs) / 1000,
+        fadeOutSec: Math.max(0, fadeOutMs) / 1000,
+    };
+}
+
+/** Fade tối đa (ms) = độ dài vùng chọn trừ fade đầu bên kia (2 fade không chồng nhau).
+ * @param {number} startSec @param {number} endSec @param {number} otherFadeMs @returns {number} */
+function computeCutFadeMaxMs(startSec, endSec, otherFadeMs) {
+    return Math.max(0, Math.floor((endSec - startSec) * 1000) - otherFadeMs);
+}
+
+/** Nhãn độ dài fade: "1.250s". @param {number} ms @returns {string} */
+function formatCutFadeSeconds(ms) {
+    return `${(ms / 1000).toFixed(3)}s`;
+}
+
+/**
+ * Cắt [startSec, endSec] của AudioBuffer thành PCM 16-bit — tối đa 2 kênh (lamejs chỉ nhận mono/stereo), áp đường bao âm
+ * lượng tuyến tính: 0 -> 1 trong `fadeInSec` đầu, 1 -> 0 trong `fadeOutSec` cuối (0 = không đổi), kẹp -1..1 trước khi đổi.
  * @param {AudioBuffer} audioBuffer @param {number} startSec @param {number} endSec
+ * @param {number} [fadeInSec=0] @param {number} [fadeOutSec=0]
  * @returns {{channels: Int16Array[], sampleRate: number, durationSec: number}}
  */
-function sliceAudioBufferToPcm16(audioBuffer, startSec, endSec) {
+function sliceAudioBufferToPcm16(audioBuffer, startSec, endSec, fadeInSec = 0, fadeOutSec = 0) {
     const sampleRate = audioBuffer.sampleRate;
     const startSample = Math.max(0, Math.floor(startSec * sampleRate));
     const endSample = Math.min(audioBuffer.length, Math.ceil(endSec * sampleRate));
     const length = endSample - startSample;
     if (length <= 0) throw new Error('Vùng chọn rỗng, không có gì để cắt.');
     const channelCount = Math.min(2, Math.max(1, audioBuffer.numberOfChannels));
+    const fadeInN = Math.round(Math.max(0, fadeInSec) * sampleRate);
+    const fadeOutN = Math.round(Math.max(0, fadeOutSec) * sampleRate);
     const channels = [];
     for (let c = 0; c < channelCount; c++) {
         const src = audioBuffer.getChannelData(c).subarray(startSample, endSample);
         const pcm = new Int16Array(length);
         for (let i = 0; i < length; i++) {
-            const s = Math.max(-1, Math.min(1, src[i]));
+            const gainIn = fadeInN > 0 ? Math.min(1, i / fadeInN) : 1;
+            const gainOut = fadeOutN > 0 ? Math.min(1, (length - 1 - i) / fadeOutN) : 1;
+            const s = Math.max(-1, Math.min(1, src[i] * gainIn * gainOut));
             pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         channels.push(pcm);

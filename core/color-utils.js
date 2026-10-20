@@ -88,7 +88,7 @@
          * bằng class transform). @returns {Element[]} các lớp kính vừa đổi (đưa cho restoreGlassBackdrop())
          */
         function suspendGlassBackdrop() {
-            const glassEls = [...document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center, .uitk-glass-surface, .uitk-glass-elevated')];
+            const glassEls = [...document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center, .uitk-glass-surface, .uitk-glass-elevated, .viz-chrome, .viz-cc-panel, .pc-surface')];
             glassEls.forEach((el) => {
                 el.style.webkitBackdropFilter = 'blur(0px)';
                 el.style.backdropFilter = 'blur(0px)';
