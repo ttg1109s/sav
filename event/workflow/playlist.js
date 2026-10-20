@@ -1039,7 +1039,7 @@ const workflowPlaylist = {
     },
 
     /**
-     * "Phát bài đã chọn" — sắp tập đã chọn theo displaySortMode hiện tại (sortKeysByMode()), đặt sectionQueueActive=true
+     * "Phát bài đã chọn" — sắp tập đã chọn theo cài đặt Sắp xếp hiện tại (workflowPlaylistOrder.sortKeys()), đặt sectionQueueActive=true
      * (2 nút to Phát/Trộn bài biết cần chèn lại top-level trước khi phát) và, nếu Shuffle đang bật, resync shuffleIndices
      * theo section mới (tránh Next/Prev đầu tiên tràn sang top-level).
      */
@@ -1047,8 +1047,7 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedMediaKeys'));
         if (keys.length === 0) return; // guard — chưa chọn gì thì không làm gì
 
-        const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap, activeMediaSource } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'activeMediaSource']);
-        const sorted = sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap, activeMediaSource); // core/playlist/order.js
+        const sorted = workflowPlaylistOrder.sortKeys(keys, appState.get(PLAYLIST_SORT_STATE_KEYS)); // event/workflow/playlist-order.js
         appState.set('displayOrder', sorted);
         console.log(`writer: "playSelectedSongs", page: "displayOrder", content: "${sorted.length} bài đã chọn, sort theo displaySortMode hiện tại"`);
         appState.mutate('pendingResortKeys', s => s.clear());

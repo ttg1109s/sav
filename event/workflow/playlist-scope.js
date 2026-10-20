@@ -1,14 +1,14 @@
 /**
  * event/workflow/playlist-scope.js — Scope Playlist theo folder + nạp lại playlistCache theo Nguồn (Song/Video/Photo).
  *
- * Luồng chuẩn (tap/thoát folder, upload-refresh; boot + đổi Nguồn qua `applyRememberedScope()`): gọi ĐÚNG 1 trong 2 —
+ * Luồng chuẩn (tap/thoát folder, upload-refresh; boot + đổi Nguồn qua `applyRememberedScope()`): gọi đúng 1 trong 2 —
  * `applyFolderScope(folderId, mediaType, onProgress?)` hoặc `applyAllSongsScope(mediaType, onProgress?)`. Bên trong:
  *   1. List — `listMediaRecords()`: có `folderId` -> chỉ đọc key của folder đó (progress "x/total" khớp số thật);
  *      không có -> cả thư viện. Đọc cả lô trong 1 transaction.
  *   2. Validate — chỉ Song (`filterValidSongRecords`).
  *   3. Adapt — `buildAdaptedPlaylistCache()` (Video/Photo) hoặc `buildSongPlaylistCache()` (core/playlist/loader.js).
  *   4. Scope + Filter — cache chỉ chứa đúng phạm vi nên `loadAllSongs(cache, excludedKeys)` suy ra `playlistOrder`,
- *      rồi `applyPlaylistFilter()` lọc tiếp.
+ *      rồi `applyPlaylistFilter()` lọc tiếp (Filter của folder: `resolveFolderScopeFilter()`, core/playlist/scope.js).
  *   5. Render + badge.
  * Cache luôn khớp phạm vi hiện tại -> mọi nơi đổi scope chỉ cần gọi lại 1 trong 2 hàm trên.
  *
@@ -17,8 +17,7 @@
  * `askReloadToApplyNow()` — modal dùng chung (event/workflow/playlist-filter-presets.js::selectPreset()).
  *
  * NẠP SAU: core/playlist/{scope,filter,filter-presets,loader}.js, core/song-search.js, core/file-manager/video.js,
- * service/db.js, event/workflow/playlist-order.js,
- * core/modal-choice-ui.js. Lúc chạy: event/workflow/{folder,playlist-render}.js.
+ * service/db.js, core/modal-choice-ui.js. Lúc chạy: event/workflow/{folder,playlist-order,playlist-render}.js.
  */
 // mediaType -> đọc record cả lô trong 1 transaction (toàn thư viện = cursor; theo danh sách key = nhiều get trong 1 tx).
 // Thêm loại media mới: 1 dòng ở đây + 1 entry MEDIA_ADAPTER_SHAPE (core/playlist/loader.js).
@@ -34,10 +33,11 @@ const PICKABLE_MEDIA_LISTER = {
     video: () => getAllVideoRecords(), // service/db.js
 };
 
-// Dựng playlistCache: Song (lọc record hợp lệ rồi dựng cache Song) / Video-Photo (Adapter).
-const PLAYLIST_CACHE_BUILD_BY_IS_SONG = {
-    true: (records) => workflowPlaylistScope._buildSongCache(records),
-    false: (records, mediaSource) => workflowPlaylistScope._buildAdaptedCache(records, mediaSource),
+// Dựng playlistCache theo Nguồn: Song (lọc record hợp lệ rồi dựng cache Song) / Video-Photo (Adapter).
+const PLAYLIST_CACHE_BUILD_BY_SOURCE = {
+    song: (records) => workflowPlaylistScope._buildSongCache(records),
+    video: (records) => workflowPlaylistScope._buildAdaptedCache(records, 'video'),
+    photo: (records) => workflowPlaylistScope._buildAdaptedCache(records, 'photo'),
 };
 
 // listMediaRecords(): có folderId -> chỉ đọc key của folder đó; không -> cả thư viện.
@@ -69,10 +69,9 @@ const workflowPlaylistScope = {
     /** Record của đúng các key trong 1 folder, đọc trong 1 transaction.
      * @param {{getRecordsByKeys: Function}} accessor @param {string} folderId @param {Function} [onProgress] */
     async _listFolderMediaRecords(accessor, folderId, onProgress) {
-        const folderMap = await getFolderSongMap(folderId); // service/db.js
-        const keys = folderMap ? folderMap.list.filter((k) => k != null) : []; // chọn GIÁ TRỊ
+        const keys = resolveFolderMapKeys(await getFolderSongMap(folderId)); // service/db.js + core/playlist/scope.js
         const records = await accessor.getRecordsByKeys(keys, onProgress);
-        return keys.map((key, i) => (records[i] ? { key, ...records[i] } : null)).filter(Boolean);
+        return pairRecordsWithKeys(keys, records); // core/playlist/scope.js
     },
 
     /**
@@ -84,7 +83,7 @@ const workflowPlaylistScope = {
      */
     async loadPlaylistCacheForSource(mediaSource, folderId, onProgress) {
         const records = await this.listMediaRecords(mediaSource, folderId, onProgress);
-        PLAYLIST_CACHE_BUILD_BY_IS_SONG[mediaSource === 'song'](records, mediaSource);
+        PLAYLIST_CACHE_BUILD_BY_SOURCE[mediaSource](records);
     },
 
     /** Validate + Adapt Song: lọc record hợp lệ, chuẩn hoá tên cho `songNameIndex`, dựng cache.
@@ -104,13 +103,13 @@ const workflowPlaylistScope = {
     },
 
     /**
-     * Lưu Ý ĐỊNH scope mới (`meta` + `appState.activePlayListFolder`, badge phản ánh ngay) — KHÔNG
-     * đụng playlistOrder/cache, đó là việc của applyFolderScope()/applyAllSongsScope() gọi sau.
+     * Lưu ý định scope mới (`meta` + `appState.activePlayListFolder`) — không đụng playlistOrder/cache, đó là việc của
+     * applyFolderScope()/applyAllSongsScope() gọi sau.
      * @param {string|null} folderId - null = bỏ scope
      * @param {'song'|'video'|'photo'} mediaType
      */
     async persistScopeChoice(folderId, mediaType) {
-        const next = { ...appState.get('activePlayListFolder'), [mediaType]: folderId ?? null };
+        const next = withScopeFolder(appState.get('activePlayListFolder'), mediaType, folderId); // core/playlist/scope.js
         appState.set('activePlayListFolder', next);
         console.log(`writer: "persistScopeChoice", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
         await setMeta('activePlayListFolder', next);
@@ -123,77 +122,68 @@ const workflowPlaylistScope = {
     },
 
     /**
-     * Áp Scope 1 folder — nạp cache chỉ folder này rồi tính playlistOrder + Filter + render + badge. Gọi được bất kỳ lúc
-     * nào scope đổi. Chủ ý: không dừng bài đang phát nằm ngoài scope mới (chỉ biến khỏi list, phát hết bình thường).
+     * Áp Scope 1 folder — nạp cache chỉ folder này rồi tính playlistOrder + Filter của folder + render + badge. Gọi được bất
+     * kỳ lúc nào scope đổi. Chủ ý: không dừng bài đang phát nằm ngoài scope mới (chỉ biến khỏi list, phát hết bình thường).
      * Progress: lúc tải chỉ biết `total` = số record thô trong scope (Filter cần cache dựng xong mới chạy được), nên sau
      * Filter báo lại `onProgress()` 1 lần với số cuối cùng — con số đọng lại trên màn loading khớp số item hiện ra.
-     * Filter của folder: công thức 3 nhánh, ghi tại chỗ tính `rulesBucket`. `applyAllSongsScope()` luôn áp Filter tổng.
-     * @param {string} folderId
-     * @param {'song'|'video'|'photo'} mediaType
-     * @param {(done:number,total:number)=>void} [onProgress]
+     * @param {string} folderId @param {'song'|'video'|'photo'} mediaType @param {(done:number,total:number)=>void} [onProgress]
      */
     async applyFolderScope(folderId, mediaType, onProgress) {
-        // Bọc onProgress để biết lượt tải có báo tiến độ không (thư viện/folder rỗng -> không lần nào, lớp loading không
-        // hiện) — nếu không thì bỏ bước báo lại số cuối, tránh làm hiện overlay.
-        let progressWasCalled = false;
-        const trackedOnProgress = typeof onProgress === 'function' ? (done, total) => { progressWasCalled = true; onProgress(done, total); } : undefined;
-        await this.loadPlaylistCacheForSource(mediaType, folderId, trackedOnProgress);
-        const next = { ...appState.get('activePlayListFolder'), [mediaType]: folderId };
+        const progress = this._trackProgress(onProgress);
+        await this.loadPlaylistCacheForSource(mediaType, folderId, progress.onProgress);
+        const { activePlayListFolder, playlistCache, mediaStatsMap, playlistFilterAppliesToFolder, playlistFilterConfig } = appState.get([
+            'activePlayListFolder', 'playlistCache', 'mediaStatsMap', 'playlistFilterAppliesToFolder', 'playlistFilterConfig',
+        ]);
+        const next = withScopeFolder(activePlayListFolder, mediaType, folderId); // core/playlist/scope.js
         appState.set('activePlayListFolder', next);
         console.log(`writer: "applyFolderScope", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
-        const folderRecordForReadOnly = await getFolderRecord(folderId); // service/db.js
-        appState.set('isActiveFolderReadOnly', !!(folderRecordForReadOnly && folderRecordForReadOnly.isReadOnly));
-        console.log(`writer: "applyFolderScope", page: "isActiveFolderReadOnly", content: "${appState.get('isActiveFolderReadOnly')}"`);
-
-        // cache vừa nạp CHỈ chứa đúng folder này -> không cần giao (intersect) lại, không có Exclude
-        loadAllSongs(appState.get('playlistCache'), new Set()); // core/playlist/scope.js
-        const beforeCount = appState.get('playlistOrder').length;
-        // Filter của folder — Filter tổng (`playlistFilterConfig`) kèm quyền "cho mượn" (`playlistFilterAppliesToFolder`,
-        // checkbox trong Filter Presets); từng folder tự quyết qua `applyFilter`/`filterConfig` (core/file-manager/folder.js):
-        //   1. `applyFilter === false` -> bucket rỗng (không áp gì).
-        //   2. `filterConfig` riêng có field hợp lệ (`hasValidPlaylistFilterField()`) -> dùng nó, luôn thắng.
-        //   3. Folder chưa tự cấu hình -> `playlistFilterAppliesToFolder[mediaType]`: true = mượn Filter tổng, false = rỗng.
-        const folderRecordForFilter = folderRecordForReadOnly; // dùng lại record vừa đọc
-        const folderApplyFilter = !folderRecordForFilter || folderRecordForFilter.applyFilter !== false; // record null hiếm -> coi như true
-        const folderHasOwnFilter = folderApplyFilter && hasValidPlaylistFilterField(folderRecordForFilter && folderRecordForFilter.filterConfig); // core/playlist/filter-presets.js
-        const globalAppliesToFolder = appState.get('playlistFilterAppliesToFolder')[mediaType]; // service/state/playlist.js
-        const defaultRulesBucket = clonePlaylistFilterConfigDefaults()[mediaType]; // core/playlist/filter-presets.js
-        const globalRulesBucket = appState.get('playlistFilterConfig')[mediaType];
-        const rulesBucket = !folderApplyFilter
-            ? defaultRulesBucket
-            : (folderHasOwnFilter ? folderRecordForFilter.filterConfig : (globalAppliesToFolder ? globalRulesBucket : defaultRulesBucket));
-        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), rulesBucket, mediaType); // core/playlist/filter.js
-        appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType}, applyFilter=${folderApplyFilter}, ownFilter=${folderHasOwnFilter}, globalAppliesToFolder=${globalAppliesToFolder})"`);
-        this._reportFinalProgress(progressWasCalled, onProgress, filteredKeys.length); // số cuối cùng sau Filter
-        workflowPlaylistOrder.updateShuffleArray();
-        workflowPlaylistOrder.recomputeDisplayOrder();
-        workflowPlaylistOrder.recomputeRenderOrder();
-        workflowPlaylistRender.renderPlaylistDiff();
-        workflowPlaylistRender.syncEmptyState();
-        await this.syncActiveFolderBadge();
+        const folderRecord = await getFolderRecord(folderId); // service/db.js
+        const scope = resolveFolderScopeFilter( // core/playlist/scope.js
+            folderRecord,
+            hasValidPlaylistFilterField(folderRecord && folderRecord.filterConfig), // core/playlist/filter-presets.js
+            playlistFilterAppliesToFolder[mediaType],
+            playlistFilterConfig[mediaType],
+            clonePlaylistFilterConfigDefaults()[mediaType], // core/playlist/filter-presets.js
+        );
+        appState.set('isActiveFolderReadOnly', scope.isReadOnly);
+        console.log(`writer: "applyFolderScope", page: "isActiveFolderReadOnly", content: "${scope.isReadOnly}"`);
+        const scopedKeys = loadAllSongs(playlistCache, new Set()); // core/playlist/scope.js — cache chỉ chứa đúng folder này, không có Exclude
+        const filteredKeys = applyPlaylistFilter(scopedKeys, playlistCache, mediaStatsMap, scope.rulesBucket, mediaType); // core/playlist/filter.js
+        await this._finishScope(filteredKeys, progress, onProgress,
+            `Filter: ${filteredKeys.length}/${scopedKeys.length} sau lọc (source=${mediaType}, applyFilter=${scope.applyFilter}, ownFilter=${scope.ownFilter}, globalAppliesToFolder=${playlistFilterAppliesToFolder[mediaType]})`);
     },
 
     /**
-     * Áp "Tất cả" — nạp lại toàn bộ cache rồi tính playlistOrder (trừ Exclude) + Filter + render + badge. Cùng nguyên
+     * Áp "Tất cả" — nạp lại toàn bộ cache rồi tính playlistOrder (trừ Exclude) + Filter tổng + render + badge. Cùng nguyên
      * tắc và cách báo progress với `applyFolderScope()`.
-     * @param {'song'|'video'|'photo'} mediaType
-     * @param {(done:number,total:number)=>void} [onProgress]
+     * @param {'song'|'video'|'photo'} mediaType @param {(done:number,total:number)=>void} [onProgress]
      */
     async applyAllSongsScope(mediaType, onProgress) {
-        let progressWasCalled = false;
-        const trackedOnProgress = typeof onProgress === 'function' ? (done, total) => { progressWasCalled = true; onProgress(done, total); } : undefined;
-        await this.loadPlaylistCacheForSource(mediaType, null, trackedOnProgress);
+        const progress = this._trackProgress(onProgress);
+        await this.loadPlaylistCacheForSource(mediaType, null, progress.onProgress);
         this._clearFolderScopeOf(mediaType);
         appState.set('isActiveFolderReadOnly', false);
         console.log(`writer: "applyAllSongsScope", page: "isActiveFolderReadOnly", content: "false"`);
-        const excludedKeys = await workflowFolder.readExcludedKeys(mediaType); // event/workflow/folder.js — CHỈ Exclude của ĐÚNG mediaType
-        loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
-        const beforeCount = appState.get('playlistOrder').length;
-        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig')[mediaType], mediaType); // core/playlist/filter.js
+        const excludedKeys = await workflowFolder.readExcludedKeys(mediaType); // event/workflow/folder.js — chỉ Exclude của đúng mediaType
+        const { playlistCache, mediaStatsMap, playlistFilterConfig } = appState.get(['playlistCache', 'mediaStatsMap', 'playlistFilterConfig']);
+        const scopedKeys = loadAllSongs(playlistCache, excludedKeys); // core/playlist/scope.js
+        const filteredKeys = applyPlaylistFilter(scopedKeys, playlistCache, mediaStatsMap, playlistFilterConfig[mediaType], mediaType); // core/playlist/filter.js
+        await this._finishScope(filteredKeys, progress, onProgress, `Filter: ${filteredKeys.length}/${scopedKeys.length} sau lọc (source=${mediaType})`);
+    },
+
+    /** Bọc onProgress để biết lượt tải có báo tiến độ không (thư viện/folder rỗng -> không lần nào, lớp loading không hiện).
+     * @param {Function} [onProgress] @returns {{called: boolean, onProgress: Function|undefined}} */
+    _trackProgress(onProgress) {
+        const progress = { called: false, onProgress: undefined };
+        if (typeof onProgress === 'function') progress.onProgress = (done, total) => { progress.called = true; onProgress(done, total); };
+        return progress;
+    },
+
+    /** Phần chung cuối 2 kiểu Scope: ghi playlistOrder đã lọc, báo số cuối cùng, tính lại thứ tự, vẽ lại + badge. */
+    async _finishScope(filteredKeys, progress, onProgress, logContent) {
         appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "applyAllSongsScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${mediaType})"`);
-        this._reportFinalProgress(progressWasCalled, onProgress, filteredKeys.length);
+        console.log(`writer: "workflowPlaylistScope._finishScope", page: "playlistOrder", content: "${logContent}"`);
+        this._reportFinalProgress(progress.called, onProgress, filteredKeys.length);
         workflowPlaylistOrder.updateShuffleArray();
         workflowPlaylistOrder.recomputeDisplayOrder();
         workflowPlaylistOrder.recomputeRenderOrder();
@@ -212,7 +202,7 @@ const workflowPlaylistScope = {
     _clearFolderScopeOf(mediaType) {
         const current = appState.get('activePlayListFolder');
         if (current[mediaType] == null) return; // guard — vốn không Scope
-        const next = { ...current, [mediaType]: null };
+        const next = withScopeFolder(current, mediaType, null); // core/playlist/scope.js
         appState.set('activePlayListFolder', next);
         console.log(`writer: "applyAllSongsScope", page: "activePlayListFolder", content: "${JSON.stringify(next)}"`);
     },

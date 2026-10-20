@@ -1,142 +1,104 @@
 /**
- * event/workflow/playlist-order.js — Lớp điều phối "tính lại thứ tự" cho Playlist (renderOrder/
- * displayOrder/shuffleIndices), MỚI — dời NGUYÊN VẸN 6 hàm TỪ core/playlist/order.js (Giang chỉ ra
- * "không chấp nhận tiền lệ, ngoại lệ trừ chỉ định cụ thể theo tài liệu" — sau khi bị chỉ ra lý lẽ
- * "ghép hàm thuần, không tính Core gọi Core" mà bản thân tôi tự bịa, KHÔNG có trong core-function-
- * conventions.md):
- *   - `recomputeRenderOrder()`/`recomputeDisplayOrder()` — TRƯỚC ĐÂY ở order.js, gọi `liveKeys()`/
- *     `sortKeysByMode()` (đều là hàm core/nghiệp vụ TOP-LEVEL RIÊNG, KHÔNG
- *     phải closure lồng) — đúng định nghĩa Rule 3a cấm tuyệt đối ("1 function core TUYỆT ĐỐI
- *     KHÔNG được gọi bất kỳ function core/nghiệp vụ nào khác"), KHÔNG đủ điều kiện hưởng ngoại lệ
- *     Rule 3c (hàm con chỉ được miễn khi là closure lồng bên trong VÀ tự chứa vòng lặp — các hàm bị
- *     gọi ở đây không thoả điều kiện nào).
- *   - `updateShuffleArray()`/`applyNewSongsToDisplayOrder()`/`setDisplaySortMode()`/
- *     `setDisplayStatSortField()`/`setDisplayStatSortDirection()` — TRƯỚC ĐÂY CŨNG tự
- *     `appState.get()` (vi phạm Rule 2) VÀ gọi core khác (`recomputeRenderOrder`/
- *     `recomputeDisplayOrder`/`renderPlaylistDiff` — vi phạm Rule 3a) — đợt sửa trước ĐÃ GHI CHÚ
- *     rõ đây là nợ "ngoài phạm vi", giờ dọn LUÔN cùng đợt vì đằng nào cũng đang sửa nhiều
- *     core/workflow (đúng chỉ đạo "sửa cho triệt để").
+ * event/workflow/playlist-order.js — `workflowPlaylistOrder`: tính lại thứ tự Playlist (renderOrder / displayOrder /
+ * shuffleIndices), đổi kiểu sắp xếp, ô tìm kiếm. Chỉ đọc state + điều phối; thuật toán thứ tự ở core/playlist/order.js.
  *
- * SỬA TẬN GỐC theo đúng Rule 3b ("Core là tầng THI HÀNH, Workflow là tầng CHUẨN BỊ") — CÙNG tiền lệ
- * `core/playlist/bulk-actions.js` đã làm với `deleteSongsBatch()` cũ ("Bỏ hẳn... khỏi core... dời
- * THẲNG vào workflow"). `core/playlist/order.js` giờ CHỈ còn hàm THUẦN thật sự (Rule 1-4 đầy đủ,
- * không hàm core nào trong file đó tự `appState.get()` hay gọi core khác nữa): `liveKeys()`,
- * `sortKeysByMode()`, `updateShuffleArrayFromQueue()`, `computeListStep()`, `decideBoundaryAction()`,
- * `shouldRestartInsteadOfAdvance()`.
- *
- * Workflow ở ĐÂY ĐƯỢC PHÉP tự `appState.get()` (Rule 2 CHỈ áp cho Core) và gọi nhiều Core nối tiếp
- * nhau (`liveKeys`/`sortKeysByMode` — Core; `renderPlaylistDiff` giờ CŨNG là
- * Workflow, gọi qua `workflowPlaylistRender.renderPlaylistDiff()` — Workflow gọi Workflow khác
- * domain, tự do) — Rule 3 CHỈ cấm Core gọi Core, không cấm Workflow gọi Core/Workflow khác.
- *
- * NẠP SAU: core/playlist/order.js (liveKeys/sortKeysByMode), core/song-search.js (normalizeSongName),
- * event/workflow/playlist-render.js (workflowPlaylistRender.renderPlaylistDiff — dời từ
- * core/playlist/render.js), service/state.js (appState). NẠP TRƯỚC: mọi
- * event/workflow/*.js hoặc core/*.js gọi 7 method dưới đây (xem danh sách callsite đã cập nhật ở
- * event/workflow/playlist.js, playlist-scope.js, playlist-empty-state.js, player-controls.js,
- * video-player.js, file-manager-storage.js, core/playlist/render.js, actions.js, loader.js,
- * core/storage-manager.js).
+ * NẠP SAU: core/playlist/order.js, core/song-search.js (normalizeSongName), core/playlist/main.js (ô tìm kiếm),
+ * service/state.js. Lúc chạy: event/workflow/playlist-render.js.
  */
-/** MỚI (02/10/2026, tối ưu 10000 item) — gõ Search: lọc lại danh sách sau khi NGỪNG gõ 150ms (gõ liên tục chỉ lọc 1 lần
- * cuối — gõ Telex 1 chữ có dấu là 2-3 sự kiện input). Task tên cố định -> taskManager.once() tự huỷ lần hẹn trước. */
+/** Gõ Search: lọc lại sau khi NGỪNG gõ 150ms (gõ Telex 1 chữ có dấu là 2-3 sự kiện input). Task tên cố định ->
+ * taskManager.once() tự huỷ lần hẹn trước. */
 const PLAYLIST_SEARCH_DEBOUNCE_MS = 150;
 const PLAYLIST_SEARCH_APPLY_TASK = 'playlistSearchApply';
 
-/** MỚI (02/10/2026) — applyNewSongsToDisplayOrder(): 3 kịch bản theo resolveNewSongsDisplayMode() (core/playlist/order.js). */
+/** applyNewSongsToDisplayOrder(): 3 kịch bản theo resolveNewSongsDisplayMode() (core/playlist/order.js). */
 const NEW_SONGS_DISPLAY_BY_MODE = {
     resync: () => workflowPlaylistOrder._resyncDisplayOrderIfStale(),
     resort: () => workflowPlaylistOrder.recomputeDisplayOrder(),
     append: (newKeys) => workflowPlaylistOrder._appendNewKeysAsPending(newKeys),
 };
 
+/** Trục (1) sắp xếp theo displaySortMode; giá trị lạ (vd 'default' của state cũ) -> az. */
+const NAME_RANK_BY_SORT_MODE = {
+    az: (keys, s) => rankKeysByName(keys, s.songNameIndex, false), // core/playlist/order.js
+    za: (keys, s) => rankKeysByName(keys, s.songNameIndex, true),
+    newest: (keys, s) => rankKeysByAddedAt(keys, s.playlistCache, true),
+    oldest: (keys, s) => rankKeysByAddedAt(keys, s.playlistCache, false),
+};
+
+/** Key appState mà sortKeys() cần — nơi gọi gộp vào lần get([…]) của mình. */
+const PLAYLIST_SORT_STATE_KEYS = ['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'activeMediaSource'];
+
+/** Lọc Search: không có query -> giữ nguyên (khỏi tính chuỗi tìm kiếm); có -> lọc theo chuỗi đã chuẩn hoá của từng bài. */
+const SEARCH_FILTER_BY_HAS_QUERY = {
+    false: (keys) => keys,
+    true: (keys, query, playlistCache) => {
+        const memo = workflowPlaylistOrder._searchTextMemo();
+        const searchTexts = keys.map((key) => workflowPlaylistOrder._searchTextOf(key, playlistCache.get(key), memo));
+        return filterKeysBySearchText(keys, searchTexts, query); // core/playlist/order.js
+    },
+};
+
 const workflowPlaylistOrder = {
 
-    /** DỜI (24/09/2026, dọn nợ "Core gọi Workflow") từ core/playlist/actions.js::removeKeyFromDisplay() — thân GIỮ
-     * NGUYÊN. Loại 1 key khỏi playlist (xoá tay / "Xóa luôn" / "Giữ lại" lúc phát lỗi / xoá file lỗi): cập nhật CẢ
-     * nguồn chân lý, hàng đợi phát LẪN danh sách hiển thị rồi vẽ lại. Bản cũ nằm ở core nhưng tự appState.get()/set()
-     * + gọi 2 Workflow (order/render) — đúng vai Workflow nên dời hẳn về đây.
-     * @param {string} key */
+    /** Loại 1 key khỏi playlist (xoá tay / "Xóa luôn" / "Giữ lại" lúc phát lỗi / xoá file lỗi): cập nhật nguồn chân lý,
+     * hàng đợi phát lẫn danh sách hiển thị rồi vẽ lại. @param {string} key */
     removeKeyFromDisplay(key) {
-        appState.set('playlistOrder', appState.get('playlistOrder').filter(k => k !== key));
-        appState.set('displayOrder', appState.get('displayOrder').filter(k => k !== key));
+        const { playlistOrder, displayOrder } = appState.get(['playlistOrder', 'displayOrder']);
+        appState.set('playlistOrder', removeKeyFromList(playlistOrder, key)); // core/playlist/order.js
+        appState.set('displayOrder', removeKeyFromList(displayOrder, key));
         appState.mutate('pendingResortKeys', s => s.delete(key));
         appState.mutate('playlistCache', m => m.delete(key)); appState.mutate('songNameIndex', m => m.delete(key));
         console.log(`writer: "workflowPlaylistOrder.removeKeyFromDisplay", page: "playlistOrder/displayOrder/playlistCache", content: "-${key}"`);
         this.updateShuffleArray();
         this.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
-        workflowPlaylistRender.syncEmptyState(); // SỬA (02/10/2026) — thay core updateEmptyState()
-    },
-    /** Tính lại renderOrder = các bài hợp lệ, lọc theo ô tìm kiếm, sắp theo mode hiện tại. KHÔNG
-     * bao giờ phụ thuộc currentKey/pending/hàng đợi phát — UI luôn "đúng như mắt thấy". Dời NGUYÊN
-     * VẸN logic từ core/playlist/order.js::recomputeRenderOrder() (đã xoá khỏi đó) — chỉ khác chỗ
-     * tự `appState.get()` ngay tại đây (Workflow được phép), không còn nhận qua tham số nữa. */
-    recomputeRenderOrder() {
-        const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
-        const { playlistOrder, confirmedBrokenKeys, searchQuery, playlistCache, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap, activeMediaSource } = appState.get([
-            'playlistOrder', 'confirmedBrokenKeys', 'searchQuery', 'playlistCache', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap', 'activeMediaSource',
-        ]);
-        // Chuỗi tìm kiếm đã chuẩn hoá nhớ theo key (_searchTextOf()), chỉ tính lại khi tag đổi. Khớp nếu query nằm trong 1
-        // trong 3 field title/artist/album (nối bằng '\n' — query 1 dòng không khớp vắt qua 2 field).
-        const live = liveKeys(playlistOrder, confirmedBrokenKeys); // core/playlist/order.js
-        const searchTextMemo = this._searchTextMemo();
-        const filtered = live.filter((key) => !searchQuery || this._searchTextOf(key, playlistCache.get(key), searchTextMemo).includes(searchQuery)); // không có query -> mọi bài khớp (vị từ boolean, không rẽ tiến trình)
-        const sorted = sortKeysByMode(filtered, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap, activeMediaSource); // core/playlist/order.js — SỬA 06/10/2026: + loại media
-        appState.set('renderOrder', sorted);
-        console.log(`writer: "workflowPlaylistOrder.recomputeRenderOrder", page: "renderOrder", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${sorted.length} item"`);
+        workflowPlaylistRender.syncEmptyState();
     },
 
-    /** Tính lại displayOrder thật (sort theo mode), xoá pending. Dùng khi đổi mode/chạm biên. FIX
-     * (03/07/2026, mục 3a/3b, GIỮ NGUYÊN qua đợt dời này) — displayOrder sau lời gọi này LUÔN phản
-     * ánh ĐÚNG top-level (liveKeys(), tức playlistOrder đã lọc bài lỗi) — nghĩa là bất kỳ "section"
-     * nào đang active (playSelectedSongs(), event/workflow/playlist.js) coi như đã kết thúc tại đây
-     * -> đặt lại sectionQueueActive=false cho khớp. Dời NGUYÊN VẸN từ core/playlist/order.js::
-     * recomputeDisplayOrder() (đã xoá khỏi đó). */
+    /** Sắp `keys` theo cài đặt Sắp xếp hiện tại (trục tên/ngày + trục thống kê tuỳ chọn). Dùng chung renderOrder,
+     * displayOrder và "Phát bài đã chọn". @param {string[]} keys @param {object} s - appState.get(PLAYLIST_SORT_STATE_KEYS)
+     * @returns {string[]} mảng mới */
+    sortKeys(keys, s) {
+        const nameRanks = (NAME_RANK_BY_SORT_MODE[s.displaySortMode] || NAME_RANK_BY_SORT_MODE.az)(keys, s);
+        const statValues = collectStatSortValues(keys, s.displayStatSortField, s.playlistCache, s.mediaStatsMap, s.activeMediaSource); // core/playlist/order.js
+        return sortKeysByRank(keys, nameRanks, statValues, s.displayStatSortDirection); // core/playlist/order.js
+    },
+
+    /** renderOrder = bài hợp lệ, lọc theo ô tìm kiếm, sắp theo cài đặt hiện tại. Không phụ thuộc currentKey/pending/hàng
+     * đợi phát — UI luôn "đúng như mắt thấy". */
+    recomputeRenderOrder() {
+        const startMs = performance.now();
+        const s = appState.get(['playlistOrder', 'confirmedBrokenKeys', 'searchQuery', ...PLAYLIST_SORT_STATE_KEYS]);
+        const live = liveKeys(s.playlistOrder, s.confirmedBrokenKeys); // core/playlist/order.js
+        const filtered = SEARCH_FILTER_BY_HAS_QUERY[!!s.searchQuery](live, s.searchQuery, s.playlistCache);
+        const sorted = this.sortKeys(filtered, s);
+        appState.set('renderOrder', sorted);
+        console.log(`writer: "workflowPlaylistOrder.recomputeRenderOrder", page: "renderOrder", content: "${computePlaylistElapsedMs(startMs, performance.now())}ms cho ${sorted.length} item"`); // core/playlist/render.js
+    },
+
+    /** displayOrder = top-level (bài hợp lệ) sắp theo cài đặt, xoá pending. Dùng khi đổi kiểu sắp xếp / chạm biên. Mọi
+     * section đang phát (playSelectedSongs(), event/workflow/playlist.js) coi như kết thúc -> sectionQueueActive=false. */
     recomputeDisplayOrder() {
-        const { playlistOrder, confirmedBrokenKeys, displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache, mediaStatsMap, activeMediaSource } = appState.get([
-            'playlistOrder', 'confirmedBrokenKeys', 'displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap', 'activeMediaSource',
-        ]);
-        const sorted = sortKeysByMode(liveKeys(playlistOrder, confirmedBrokenKeys), nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap, activeMediaSource); // core/playlist/order.js — SỬA 06/10/2026: + loại media
+        const s = appState.get(['playlistOrder', 'confirmedBrokenKeys', ...PLAYLIST_SORT_STATE_KEYS]);
+        const sorted = this.sortKeys(liveKeys(s.playlistOrder, s.confirmedBrokenKeys), s); // core/playlist/order.js
         appState.set('displayOrder', sorted);
         console.log(`writer: "workflowPlaylistOrder.recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
-        appState.mutate('pendingResortKeys', s => s.clear());
+        appState.mutate('pendingResortKeys', set => set.clear());
         console.log(`writer: "workflowPlaylistOrder.recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
         appState.set('sectionQueueActive', false);
         console.log(`writer: "workflowPlaylistOrder.recomputeDisplayOrder", page: "sectionQueueActive", content: "false"`);
     },
 
-    /** Reset shuffleIndices theo TOÀN BỘ top-level (playlistOrder) — dùng ở boot/thêm bài/clear
-     * storage/áp scope folder (LUÔN muốn shuffle toàn bộ, không liên quan section — khác hẳn
-     * `updateShuffleArrayFromQueue()`, core/playlist/order.js, dùng cho nút Shuffle Control Center
-     * cần trộn ĐÚNG "hiện hành"). Dời NGUYÊN VẸN từ core/playlist/order.js::updateShuffleArray()
-     * (đã xoá khỏi đó) — THÊM console.log (Rule 4) cho 2 lượt ghi vốn thiếu từ bản gốc, tiện dọn
-     * luôn vì đã đụng tới hàm này. */
+    /** Reset shuffleIndices theo TOÀN BỘ top-level (boot / thêm bài / dọn lưu trữ / áp Scope) — Shuffle bật thì trộn. Khác
+     * nút Shuffle ở Control Center (trộn "hiện hành" — workflowPlayerControls.toggleShuffleAndReshuffle()). */
     updateShuffleArray() {
-        appState.set('shuffleIndices', appState.get('playlistOrder').slice());
-        console.log(`writer: "workflowPlaylistOrder.updateShuffleArray", page: "shuffleIndices", content: "reset theo toàn bộ playlistOrder"`);
-        this._shuffleIndicesIfEnabled(); // SỬA (02/10/2026, mục 7) — bước tuỳ chọn -> method mở đầu bằng guard
+        const { playlistOrder, isShuffle } = appState.get(['playlistOrder', 'isShuffle']);
+        updateShuffleArrayFromQueue([], playlistOrder, !!isShuffle); // core/playlist/order.js — không có nhóm hiện hành
     },
 
-    /** Tách từ updateShuffleArray() — Shuffle đang bật thì trộn ngẫu nhiên shuffleIndices (Fisher-Yates, thân giữ nguyên). */
-    _shuffleIndicesIfEnabled() {
-        if (!appState.get('isShuffle')) return; // guard
-        appState.mutate('shuffleIndices', arr => {
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-        });
-        console.log(`writer: "workflowPlaylistOrder._shuffleIndicesIfEnabled", page: "shuffleIndices", content: "đã trộn ngẫu nhiên (isShuffle=true)"`);
-    },
-
-    /** Thêm bài MỚI vào hàng đợi phát: không đang phát gì -> resort ngay; đang phát -> nối cuối +
-     * ghi nhận pending (chỉ resort khi chạm biên), không làm gãy thứ tự đang nghe (KHÔNG ảnh hưởng
-     * renderOrder/UI). Dời NGUYÊN VẸN từ core/playlist/order.js::applyNewSongsToDisplayOrder() (đã
-     * xoá khỏi đó) — 2 lời gọi `recomputeDisplayOrder()` đổi thành `this.recomputeDisplayOrder()`
-     * (method cùng object, không còn cần gom tham số ở callsite nữa — method đó tự đọc appState). */
+    /** Thêm bài MỚI vào hàng đợi phát: không đang phát gì -> resort ngay; đang phát -> nối cuối + ghi nhận pending (chỉ
+     * resort khi chạm biên), không làm gãy thứ tự đang nghe. Không ảnh hưởng renderOrder. */
     applyNewSongsToDisplayOrder(newKeys) {
-        // SỬA (02/10/2026, rà event-bus-flow.md mục 7) — chuỗi if cũ (3 kịch bản) -> 1 giá trị trạng thái (core thuần) +
-        // object map; thân từng kịch bản giữ nguyên.
         const mode = resolveNewSongsDisplayMode(newKeys.length, !!appState.get('currentKey')); // core/playlist/order.js
         NEW_SONGS_DISPLAY_BY_MODE[mode](newKeys);
     },
@@ -150,71 +112,62 @@ const workflowPlaylistOrder = {
 
     /** Đang phát — nối bài mới (chưa có) vào cuối hàng đợi phát + ghi nhận chờ resort khi chạm biên. */
     _appendNewKeysAsPending(newKeys) {
-        const displaySet = new Set(appState.get('displayOrder')); // tra cứu O(1)
-        const keysToAppend = [...new Set(newKeys)].filter((k) => !displaySet.has(k));
+        const keysToAppend = pickKeysToAppend(appState.get('displayOrder'), newKeys); // core/playlist/order.js
         appState.mutate('displayOrder', arr => arr.push(...keysToAppend));
         console.log(`writer: "workflowPlaylistOrder._appendNewKeysAsPending", page: "displayOrder", content: "nối thêm ${keysToAppend.length} key"`);
-        appState.mutate('pendingResortKeys', s => newKeys.forEach((k) => s.add(k)));
+        appState.mutate('pendingResortKeys', set => newKeys.forEach((k) => set.add(k)));
         console.log(`writer: "workflowPlaylistOrder._appendNewKeysAsPending", page: "pendingResortKeys", content: "thêm ${newKeys.length} key chờ resort"`);
     },
 
-    /** Đổi kiểu sắp xếp hiển thị — cập nhật CẢ render lẫn hàng đợi phát rồi vẽ lại. az/za/newest/
-     * oldest — DÙNG CHUNG cho cả Song/Video/Photo. Dời NGUYÊN VẸN từ core/playlist/order.js::
-     * setDisplaySortMode() (đã xoá khỏi đó) — THÊM console.log (Rule 4) cho lượt ghi
-     * `displaySortMode` vốn thiếu từ bản gốc. */
+    /** Đổi kiểu sắp xếp tên/ngày (az/za/newest/oldest — dùng chung Song/Video/Photo): hàng đợi phát resort thật (hành động
+     * chủ động), UI sắp lại ngay. */
     setDisplaySortMode(mode) {
         if (!['az', 'za', 'newest', 'oldest'].includes(mode)) return;
         appState.set('displaySortMode', mode);
         console.log(`writer: "workflowPlaylistOrder.setDisplaySortMode", page: "displaySortMode", content: "${mode}"`);
-        this.recomputeDisplayOrder();   // hàng đợi: resort thật (đổi mode là hành động chủ động)
-        this.recomputeRenderOrder();    // UI: sắp lại ngay
-        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
+        this._resortAll();
     },
 
-    /** Đổi trục (2) — field thống kê. Dời NGUYÊN VẸN từ core/playlist/order.js::
-     * setDisplayStatSortField() (đã xoá khỏi đó). CÙNG KHUÔN setDisplaySortMode() ở trên. */
+    /** Đổi trục (2) — field thống kê. */
     setDisplayStatSortField(field) {
         if (!['none', 'count', 'times', 'size', 'duration'].includes(field)) return;
         appState.set('displayStatSortField', field);
         console.log(`writer: "workflowPlaylistOrder.setDisplayStatSortField", page: "displayStatSortField", content: "${field}"`);
-        this.recomputeDisplayOrder();
-        this.recomputeRenderOrder();
-        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
+        this._resortAll();
     },
 
-    /** Đổi trục (2) — hướng sắp xếp. Dời NGUYÊN VẸN từ core/playlist/order.js::
-     * setDisplayStatSortDirection() (đã xoá khỏi đó). CÙNG KHUÔN 2 setter trên. */
+    /** Đổi trục (2) — hướng sắp xếp. */
     setDisplayStatSortDirection(direction) {
         if (!['desc', 'asc'].includes(direction)) return;
         appState.set('displayStatSortDirection', direction);
         console.log(`writer: "workflowPlaylistOrder.setDisplayStatSortDirection", page: "displayStatSortDirection", content: "${direction}"`);
+        this._resortAll();
+    },
+
+    /** Sau khi đổi cài đặt Sắp xếp: tính lại hàng đợi phát + renderOrder rồi vẽ lại. */
+    _resortAll() {
         this.recomputeDisplayOrder();
         this.recomputeRenderOrder();
-        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js (dời từ core/playlist/render.js, Giang chỉ ra "không chấp nhận tiền lệ, ngoại lệ")
+        workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js
     },
 
-    // ===================== Search (DỜI 02/10/2026 từ core/playlist/render.js::applySearchQuery()) =====================
-    // Giang chốt quy tắc A cho cuộn khi đổi từ khoá — đụng tới hàm này nên dọn luôn nợ cũ của nó (core tự appState.get()/
-    // set() + gọi 2 Workflow, ghi nhận ở docstring cũ): cả cụm dời về đây, router gọi Workflow (event-bus-flow.md mục 4B).
-    // 2 hàm core UI ô tìm kiếm (core/playlist/main.js) không còn gọi applySearchQuery() — chỉ còn lo phần DOM của ô nhập.
+    // ===================== Search =====================
 
-    /** Ứng với 'playlist.search.input' — nút xoá hiện/ẩn theo có chữ, rồi lọc lại danh sách.
-     * @param {string} value */
+    /** Ứng với 'playlist.search.input' — nút xoá hiện/ẩn ngay, lọc lại sau khi ngừng gõ. @param {string} value */
     searchInput(value) {
-        syncPlaylistSearchClearButton(value); // core/playlist/main.js — nút xoá phản hồi NGAY
-        taskManager.once(() => this.applySearchQuery(value), PLAYLIST_SEARCH_DEBOUNCE_MS, PLAYLIST_SEARCH_APPLY_TASK); // SỬA (02/10/2026) — lọc sau khi ngừng gõ, xem PLAYLIST_SEARCH_DEBOUNCE_MS
+        syncPlaylistSearchClearButton(value); // core/playlist/main.js
+        taskManager.once(() => this.applySearchQuery(value), PLAYLIST_SEARCH_DEBOUNCE_MS, PLAYLIST_SEARCH_APPLY_TASK);
     },
 
-    /** Ứng với 'playlist.search.clear' — xoá ô nhập + ẩn nút xoá + focus lại, rồi bỏ lọc. */
+    /** Ứng với 'playlist.search.clear' — huỷ lượt lọc đang hẹn (kẻo nó chạy sau và lọc lại), xoá ô nhập rồi bỏ lọc. */
     searchClear() {
-        taskManager.kill(PLAYLIST_SEARCH_APPLY_TASK); // MỚI (02/10/2026) — huỷ lượt lọc đang hẹn của chữ vừa gõ, kẻo nó chạy SAU và lọc lại
+        taskManager.kill(PLAYLIST_SEARCH_APPLY_TASK);
         resetPlaylistSearchInput(); // core/playlist/main.js
         this.applySearchQuery('');
     },
 
-    /** MỚI (02/10/2026, tối ưu 10000 item) — Map key -> { source, text } nhớ chuỗi tìm kiếm ĐÃ CHUẨN HOÁ của từng bài
-     * (playlistStore, tạo lần đầu cần). Không cần dọn theo key: mục của bài đã xoá chỉ nằm im, mục của bài đổi tag tự
-     * tính lại (so `source`). */
+    /** Map key -> { source, text } nhớ chuỗi tìm kiếm đã chuẩn hoá của từng bài (playlistStore, tạo lần đầu cần). Không cần
+     * dọn theo key: mục của bài đã xoá chỉ nằm im, mục của bài đổi tag tự tính lại (so `source`). */
     _searchTextMemo() {
         const existing = playlistStore.get('searchTextMemo');
         if (existing) return existing;
@@ -224,32 +177,26 @@ const workflowPlaylistOrder = {
         return memo;
     },
 
-    /** MỚI (02/10/2026) — chuỗi tìm kiếm đã chuẩn hoá của 1 bài: title/artist/album (bài chưa có cache: chính key) qua
-     * normalizeSongName() (core/song-search.js), nối bằng '\n'. Nhớ theo key, chỉ chuẩn hoá lại khi 1 trong 3 field gốc đổi
-     * (sửa tag / đổi Nguồn trùng key). Ghi thẳng vào Map trong store — KHÔNG log từng mục (10000 dòng/lần lọc đầu).
+    /** Chuỗi tìm kiếm đã chuẩn hoá của 1 bài (title/artist/album). Chỉ chuẩn hoá lại khi 1 trong 3 field gốc đổi (sửa tag /
+     * đổi Nguồn trùng key). Ghi thẳng vào Map trong store — không log từng mục (10000 dòng/lần lọc đầu).
      * @param {string} key @param {Object|undefined} cached @param {Map} memo @returns {string} */
     _searchTextOf(key, cached, memo) {
-        const title = cached ? cached.tag.title : key;
-        const artist = cached ? cached.tag.artist : '';
-        const album = cached ? cached.tag.album : '';
-        const source = `${title}\n${artist}\n${album}`;
+        const fields = resolveSearchFields(key, cached); // core/playlist/order.js
         const hit = memo.get(key);
-        if (hit && hit.source === source) return hit.text; // guard — đã chuẩn hoá đúng bản tag này
-        const text = `${normalizeSongName(title)}\n${normalizeSongName(artist)}\n${normalizeSongName(album)}`; // core/song-search.js
-        memo.set(key, { source, text });
+        if (hit && hit.source === fields.source) return hit.text; // guard — đã chuẩn hoá đúng bản tag này
+        const text = joinSearchText([normalizeSongName(fields.title), normalizeSongName(fields.artist), normalizeSongName(fields.album)]); // core/song-search.js + core/playlist/order.js
+        memo.set(key, { source: fields.source, text });
         return text;
     },
 
-    /** Ô tìm kiếm đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. Thân cũ giữ nguyên
-     * (set searchQuery -> recomputeRenderOrder -> renderPlaylistDiff), THÊM bước cuối: cuộn theo quy tắc A (Giang chốt
-     * 02/10/2026) — kết quả có media đang phát -> tới thẳng nó, không có -> về đầu danh sách.
-     * @param {string} raw */
+    /** Ô tìm kiếm đổi: chỉ lọc lại danh sách hiển thị (không đụng hàng đợi phát), rồi cuộn: kết quả có media đang phát ->
+     * tới thẳng nó, không có -> về đầu danh sách. @param {string} raw */
     applySearchQuery(raw) {
         const normalizedQuery = normalizeSongName(raw); // core/song-search.js
         appState.set('searchQuery', normalizedQuery);
         console.log(`writer: "workflowPlaylistOrder.applySearchQuery", page: "searchQuery", content: "${normalizedQuery}"`);
         this.recomputeRenderOrder();
         workflowPlaylistRender.renderPlaylistDiff(); // event/workflow/playlist-render.js — chỉ ẩn/hiện key bị Search lọc, không rebuild
-        workflowPlaylistRender.scrollToCurrentOrTop(); // event/workflow/playlist-render.js
+        workflowPlaylistRender.scrollToCurrentOrTop();
     },
 };
