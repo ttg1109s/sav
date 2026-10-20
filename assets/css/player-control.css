@@ -1,0 +1,94 @@
+/* player-control.css — bề mặt + bố cục Bottom Player (components/bottom-player.js) và khung xem trước ở Settings > Theme >
+   Player control (components/settings/theme.js). Kiểu nền = `data-pc-style` trên `.pc-surface`, độ trong suốt = biến
+   `--pc-alpha` (0-1) — cả 2 do core/player-control-style.js ghi. Màu nhấn = `--progress-fill` (màu effect đang chạy, gán trên
+   #player-container — core/visualizer/visualizer-display.js::setProgressBarFillColor()). UI phía Visualizer cố ý giữ nền tối
+   ở mọi UI theme (xem cuối core/ui-theme/light.js). */
+
+.pc-surface { --pc-alpha: 1; position: relative; display: flex; flex-direction: column; transition: background-color 0.2s ease; }
+
+/* ===================== Kiểu nền ===================== */
+.pc-surface[data-pc-style="gradient"] {
+    background: linear-gradient(to top, rgba(0, 0, 0, var(--pc-alpha)) 0%, rgba(0, 0, 0, calc(var(--pc-alpha) * 0.7)) 55%, rgba(0, 0, 0, 0) 100%);
+}
+.pc-surface[data-pc-style="solid"] {
+    background: rgba(12, 12, 16, var(--pc-alpha));
+    border-top: 1px solid rgba(255, 255, 255, calc(var(--pc-alpha) * 0.08));
+}
+.pc-surface[data-pc-style="glass"] {
+    background: rgba(24, 24, 32, calc(var(--pc-alpha) * 0.45));
+    -webkit-backdrop-filter: blur(calc(var(--pc-alpha) * 22px)) saturate(1.4);
+    backdrop-filter: blur(calc(var(--pc-alpha) * 22px)) saturate(1.4);
+    border-top: 1px solid rgba(255, 255, 255, calc(var(--pc-alpha) * 0.14));
+}
+.pc-surface[data-pc-style="floating"] {
+    margin: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius: 22px;
+    background: rgba(24, 24, 32, calc(var(--pc-alpha) * 0.55));
+    -webkit-backdrop-filter: blur(calc(var(--pc-alpha) * 22px)) saturate(1.4);
+    backdrop-filter: blur(calc(var(--pc-alpha) * 22px)) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, calc(var(--pc-alpha) * 0.14));
+    box-shadow: 0 12px 32px rgba(0, 0, 0, calc(var(--pc-alpha) * 0.45));
+}
+.pc-surface[data-pc-style="none"] { background: transparent; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); }
+
+/* ===================== Bố cục ===================== */
+.pc-progress-block { padding: 10px 16px 0; }
+.pc-surface[data-pc-style="floating"] .pc-progress-block { padding-top: 12px; }
+.pc-time-row {
+    display: flex; justify-content: space-between; margin-top: 1px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.3;
+    font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.55);
+}
+.pc-time-current { color: rgba(255, 255, 255, 0.92); font-weight: 600; }
+.pc-main-row { display: flex; align-items: center; gap: 12px; padding: 4px 16px 14px; }
+.pc-info { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; }
+.pc-art { width: 44px; height: 44px; }
+.pc-meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; position: relative; z-index: 20; }
+.pc-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.pc-skip {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px;
+    color: #fff; transition: color 0.2s ease, transform 0.15s ease;
+}
+.pc-skip:hover { color: var(--progress-fill, #38bdf8); }
+.pc-skip:active { transform: scale(0.9); }
+.pc-play {
+    width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 9999px;
+    background: #fff; color: #000;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12), 0 0 18px -2px var(--progress-fill, #38bdf8);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.pc-play:hover { transform: scale(1.05); }
+.pc-play:active { transform: scale(0.94); }
+
+@media (min-width: 640px) {
+    .pc-progress-block { padding: 12px 24px 0; }
+    .pc-time-row { font-size: 11px; }
+    .pc-main-row { gap: 24px; padding: 6px 24px 16px; }
+    .pc-art { width: 56px; height: 56px; }
+    .pc-controls { gap: 18px; }
+    .pc-play { width: 56px; height: 56px; }
+}
+
+/* ===================== Xem trước (Settings > Theme > Player control) ===================== */
+/* Nền giả lập màn Visualizer (dải màu + vài khối sáng) để thấy rõ độ trong suốt / kính mờ. */
+.pc-preview {
+    position: relative; height: 112px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+    background:
+        radial-gradient(circle at 18% 30%, rgba(236, 72, 153, 0.9) 0 14%, transparent 15%),
+        radial-gradient(circle at 70% 55%, rgba(56, 189, 248, 0.9) 0 18%, transparent 19%),
+        radial-gradient(circle at 45% 85%, rgba(250, 204, 21, 0.85) 0 12%, transparent 13%),
+        linear-gradient(135deg, #312e81 0%, #0f172a 55%, #134e4a 100%);
+}
+.pc-preview .pc-surface[data-pc-style="floating"] { margin: 0 6px 6px; border-radius: 14px; }
+.pc-preview-track { position: relative; height: 3px; margin: 10px 12px 0; border-radius: 9999px; background: rgba(255, 255, 255, 0.18); }
+.pc-preview-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 40%; border-radius: 9999px; background: var(--progress-fill, #38bdf8); }
+.pc-preview-thumb {
+    position: absolute; left: 40%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 9999px;
+    background: radial-gradient(circle closest-side, #fff 0 34%, rgba(12, 12, 16, 0.9) 36% 58%, var(--progress-fill, #38bdf8) 61% 100%);
+}
+.pc-preview-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px 10px; }
+.pc-preview-art { width: 22px; height: 22px; border-radius: 9999px; background: linear-gradient(135deg, #f472b6, #818cf8); flex-shrink: 0; }
+.pc-preview-lines { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+.pc-preview-line { height: 5px; width: 60%; border-radius: 9999px; background: rgba(255, 255, 255, 0.85); }
+.pc-preview-line + .pc-preview-line { width: 36%; background: rgba(125, 211, 252, 0.8); }
+.pc-preview-play { width: 22px; height: 22px; border-radius: 9999px; background: #fff; flex-shrink: 0; box-shadow: 0 0 10px -2px var(--progress-fill, #38bdf8); }
