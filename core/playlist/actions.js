@@ -94,10 +94,10 @@
         // ===================== Modal: Bài hát lỗi lúc phát =====================
         // playbackErrorModal/playbackErrorFilename: core/dom-refs.js. playbackErrorKey (modal đang nói về mục nào): playlistStore.
 
-        function handlePlaybackError(key) {
+        /** Mở modal lỗi lúc phát cho mục `key`. @param {string} key @param {string} filename - tên hiển thị (Workflow tra playlistCache) */
+        function handlePlaybackError(key, filename) {
             playlistStore.set({ playbackErrorKey: key });
-            const cached = appState.get('playlistCache').get(key);
-            playbackErrorFilename.textContent = cached ? cached.filename : key;
+            playbackErrorFilename.textContent = filename;
             playbackErrorModal.classList.remove('hidden');
         }
 
