@@ -314,7 +314,7 @@ const CUSTOM_EFFECT_FIELDS = {
  * style chưa từng chỉnh -> rơi về giá trị group rồi default (save cũ không cần migrate). Field chỉ 1 style dùng vẫn lưu
  * phẳng ở bucket group. Group chỉ 1 style (shape) không cần entry.
  * Rà soát 25/09/2026 — field dùng chung đã tách:
- *   - Khối chung màu (mode/solidColor/dynA/dynB) mọi group nhiều style; blur (blurEnabled/blurIntensity)
+ *   - Khối chung màu (mode/solidColor/dynA/dynB/gradientPalette) mọi group nhiều style; blur (blurEnabled/blurIntensity)
  *     ở bar + lighting (group còn lại nằm trong CUSTOM_EFFECT_NO_BLUR).
  *   - bar: maxH (mirror/cascade/black hole).
  *   - lighting (thunder/fireworks) + rain (glass/street): 3 field chớp CUSTOM_EFFECT_FLASH_FIELDS.
@@ -323,7 +323,13 @@ const CUSTOM_EFFECT_FIELDS = {
  *   - connector: glowEnabled/glowIntensity/fireThreshold/lateralInhibitStrength; sectionWindowBeats/fluxThreshold
  *     (camera shift). Từ 06/10/2026 connector chỉ còn 1 style (circuit) — giữ entry để giá trị đã lưu ở byStyle.circuit
  *     vẫn được đọc. */
-const CUSTOM_EFFECT_COLOR_FIELDS = ['mode', 'solidColor', 'dynA', 'dynB'];
+const CUSTOM_EFFECT_COLOR_FIELDS = ['mode', 'solidColor', 'dynA', 'dynB', 'gradientPalette'];
+
+/** Bảng 7 màu của mode 'gradient' (music-driven) — `gradientPalette` rỗng = màu mặc định (dải hue liên tục, getComputedColor(),
+ * core/visualizer/effect-paint.js); đủ 7 màu = nội suy lần lượt 7 màu này trên cùng trục hue. Ô màu ở Drawer hiện bảng dưới khi
+ * chưa tuỳ chỉnh; sửa 1 ô thì 6 ô còn lại lấy đúng giá trị đang hiện. */
+const CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE = 7;
+const CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#6366f1', '#a855f7'];
 const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
 const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     bar: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, 'maxH'],
@@ -344,6 +350,13 @@ function resolveEffectConfig(customEffect, type) {
     const own = (styleDef && merged.byStyle && merged.byStyle[merged[styleDef.field]]) || {};
     perStyleFields.forEach((field) => { if (own[field] !== undefined) merged[field] = own[field]; });
     delete merged.byStyle;
+    // Bảng 7 màu đã tách sẵn {r,g,b} (hàm vẽ đọc mỗi frame, không parse hex lại); không đủ 7 màu hợp lệ -> null = mặc định.
+    const palette = Array.isArray(merged.gradientPalette) ? merged.gradientPalette : [];
+    const isCustomPalette = palette.length === CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE && palette.every((c) => /^#[0-9A-F]{6}$/i.test(c));
+    merged.gradientPalette = isCustomPalette ? palette : [];
+    merged.gradientPaletteRgb = isCustomPalette
+        ? palette.map((c) => ({ r: parseInt(c.slice(1, 3), 16), g: parseInt(c.slice(3, 5), 16), b: parseInt(c.slice(5, 7), 16) }))
+        : null;
     return merged;
 }
 
@@ -393,6 +406,15 @@ function resolveConnectorGlowMult(ec) {
 /** Meta field `field` của effect `type` trong CUSTOM_EFFECT_FIELDS (undefined nếu không có). */
 function findCustomEffectFieldMeta(type, field) {
     return (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field);
+}
+
+/** Bảng 7 màu mới sau khi đổi ô `index` — bảng đang mặc định (rỗng) thì lấy CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE làm gốc.
+ * Ô ngoài phạm vi -> null. @param {string[]} palette - gradientPalette hiện tại @param {number} index @param {string} hex
+ * @returns {string[]|null} */
+function replaceGradientPaletteColor(palette, index, hex) {
+    if (!Number.isInteger(index) || index < 0 || index >= CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE) return null;
+    const base = palette.length === CUSTOM_EFFECT_GRADIENT_PALETTE_SIZE ? palette : CUSTOM_EFFECT_DEFAULT_GRADIENT_PALETTE;
+    return base.map((c, i) => (i === index ? hex.toLowerCase() : c));
 }
 
 /** Ô màu solid: đủ dạng #RRGGBB chưa (ô chữ gõ dở thì chưa áp). @param {string} value @returns {boolean} */

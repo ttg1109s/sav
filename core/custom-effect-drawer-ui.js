@@ -9,15 +9,23 @@
  * Phần tử không có (Drawer đã đổi nội dung) -> bỏ qua.
  */
 
-/** Hàng chọn màu solid / 2 màu dynamic chỉ hiện theo đúng mode đang chọn. */
+/** Hàng chọn màu solid / 2 màu dynamic / bảng 7 màu gradient chỉ hiện theo đúng mode đang chọn. */
 function syncCustomEffectColorModeRows(bodyEl, mode) {
-    const solidRow = bodyEl.querySelector('#ce-solid-color-row');
-    const dynamicRow = bodyEl.querySelector('#ce-dynamic-color-row');
-    if (!solidRow || !dynamicRow) return;
-    solidRow.classList.toggle('hidden', mode !== 'solid');
-    solidRow.classList.toggle('flex', mode === 'solid');
-    dynamicRow.classList.toggle('hidden', mode !== 'dynamic');
-    dynamicRow.classList.toggle('flex', mode === 'dynamic');
+    const rows = [['#ce-solid-color-row', 'solid'], ['#ce-dynamic-color-row', 'dynamic'], ['#ce-gradient-palette-row', 'gradient']];
+    rows.forEach(([selector, rowMode]) => {
+        const row = bodyEl.querySelector(selector);
+        if (!row) return;
+        row.classList.toggle('hidden', mode !== rowMode);
+        row.classList.toggle('flex', mode === rowMode);
+    });
+}
+
+/** Bảng 7 màu vừa được tuỳ chỉnh: bật nút Reset + đổi dòng trạng thái. @param {HTMLElement} bodyEl @param {string} statusText */
+function markCustomEffectGradientPaletteCustom(bodyEl, statusText) {
+    const resetBtn = bodyEl.querySelector('#ce-gradient-palette-reset');
+    if (resetBtn) { resetBtn.disabled = false; resetBtn.classList.remove('opacity-40'); }
+    const statusEl = bodyEl.querySelector('#ce-gradient-palette-status');
+    if (statusEl) statusEl.textContent = statusText;
 }
 
 /** Hàng slider cường độ blur chỉ hiện khi bật blur. */

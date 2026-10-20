@@ -25,7 +25,7 @@
          */
         const DEFAULT_CUSTOM_EFFECT = {
             bar: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [], blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
                 barFillRatio: 0.6, barCornerRadius: 3,
                 // Mirror (core/visualizer/groups/bar/mirror.js): thân bướm = bội số gap (1-6), nâng treble trên 1kHz (dB/quãng
@@ -45,7 +45,7 @@
                 dotSwell: 100, // độ phình dot kiểu 'radius', % (50-300)
             },
             lighting: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [], blurEnabled: true, blurIntensity: 100,
                 lightingStyle: 'thunder',
                 // Chớp toàn màn hình — cùng 3 field với group rain (CUSTOM_EFFECT_FLASH_FIELDS, core/custom-effect.js), lưu riêng theo style.
                 flashEnabled: true, flashThreshold: 0.35, flashMaxOpacity: 0.8,
@@ -64,7 +64,7 @@
                 customTexts: [],
             },
             rain: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [],
                 rainStyle: 'glass',
                 // Chớp toàn màn hình — cùng 3 field với group lighting, lưu riêng theo style.
                 flashEnabled: true, flashThreshold: 0.4, flashMaxOpacity: 0.4,
@@ -76,7 +76,7 @@
                 customLamps: [],
             },
             shape: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [],
                 shapeStyle: 'rubik',
                 cubeSizeRatio: 0.08, pitchSensitivity: 0.9, rotationEnergyThreshold: 0.35, layerTurnSpeed: 0.08,
                 // Clock (core/visualizer/groups/shape/clock.js): kích thước (tỉ lệ cạnh ngắn), tốc độ bánh răng (rad/s: nền +
@@ -91,7 +91,7 @@
                 blurEnabled: true, blurIntensity: 60,
             },
             vortex: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [],
                 vortexStyle: 'rings', tunnelRingCount: 60,
                 warpSpeedBase: 10, warpSpeedEnergyMult: 40,
                 // Ống rẽ hướng khi nhạc vừa biến động (detectMusicTransition(), core/audio-analysis.js + _tickVortexCurve(),
@@ -102,7 +102,7 @@
                 waveRotationBase: 0.01, waveRotationEnergyMult: 0.05, waveScaleBase: 0.8, waveScaleEnergyMult: 0.4,
             },
             connector: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [],
                 connectorStyle: 'circuit', // style duy nhất
                 glowEnabled: true, glowIntensity: 55, // % — 55% × 4 = bloom 2.2
                 fireThreshold: 0.55,
@@ -191,6 +191,9 @@
             subtitleKaraokePointerShape: 'default', // 'default' | 'pointer' | 'text' | 'crosshair' (vẽ lại kiểu CSS cursor)
             // 3 toggle hiện/ẩn UI chrome màn Visualizer (core/visualizer-ui-visibility.js).
             bottomPlayerVisible: true, playlistButtonVisible: true, controlCenterButtonVisible: true,
+            // Settings > Theme > Player control (core/player-control-style.js): kiểu nền Bottom Player 'gradient' | 'solid' |
+            // 'glass' | 'floating' | 'none', độ đục nền 0-100 (%).
+            playerControlBgStyle: 'gradient', playerControlOpacity: 100,
             // Cử chỉ (event/workflow/visualizer-gesture.js): mỗi hướng vuốt/tap 1 hành động ('next'/'prev'/'playPause'/
             // 'openPlaylist'/'none' = tắt, hoặc 'actionSlot1/2/3').
             gestureActionSwipeUp: 'next', gestureActionSwipeDown: 'prev',
@@ -394,6 +397,7 @@
                 subtitleKaraokeOutlineGlow: 'number', subtitleKaraokeOutlineBlur: 'number',
                 subtitleKaraokePointer: 'boolean', subtitleKaraokePointerShape: 'string',
                 bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
+                playerControlBgStyle: 'string', playerControlOpacity: 'number',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
