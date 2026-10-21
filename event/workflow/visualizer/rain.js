@@ -131,7 +131,7 @@ const workflowVizRain = {
         const hasCustomBg = (vbgCfg.enabled !== false && vbgCfg.source.list.some((k) => k !== null)) || appState.get('isVideoPlayerMode'); // SỬA 29/09/2026 — VBG tắt (toggle tổng) = không có media, Rain tự sơn nền
         if (hasCustomBg) return;
         const { ctx, canvas } = frame;
-        ctx.fillStyle = getVisualBgFillStyle(ctx, canvas.width, canvas.height); // core/visual-bg.js
+        ctx.fillStyle = workflowVisualBg.canvasFillStyle(ctx, canvas.width, canvas.height); // event/workflow/visual-bg-common.js
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     },
 
