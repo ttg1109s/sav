@@ -64,6 +64,12 @@ eventBus.registerBlock('playerControls.video.pause', VIDEO_PLAYER_MODE_OFF_BLOCK
 eventBus.registerBlock('playerControls.video.loadedmetadata', VIDEO_PLAYER_MODE_OFF_BLOCK);
 eventBus.registerBlock('playerControls.video.timeupdate', VIDEO_PLAYER_MODE_OFF_BLOCK);
 eventBus.registerBlock('playerControls.video.ended', VIDEO_PLAYER_MODE_OFF_BLOCK);
+// Ngược lại: 2 sự kiện của #bg-video thuộc VBG chỉ khi KHÔNG ở Video Player mode (event/listener/visual-bg.js chỉ gửi).
+const VIDEO_PLAYER_MODE_ON_BLOCK = [
+    [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
+];
+eventBus.registerBlock('visualBg.video.ended', VIDEO_PLAYER_MODE_ON_BLOCK);
+eventBus.registerBlock('visualBg.video.timeupdate', VIDEO_PLAYER_MODE_ON_BLOCK);
 
 // ===================== Ghi âm =====================
 // Bắt đầu ghi — chặn hẳn khi: đã có phiên ghi (mọi phase khác 'idle', kể cả modal nghe lại), đang Photo Player (phát im
