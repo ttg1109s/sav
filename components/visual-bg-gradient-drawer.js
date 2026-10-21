@@ -1,34 +1,8 @@
 /**
- * Component: sub-panel "Nền chuyển sắc" (gradient) của Visual Background — MỚI (v13, phản hồi Giang
- * mục 3: "chuyển nó sang một sub panel riêng -> bên trên là hình vuông preview, bên dưới là các
- * thanh tinh chỉnh").
- *
- * TRƯỚC ĐÂY toàn bộ cụm gradient nhét thẳng vào panel "Visual Background" cha, làm panel đó dài và
- * ô xem trước bị kẹp thành 1 dải mỏng. Giờ tách hẳn, push/pop qua Settings Stack (core/settings-
- * panel-stack-ui.js) — CÙNG khuôn `renderVisualBgPanelBody()`, không phát minh cơ chế mới.
- *
- * Bố cục (tham khảo card Gradient của Settings -> Giao diện, components/settings/theme.js):
- *   [ô VUÔNG xem trước, aspect-square, vẽ chính linear-gradient đang cấu hình ]
- *   [thanh trượt Góc xoay 0-360°]
- *   [danh sách 2-7 chặng màu: ô màu + thanh trượt vị trí % + nút X]
- *   [nút + Thêm chặng màu]
- *   [MỚI 12/08/2026 — "Movement": bật/tắt + mode Time/Audio + input riêng từng mode]
- *   [MỚI 12/08/2026 — "Color swap": bật/tắt + 2 nút mở time-picker (khoảng tráo/thời gian chuyển)]
- *
- * LƯU Ý: ô preview vuông ở đầu panel CHỈ vẽ gradient TĨNH (angle/stops LƯU DB), KHÔNG chạy animation
- * Movement trực tiếp trong preview — hiệu ứng THẬT chỉ thấy trên nền màn Visualizer khi Movement
- * đang bật (event/workflow/visual-bg.js::_tickGradientMovement()), giữ preview đơn giản/nhẹ.
- *
- * Danh sách chặng vẽ ĐỘNG bởi `workflowVisualBg._renderGradientStopRows()`; template này chỉ dựng
- * KHUNG rỗng — cùng cách `#theme-mockup-gradient` để Workflow tự cập nhật.
- *
- * MÀU: dùng `sky` (accent CHUNG của Settings, xem `peer-checked:bg-sky-500` ở các panel khác) —
- * KHÔNG dùng `fuchsia` như bản đầu (màu đó là tuỳ biến riêng của drawer Slideshow, không phải màu
- * hệ thống).
- *
- * SỬA (09/09/2026, Giang yêu cầu "xử lý triệt để dark cũ") — viết LẠI TRỰC TIẾP bằng bảng màu sáng
- * (trước đây `glass-modal`/`border-white/5`/toggle track `bg-slate-600`/select `bg-black/50`, phụ
- * thuộc `.app-settings-scope` đè màu — assets/css/layout-nav.css).
+ * components/visual-bg-gradient-drawer.js — sub panel "Nền chuyển sắc" của Visual Background: ô vuông xem trước, góc xoay,
+ * danh sách 2-7 chặng màu (khung rỗng, hàng dựng bằng `renderVisualBgGradientStopRowsHtml()`), Movement, "Tráo màu".
+ * Ô xem trước chỉ vẽ gradient TĨNH theo cấu hình; Movement chỉ chạy trên nền màn Visualizer. Giá trị control do
+ * core/visual-bg-panel-ui.js điền (workflowVisualBg, event/workflow/visual-bg-common.js).
  */
 function renderVisualBgGradientPanelBody() {
     return `
@@ -51,14 +25,8 @@ function renderVisualBgGradientPanelBody() {
                         <button type="button" id="setting-visual-bg-gradient-add" class="p-4 text-sm font-medium border-t" data-uitk="dividerBorder cardHoverBg accentText" data-i18n="visualBgSettingsDrawer.gradientStops.add">${t('visualBgSettingsDrawer.gradientStops.add')}</button>
                     </div>
 
-                    <!-- MỚI (12/08/2026, Giang yêu cầu mục 6) — "Movement": gradient tự xoay/dao
-                         động thay vì đứng yên. 2 mode LOẠI TRỪ NHAU (chỉ 1 chạy tại 1 thời điểm,
-                         xem event/workflow/visual-bg.js::_tickGradientMovement()):
-                           'time'  — góc xoay chạy ĐỀU, hết 1 vòng 360° sau X giây (picker).
-                           'audio' — góc xoay + độ giãn stop DAO ĐỘNG giữa 2 mốc, theo smoothedEnergy
-                                     (core/audio-analysis.js — đã làm mượt, hợp driving hiệu ứng nền
-                                     liên tục, xem phân tích chọn thông số ở docstring
-                                     core/config.js::DEFAULT_VISUAL_BG_CONFIG.gradientMovement). -->
+                    <!-- Movement — 2 mode loại trừ nhau: 'time' xoay đều 1 vòng sau X giây; 'audio' góc xoay + độ giãn stop
+                         dao động giữa 2 mốc theo nhạc (core/config.js::DEFAULT_VISUAL_BG_CONFIG.gradientMovement). -->
                     <h3 class="text-xs font-bold uppercase tracking-widest mb-2 ml-2 mt-4" data-uitk="accentText" data-i18n="visualBgSettingsDrawer.gradientMovement.label">${t('visualBgSettingsDrawer.gradientMovement.label')}</h3>
                     <div class="rounded-2xl flex flex-col overflow-hidden mb-4" data-uitk="cardBg cardBorder">
                         <div class="flex justify-between items-center p-4 border-b" data-uitk="dividerBorder">
@@ -138,9 +106,7 @@ function renderVisualBgGradientPanelBody() {
 }
 
 /**
- * MỚI (07/10/2026, rà soát SVG mục A — dời khỏi Workflow) — các hàng color stop của gradient: ô màu + slider vị trí + nhãn % +
- * nút xoá (mờ + không bấm được khi đã ở số stop tối thiểu). Trước đây dựng thẳng trong
- * workflowVisualBg._renderGradientStopRows() (event/workflow/visual-bg-common.js), nay Workflow chỉ gán innerHTML.
+ * Các hàng chặng màu: ô màu + slider vị trí + nhãn % + nút xoá (mờ, không bấm được khi đã ở số chặng tối thiểu).
  * @param {{color:string, position:number}[]} stops @param {boolean} canRemove @returns {string}
  */
 function renderVisualBgGradientStopRowsHtml(stops, canRemove) {
