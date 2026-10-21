@@ -1,23 +1,19 @@
 /**
- * event/listener/visual-bg.js — Listener cụm "visualBg". 3 nguồn trigger: nút mở Settings (DOM
- * tĩnh) + control BÊN TRONG panel (delegation trên `settingsStackBody`, cùng khuôn slideshowSettings)
- * + `bgVideoElement` tự bắn 'ended' nguyên bản (MỚI 08/08/2026 — video cycle mode 'slideshow' đợi
- * hết thật, xem cuối file).
+ * event/listener/visual-bg.js — Listener cụm "visualBg": control bên trong các màn VBG (ủy quyền 1 lần trên
+ * `genericDrawerBody`) + sự kiện gốc 'ended'/'timeupdate' của `bgVideoElement` lúc là nền trang trí. Chỉ gửi bus; lúc
+ * Video Player mode, Block gate chặn 2 sự kiện video (event/block.js — Player có Listener riêng, event/listener/video-player.js).
  * NẠP SAU CÙNG (sau bus, core, workflow, router, và core/dom-refs.js).
  */
 
-// XOÁ (24/09/2026, rà soát refresh DOM) — listener `btnOpenVisualBgSettings` (#setting-open-visual-bg-settings không
-// còn trong DOM; màn Visual Background mở qua Settings > Visualizer Screen, event/workflow/app-settings.js).
-
 const VISUAL_BG_SETTINGS_INPUT_MAP = {
-    'setting-visual-bg-enabled:change': { type: 'visualBg.enabled.change', checkbox: true }, // MỚI 29/09/2026 — toggle tổng
+    'setting-visual-bg-enabled:change': { type: 'visualBg.enabled.change', checkbox: true }, // toggle tổng
     'setting-visual-bg-list-playback-mode:change': { type: 'visualBg.listPlaybackMode.change' },
     'setting-visual-bg-next-order:change': { type: 'visualBg.nextOrder.change' },
     'setting-visual-bg-duration-mode:change': { type: 'visualBg.durationMode.change' },
     'setting-visual-bg-duration-seconds:click': { type: 'visualBg.durationSeconds.openPicker', bare: true },
-    'setting-visual-bg-open-motion-picker:click': { type: 'visualBg.motionPicker.open.click', bare: true }, // SỬA 24/09/2026 — thay select 'setting-visual-bg-motion-preset' (mở màn Chọn Motion)
+    'setting-visual-bg-open-motion-picker:click': { type: 'visualBg.motionPicker.open.click', bare: true }, // mở màn Chọn Motion
     'setting-visual-bg-sync-speed:change': { type: 'visualBg.syncPlaybackSpeed.change', checkbox: true },
-    'setting-visual-bg-resolution:change': { type: 'visualBg.resolutionMode.change' }, // MỚI 30/09/2026 — Resolution card Media
+    'setting-visual-bg-resolution:change': { type: 'visualBg.resolutionMode.change' }, // Resolution card Media
     'setting-visual-bg-pick-video:click': { type: 'visualBg.pickVideo.click', bare: true },
     'setting-visual-bg-pick-photo:click': { type: 'visualBg.pickPhoto.click', bare: true },
     'setting-visual-bg-pick-folder:click': { type: 'visualBg.pickFolder.click', bare: true },
@@ -29,8 +25,7 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-gradient-add:click': { type: 'visualBg.gradientStop.add.click', bare: true },
     'setting-visual-bg-open-gradient:click': { type: 'visualBg.openGradientPanel.click', bare: true },
     'setting-visual-bg-open-video-audio:click': { type: 'visualBg.openVideoAudioPanel.click', bare: true },
-    // 4 ô GÕ số dùng 'change' (không 'input' như 2 slider gradient ở trên) — 'change' (bắn lúc blur)
-    // tránh commit giá trị dở dang giữa lúc đang gõ nhiều chữ số.
+    // 4 ô gõ số dùng 'change' (bắn lúc blur) — tránh commit giá trị dở dang khi đang gõ nhiều chữ số.
     'setting-visual-bg-gradient-movement-enable:change': { type: 'visualBg.gradientMovement.enable.change', checkbox: true },
     'setting-visual-bg-gradient-movement-mode:change': { type: 'visualBg.gradientMovement.mode.change' },
     'setting-visual-bg-gradient-movement-open-duration:click': { type: 'visualBg.gradientMovement.openDurationPicker.click', bare: true },
@@ -43,8 +38,7 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-gradient-colorswap-open-transition:click': { type: 'visualBg.gradientMovement.openColorSwapTransitionPicker.click', bare: true },
 };
 
-/** 3 control của MỖI HÀNG chặng màu gradient (số hàng đổi theo 2..7) — nhận diện bằng `data-*` kèm
- * chỉ số hàng, không liệt kê theo `id` như map trên. */
+/** 3 control của mỗi hàng chặng màu gradient (2..7 hàng) — nhận diện bằng `data-*` kèm chỉ số hàng. */
 function handleVisualBgGradientStopEvent(e) {
     const el = e.target.closest('[data-visual-bg-stop-color], [data-visual-bg-stop-position], [data-visual-bg-stop-remove]');
     if (!el) return false;
@@ -63,8 +57,7 @@ function handleVisualBgGradientStopEvent(e) {
     return false;
 }
 
-/** SỬA (08/08/2026, phản hồi Giang — "icon(1) toggle ngay, %(2) mở modal") — 2 control TÁCH BIỆT
- * mỗi hàng: icon loa (toggle NGAY, không qua modal) + nút "%" (mở modal chỉnh volume). */
+/** Màn Âm thanh Video: mỗi hàng có icon loa (bật/tắt ngay) + nút "%" (mở modal chỉnh volume). */
 function handleVisualBgVideoAudioEvent(e) {
     const el = e.target.closest('[data-visual-bg-video-audio-toggle], [data-visual-bg-video-audio-open-volume]');
     if (!el) return false;
@@ -93,32 +86,16 @@ function handleVisualBgSettingsDelegatedEvent(e) {
     eventBus.send({ router: 'visualBg', type: entry.type, payload });
 }
 
-if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo
+if (genericDrawerBody) {
     genericDrawerBody.addEventListener('change', handleVisualBgSettingsDelegatedEvent);
     genericDrawerBody.addEventListener('click', handleVisualBgSettingsDelegatedEvent);
-    // `input` (không phải `change`) cho ô màu + 2 thanh trượt — cập nhật NGAY lúc kéo.
+    // `input` cho ô màu + thanh trượt — cập nhật ngay lúc kéo.
     genericDrawerBody.addEventListener('input', handleVisualBgSettingsDelegatedEvent);
 }
 
-// MỚI (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — `bgVideoElement`
-// tự bắn 'ended' nguyên bản của trình duyệt. Guard `isVideoPlayerMode` NGƯỢC với listener ở
-// event/listener/video-player.js (nơi đó CHỈ xử lý khi player mode TRUE, dispatch playNext()) — ở
-// đây CHỈ xử lý khi player mode FALSE (đang dùng bgVideoElement để trang trí VBG), tránh dispatch 2
-// message cho cùng 1 sự kiện gốc. Chỉ THẬT SỰ bắn được khi `loop=false` — tức đúng lúc VBG đang
-// cycle nhiều video theo mode 'slideshow' (xem `_playVideoKey()`, event/workflow/visual-bg-video.js) —
-// perSong/1 item luôn loop=true nên trình duyệt không bao giờ bắn 'ended' cho 2 case đó, không cần
-// lọc thêm ở Listener (Workflow tự guard lại 1 lần nữa trong `_onVideoEnded()`, phòng thủ kép).
+// `bgVideoElement` lúc là nền VBG: 'ended' chỉ thật sự bắn khi VBG cycle nhiều video kiểu slideshow (loop=false); 'timeupdate'
+// phát hiện video lùi về đầu (loop native không bắn 'ended') để chạy lại Point Move.
 if (bgVideoElement) {
-    bgVideoElement.addEventListener('ended', () => {
-        if (appState.get('isVideoPlayerMode')) return;
-        eventBus.send({ router: 'visualBg', type: 'visualBg.video.ended', payload: {} });
-    });
-    // MỚI (25/09/2026, đợt 5 Motion) — 'timeupdate' nguyên bản, CÙNG guard `isVideoPlayerMode` như 'ended' ngay
-    // trên (Video Player mode có listener riêng, event/listener/video-player.js) — VBG Video dùng để phát hiện video
-    // lùi về đầu (vòng lặp mới: loop native KHÔNG bắn 'ended') và chạy lại Point Move, xem
-    // workflowVisualBg._onVideoTimeUpdate() (event/workflow/visual-bg-video.js).
-    bgVideoElement.addEventListener('timeupdate', () => {
-        if (appState.get('isVideoPlayerMode')) return;
-        eventBus.send({ router: 'visualBg', type: 'visualBg.video.timeupdate', payload: { currentTime: bgVideoElement.currentTime } });
-    });
+    bgVideoElement.addEventListener('ended', () => eventBus.send({ router: 'visualBg', type: 'visualBg.video.ended', payload: {} }));
+    bgVideoElement.addEventListener('timeupdate', () => eventBus.send({ router: 'visualBg', type: 'visualBg.video.timeupdate', payload: { currentTime: bgVideoElement.currentTime } }));
 }
