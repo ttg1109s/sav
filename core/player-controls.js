@@ -209,20 +209,18 @@
             return nowMs - lastSyncMs > MEDIA_POSITION_SYNC_INTERVAL_MS;
         }
 
-        /** Song bắt đầu phát ('play'): xoá cờ "hết hẳn playlist", icon Pause, đĩa quay, Media Session 'playing'. */
-        function handleAudioPlay() {
+        /** Song vừa phát lại ('play'): trạng thái "hết hẳn playlist" không còn đúng. */
+        function clearPlaybackStoppedAtPlaylistEnd() {
             appState.set('playbackStoppedAtPlaylistEnd', false);
-            console.log(`writer: "handleAudioPlay", page: "playbackStoppedAtPlaylistEnd", content: "false"`);
-            iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
-            let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.remove('paused');
-            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
+            console.log(`writer: "clearPlaybackStoppedAtPlaylistEnd", page: "playbackStoppedAtPlaylistEnd", content: "false"`);
         }
 
-        /** Song dừng ('pause'): icon Play, đĩa dừng, Media Session 'paused'. */
-        function handleAudioPause() {
-            iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden');
-            let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.add('paused');
-            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "paused";
+        /** UI phát/dừng của Bottom Player (Song/Video dùng chung): icon Play/Pause, đĩa #record-art quay/dừng, Media Session
+         * playbackState. @param {boolean} isPlaying */
+        function setPlayerPlayingUi(isPlaying) {
+            iconPlay.classList.toggle('hidden', isPlaying); iconPause.classList.toggle('hidden', !isPlaying);
+            const recordArtEl = document.getElementById('record-art'); if (recordArtEl) recordArtEl.classList.toggle('paused', !isPlaying);
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
         }
 
         /**
@@ -245,6 +243,11 @@
          * @param {number} positionSec @param {string} positionLabel - đã formatTime() */
         function setPlayerProgressUi(positionSec, positionLabel) {
             progressBar.value = positionSec;
+            currentTimeDisplay.textContent = positionLabel;
+        }
+
+        /** Nhãn giờ hiện tại (Video lúc kéo seek). @param {string} positionLabel - đã formatTime() */
+        function setCurrentTimeLabel(positionLabel) {
             currentTimeDisplay.textContent = positionLabel;
         }
 

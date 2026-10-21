@@ -6,7 +6,9 @@
  * phương án (y) 13/10/2026): Listener không gắn trước được vì đối tượng chưa tồn tại lúc tải trang; sự kiện ở đây là
  * NỬA SAU bất đồng bộ của chính API đang gọi (đợi xong / thu dữ liệu), không quyết định nghiệp vụ -> callback KHÔNG
  * eventBus.send. Sự kiện mang ý nghĩa nghiệp vụ (vd mic bị hệ điều hành thu hồi) vẫn phải eventBus.send.
- * Chỉ dùng cho đối tượng tạo động — phần tử DOM tĩnh vẫn đi Listener → Router.
+ * Chỉ dùng cho đối tượng tạo động — phần tử DOM tĩnh vẫn đi Listener → Router. Ngoại lệ duy nhất cho phần tử tĩnh:
+ * `requestVideoFrameOnce()` (Giang chốt mở rộng 21/10/2026) — `requestVideoFrameCallback` là YÊU CẦU 1 lần của chính API
+ * đang gọi ("báo khi khung kế tiếp được trình chiếu"), không phải sự kiện DOM để Listener gắn trước được.
  *
  * NẠP SAU: không phụ thuộc gì (chỉ API trình duyệt).
  */
@@ -37,6 +39,27 @@ function listenEventStream(target, eventName, onEvent) {
 function listenAudioProcess(processor, onEvent) {
     processor.onaudioprocess = onEvent;
     return () => { processor.onaudioprocess = null; };
+}
+
+/** `requestVideoFrameCallback` 1 lần: `onFrame(metadata)` chạy ĐỒNG BỘ trong callback — đúng nhịp khung vừa được trình chiếu
+ * (nơi gọi chụp khung / đọc trạng thái ngay trong nhịp đó). Dùng cho cả `<video>` tạm lẫn `bgVideoElement` (xem đầu file).
+ * Trình duyệt không hỗ trợ -> `supported=false`, không gọi gì. `cancel()` gọi lặp / sau khi đã báo đều vô hại.
+ * @param {HTMLVideoElement} videoEl @param {(metadata: VideoFrameCallbackMetadata) => void} onFrame
+ * @returns {{supported: boolean, cancel: () => void}} */
+function requestVideoFrameOnce(videoEl, onFrame) {
+    if (typeof videoEl.requestVideoFrameCallback !== 'function') return { supported: false, cancel: () => {} }; // guard
+    let handle = videoEl.requestVideoFrameCallback((now, metadata) => {
+        handle = null;
+        onFrame(metadata);
+    });
+    return {
+        supported: true,
+        cancel: () => {
+            if (handle === null) return; // guard — đã báo / đã huỷ
+            videoEl.cancelVideoFrameCallback(handle);
+            handle = null;
+        },
+    };
 }
 
 /** Thẻ `<video>` tạm (không gắn vào DOM) để đọc metadata/chụp khung: tắt tiếng, phát inline, tải trước. */
