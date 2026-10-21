@@ -1,11 +1,7 @@
 /**
- * event/router/visual-bg.js — Router "visualBg". Mọi case ≥2 bước phụ thuộc thứ tự -> giao hết cho
- * `workflowVisualBg`/`workflowVisualBgPhotoMotion`, không case nào gọi thẳng Core.
- * NGOẠI LỆ: 'visualBg.pickVideo.click'/'visualBg.pickPhoto.click'/'visualBg.songChanged'
- * — rẽ theo `type`/`listPlaybackMode` qua VirtualMachineState (rẽ nhánh theo state đi qua đây,
- * không viết switch/if tay trong case).
- * NẠP SAU: event/bus.js, event/virtual-machine-state.js, event/workflow/visual-bg.js.
- * NẠP TRƯỚC: event/listener/visual-bg.js.
+ * event/router/visual-bg.js — Router "visualBg": mọi case giao `workflowVisualBg` (event/workflow/visual-bg-common.js +
+ * visual-bg-video.js + visual-bg-photo.js); màn Gradient đi qua ngăn xếp Settings (workflowAppSettings.navigateTo()).
+ * NẠP SAU: event/bus.js, event/workflow/visual-bg-*.js. NẠP TRƯỚC: event/listener/visual-bg.js.
  */
 const routerVisualBg = (() => {
     /** @param {import('../bus.js').EventMessage} msg */
@@ -31,13 +27,10 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openDurationSecondsPicker();
                 break;
 
-            // SỬA (24/09/2026, Giang yêu cầu — xoá cơ chế đăng ký Motion vào nơi tiêu thụ) — THAY case
-            // 'visualBg.motionPresetId.change' (select cũ): hàng Motion mở THẲNG màn Chọn của Motion.
             case 'visualBg.motionPicker.open.click':
                 workflowVisualBg.openMotionPicker();
                 break;
 
-            // MỚI (29/09/2026, Giang) — toggle tổng đầu panel: tắt chỉ dỡ media ảnh/video, giữ lớp màu.
             case 'visualBg.enabled.change':
                 workflowVisualBg.toggleEnabled(msg.payload.checked);
                 break;
@@ -46,15 +39,11 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeSyncPlaybackSpeed(msg.payload.checked);
                 break;
 
-            // MỚI (30/09/2026, Giang) — Resolution media VBG (card Media), giống Player.
             case 'visualBg.resolutionMode.change':
                 workflowVisualBg.changeResolutionMode(msg.payload.value);
                 break;
 
             case 'visualBg.openGradientPanel.click':
-                // SỬA (đợt migrate Visualizer Screen) — điều hướng qua ngăn xếp app-settings.js
-                // (liên tuyến domain, TH2) thay vì gọi thẳng — workflowVisualBg.openGradientPanel()
-                // giờ CHỈ đồng bộ giá trị, không tự dựng Generic Drawer nữa (xem hàm đó).
                 workflowAppSettings.navigateTo(() => workflowAppSettings._renderVisualBgGradient());
                 break;
 
@@ -82,8 +71,6 @@ const routerVisualBg = (() => {
                 workflowVisualBg.removeGradientStop(msg.payload.index);
                 break;
 
-            // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" + "Color swap") — xem docstring
-            // event/workflow/visual-bg.js phía trên các hàm tương ứng.
             case 'visualBg.gradientMovement.enable.change':
                 workflowVisualBg.toggleGradientMovement(msg.payload.checked);
                 break;
@@ -124,9 +111,6 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openGradientColorSwapTransitionPicker();
                 break;
 
-            // MỚI (29/08/2026) — 3 nút chọn nguồn trực tiếp (thay "Chọn 1"/"Chọn nhóm" +
-            // dropdown Kiểu cũ). Cả 2 picker Video/Ảnh đều multi-select (đánh số theo thứ tự
-            // chọn), commit qua nút "Chọn" trong header — xem event/workflow/visual-bg.js.
             case 'visualBg.pickVideo.click':
                 workflowVisualBg.openPickVideo();
                 break;
@@ -135,8 +119,6 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openPickPhoto();
                 break;
 
-            // "Thư mục" — dropdown Video/Ảnh ngay trong header picker (đổi loại folder đang duyệt),
-            // multi-select + gộp item của mọi folder đã chọn (originKind='groupMulti').
             case 'visualBg.pickFolder.click':
                 workflowVisualBg.openPickFolder();
                 break;
@@ -149,7 +131,6 @@ const routerVisualBg = (() => {
                 workflowVisualBg.clearSource();
                 break;
 
-            // Kết quả picker Video (Generic Drawer, multi-select — xem openPickVideo()).
             case 'visualBg.videoPicker.tile.click':
                 workflowVisualBg.toggleVideoPickerTile(msg.payload.videoKey);
                 break;
@@ -162,10 +143,6 @@ const routerVisualBg = (() => {
                 workflowVisualBg.cancelVideoPicker();
                 break;
 
-            // Kết quả picker Ảnh (Generic Drawer, multi-select — xem openPickPhoto()). MỚI
-            // (29/08/2026) — trước đây picker ảnh đơn dùng CHUNG `workflowFileManagerPhoto.
-            // openCoverImagePicker()` (single-select, còn dùng bởi bìa bài hát/Theme, KHÔNG được
-            // đụng) — Visual Background giờ có picker RIÊNG (multi-select), tách hẳn.
             case 'visualBg.photoPicker.tile.click':
                 workflowVisualBg.togglePhotoPickerTile(msg.payload.imageKey);
                 break;
@@ -178,50 +155,22 @@ const routerVisualBg = (() => {
                 workflowVisualBg.cancelPhotoPicker();
                 break;
 
-            // Bài hát vừa ĐỔI THẬT — gửi từ event/workflow/player.js::playMedia() (CHỈ Song — VBG
-            // photo/video KHÔNG áp dụng lúc Video Player mode, đúng vì VBG lúc đó không hiển thị,
-            // bị video chính che hết). Rẽ theo `type` (2 nhánh độc lập thật -> VirtualMachineState);
-            // `listPlaybackMode`/số lượng item tự guard bên trong từng hàm nhận (Rule: nơi nhận
-            // validate, router chỉ rẽ theo state).
-            // [SỬA — phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?"] Nhánh
-            // Game Mode (thứ 3, MỚI 16/08/2026) ĐÃ TÁCH RA KHỎI ĐÂY — sự kiện này CHƯA TỪNG có liên
-            // hệ khái niệm nào với Game Mode, chỉ từng bị gắn ké tạm vào đây vì tiện tái dùng công
-            // phát hiện "bài đổi thật" đã có sẵn. Giờ Game Mode có tín hiệu RIÊNG, trung lập, KHÔNG
-            // thuộc domain "visualBg" nữa — xem 'gameplay.mediaChanged' (event/router/gameplay.js),
-            // gửi từ CẢ Song (playMedia()) LẪN Video (workflowVideoPlayer.playVideoByKey()).
-            // SỬA (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào") —
-            // KHÔNG còn rẽ theo `type` nữa — `workflowVisualBg.advanceForSongChange()` giờ tự xử lý
-            // CẢ 2 nhánh bên trong (video/ảnh DÙNG CHUNG check pending + guard `perSong`, chỉ khác
-            // hàm advance cụ thể được gọi) — `workflowVisualBgPhotoMotion.advanceForSongChange()` đã BỎ HẲN
-            // (Motion Engine không còn biết `source.list`/`nextOrder`/Song đổi bài gì cả, chỉ còn
-            // render THUẦN — xem event/workflow/visual-bg-photo-motion.js).
             case 'visualBg.songChanged':
                 workflowVisualBg.advanceForSongChange();
                 break;
 
-            // MỚI (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — THAY
-            // cho taskManager hẹn giờ cố định đã bỏ, xem event/listener/visual-bg.js + _onVideoEnded().
             case 'visualBg.video.ended':
                 workflowVisualBg._onVideoEnded();
                 break;
 
-            // MỚI (25/09/2026, đợt 5 Motion) — phát hiện vòng lặp mới của VBG Video để chạy lại Point Move.
             case 'visualBg.video.timeupdate':
                 workflowVisualBg._onVideoTimeUpdate(msg.payload.currentTime);
                 break;
 
-            // XOÁ (29/08/2026) — 'visualBg.openSlideshowPanel.click' bỏ hẳn cùng hàng UI, Slideshow
-            // giờ chỉ mở được từ System > Slideshow (event/router/app-settings.js), không còn liên
-            // kết từ Visual Background.
-
-            // MỚI (08/08/2026) — sub-panel "Âm thanh Video".
             case 'visualBg.openVideoAudioPanel.click':
-                // SỬA (đợt migrate Visualizer Screen) — cùng khuôn openGradientPanel.click ngay trên.
-                // SỬA (05/10/2026) — Workflow đọc tên video TRƯỚC rồi tự navigateTo() (màn vào đã đủ hàng, không giật chiều cao).
-                workflowVisualBg.openVideoAudioPanel(); // event/workflow/visual-bg-video.js
+                workflowVisualBg.openVideoAudioPanel(); // event/workflow/visual-bg-video.js — đọc tên video trước rồi tự navigateTo()
                 break;
 
-            // SỬA (08/08/2026, phản hồi Giang — icon(1) toggle ngay, %(2) mở modal — 2 case riêng).
             case 'visualBg.videoAudio.toggle.click':
                 workflowVisualBg.toggleVideoAudioEnabled(msg.payload.videoKey);
                 break;
