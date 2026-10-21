@@ -214,7 +214,7 @@
         /**
          * Visual Background — đúng 1 nguồn `source`: `list` là bản copy key (imageKey/videoKey) lúc chọn, chỉ đổi khi bấm
          * "Làm tươi". Số item còn sống quyết định: 0 -> chỉ nền màu, 1 -> phát tĩnh, >1 -> cycle theo listPlaybackMode/
-         * nextOrder. `list` có thể chứa `null` (key đã xoá, chờ dọn — advanceVisualBgList(), core/visual-bg.js).
+         * nextOrder. `list` có thể chứa `null` (key đã xoá, chờ dọn — advanceVisualBgList(), core/visual-bg-common.js).
          * Nền màu (colorMode/solidColor/gradient*) độc lập với source, luôn là lớp dưới cùng.
          * Lưu `meta.visualBgConfig`, đọc lại lúc boot qua workflowVisualBg.loadPersistedSettingsOnBoot().
          */
@@ -228,7 +228,7 @@
                 originId: null,             // imageKey/videoKey/albumId/folderId của origin
                 list: [],                   // bản copy key thật đang phát/hiện
                 // videoKey -> { enabled, volumePercent }: tiếng của video nền (phát native, không qua EQ), chỉ khi type 'video'.
-                // Xoá khi đổi type/clearSource() — getVisualBgVideoAudioSetting()/setVisualBgVideoAudioSetting(), core/visual-bg.js.
+                // Xoá khi đổi type/clearSource() — getVisualBgVideoAudioSetting()/setVisualBgVideoAudioSetting(), core/visual-bg-video.js.
                 videoAudio: {},
             },
 
@@ -243,9 +243,9 @@
             listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow' — chỉ có ý nghĩa khi list.length > 1
             nextOrder: 'random',            // 'random' | 'sequential' | 'playlist' — thứ tự dựng list lúc chọn/Làm tươi + bước cycle
 
-            // Thời lượng mỗi item (video lẫn ảnh): 'duration' = độ dài tự nhiên (video phát hết; ảnh theo field `duration` riêng),
-            // 'fixtime' = mọi item đúng durationSeconds (video chỉ bị cắt nếu dài hơn) — _computeAdvanceMs() (event/workflow/
-            // visual-bg-photo-motion.js), _maybeScheduleVideoFixTime() (event/workflow/visual-bg.js).
+            // Thời lượng mỗi item khi đang cycle slideshow (video lẫn ảnh): 'duration' = độ dài tự nhiên (video phát hết; ảnh theo
+            // field `duration` riêng), 'fixtime' = mọi item đúng durationSeconds (video chỉ bị cắt nếu dài hơn). 1 nguồn / perSong
+            // luôn theo độ dài tự nhiên — resolveVisualBgItemDurationSource() (core/visual-bg-common.js).
             durationMode: 'duration',        // 'duration' | 'fixtime'
             durationSeconds: 5,              // 0.5-60s, bước 0.1s — dùng khi durationMode 'fixtime'
 
@@ -258,8 +258,8 @@
                 { color: '#1e3a8a', position: 100 },
             ],
             // Movement (chỉ khi colorMode 'gradient'): 'time' = xoay đều 1 vòng mỗi rotateDurationMs; 'audio' = góc xoay và độ
-            // giãn stop (computeGradientStopSpread(), core/visual-bg.js) dao động theo smoothedEnergy. "Tráo màu" chạy song song:
-            // mỗi colorSwapIntervalMs tráo ngẫu nhiên màu giữa các stop (shuffleGradientStopColors()), chuyển trong colorSwapTransitionMs.
+            // giãn stop (computeGradientStopSpread(), core/visual-bg-common.js) dao động theo smoothedEnergy. "Tráo màu" chạy song song:
+            // mỗi colorSwapIntervalMs tráo ngẫu nhiên màu giữa các stop (planGradientColorSwap()), chuyển trong colorSwapTransitionMs.
             gradientMovement: {
                 enabled: false,
                 mode: 'time',                       // 'time' | 'audio'

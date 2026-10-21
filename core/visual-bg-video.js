@@ -1,11 +1,74 @@
 /**
- * core/visual-bg-video.js — Core thuần domain "Visual Background", phần RIÊNG cho Video: đồng bộ
- * play/pause + cấu hình audio từng video trong source list. Phần chung (type/list/màu nền): xem
- * core/visual-bg-common.js. Điều phối ở event/workflow/visual-bg-video.js — vòng đời DOM thật của
- * `bgVideoElement` (đổi nguồn/ẩn/hiện/dọn object URL) sống ở event/workflow/video-player.js
- * (workflowVideoPlayer), dùng chung cho cả Video Player mode thật lẫn VBG trang trí.
- * NẠP SAU: core/visual-bg-common.js. 3 hàm Resolution cuối file (MỚI 30/09/2026) đọc core/dom-refs.js lúc CHẠY.
+ * core/visual-bg-video.js — Core domain "Visual Background", phần RIÊNG cho Video: thời lượng/lặp/kẹp "Fix time", thi hành
+ * trên `bgVideoElement` khi là nền VBG (câm, phát, loop, tiếng, play/pause theo Song), tiếng từng video trong source list
+ * và Resolution layer A/B. Phần chung: core/visual-bg-common.js. Điều phối: event/workflow/visual-bg-video.js; vòng đời
+ * nguồn của `bgVideoElement` (đổi nguồn/ẩn/hiện/object URL) ở event/workflow/video-player.js (dùng chung Video Player).
+ * NẠP SAU: core/visual-bg-common.js, core/dom-refs.js (lúc chạy).
  */
+
+const VISUAL_BG_VIDEO_LOOP_WRAP_SEC = 0.5; // 'timeupdate' lùi quá ngưỡng này = vòng lặp mới (tránh nhiễu)
+
+/** Thời lượng tự nhiên của video (ms thực) = độ dài video / `playbackRate` thật. Trình duyệt chưa/không báo được độ dài
+ * (NaN/Infinity, vd webm ghi từ MediaRecorder) -> dùng `record.duration` đo lúc upload; cả 2 đều không có -> 0 (Runner bỏ
+ * qua Point Move). @param {number} elementDurationSec @param {number|undefined} recordDurationSec @param {number} playbackRate
+ * @returns {number} */
+function computeVisualBgVideoNaturalMs(elementDurationSec, recordDurationSec, playbackRate) {
+    const fromElement = Number.isFinite(elementDurationSec) && elementDurationSec > 0 ? elementDurationSec : 0;
+    const fromRecord = Number.isFinite(recordDurationSec) && recordDurationSec > 0 ? recordDurationSec : 0;
+    return ((fromElement || fromRecord) * 1000) / (playbackRate || 1);
+}
+
+/** Có cần hẹn "Fix time" cắt video không: chỉ khi biết độ dài và video dài hơn `durationSeconds` (ngắn hơn thì 'ended'
+ * tự bắn đúng/sớm hơn). @param {number} videoDurationSec @param {number} durationSeconds @returns {boolean} */
+function isVisualBgVideoFixtimeCutNeeded(videoDurationSec, durationSeconds) {
+    return Number.isFinite(videoDurationSec) && videoDurationSec > durationSeconds;
+}
+
+/** Native loop chỉ khi không cycle nhiều video VÀ video không bật Audio B (iOS coi lần lặp native lúc video đang audible là
+ * giành audio session mới -> pause Song; Audio B bật thì tự lặp thủ công). @param {boolean} isCycling @param {boolean} hasAudioB
+ * @returns {boolean} */
+function shouldVisualBgVideoLoopNatively(isCycling, hasAudioB) {
+    return !isCycling && !hasAudioB;
+}
+
+/** 'timeupdate' cho thấy video vừa LÙI về đầu (vòng lặp mới). @param {number} currentSec @param {number} lastSec @returns {boolean} */
+function isVisualBgVideoLoopWrapped(currentSec, lastSec) {
+    return currentSec + VISUAL_BG_VIDEO_LOOP_WRAP_SEC < lastSec;
+}
+
+/** Tên hiển thị của 1 hàng màn Âm thanh Video (không có trong bản chụp -> key). @param {Array<{key: string, name: string}>} rows
+ * @param {string} videoKey @returns {string} */
+function findVisualBgVideoAudioRowName(rows, videoKey) {
+    const row = rows.find((r) => r.key === videoKey);
+    return row ? row.name : videoKey;
+}
+
+/** Câm cứng `bgVideoElement` trước khi play() (play() lúc video đang audible bị iOS coi là giành audio session). */
+function muteVisualBgVideo() {
+    bgVideoElement.muted = true;
+}
+
+/** Phát `bgVideoElement`, bỏ qua lỗi (bị chặn/ngắt — lượt sau tự thử lại). */
+function playVisualBgVideo() {
+    bgVideoElement.play().catch(() => {});
+}
+
+/** @param {boolean} loop */
+function setVisualBgVideoLoop(loop) {
+    bgVideoElement.loop = loop;
+}
+
+/** Hiện layer video trước khi đổi nguồn. */
+function showVisualBgVideoLayer() {
+    bgVideoElement.classList.remove('hidden');
+}
+
+/** Tiếng của video nền theo cấu hình (gain thật đặt riêng qua setVideoBgGain() khi đã nối graph). @param {boolean} enabled
+ * @param {number} gain - 0..0.9 */
+function setVisualBgVideoAudioElement(enabled, gain) {
+    bgVideoElement.muted = !enabled;
+    bgVideoElement.volume = gain;
+}
 
 /**
  * Đồng bộ play/pause của video nền theo nhạc — KHÔNG đụng src/hidden. Gọi mỗi lần nhạc play/pause
@@ -17,10 +80,7 @@ function syncVisualBgVideoPlayback(isAudioPaused) {
     if (isAudioPaused) bgVideoElement.pause(); else bgVideoElement.play().catch(() => {});
 }
 
-// ===================== Audio riêng từng video trong source list =====================
-// `source.videoAudio` — map videoKey -> { enabled, volumePercent }. 2 hàm dưới THUẦN đọc/ghi map
-// đó (validate + clamp), KHÔNG đụng DOM/appState — Workflow tự đọc appConfigVisualBg + tự gán
-// bgVideoElement.muted/.volume sau khi gọi 2 hàm này.
+// ===================== Tiếng riêng từng video (`source.videoAudio`: videoKey -> { enabled, volumePercent }) =====================
 
 const VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN = 0;
 const VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX = 100;
@@ -57,8 +117,7 @@ function setVisualBgVideoAudioSetting(videoAudioMap, videoKey, current, patch) {
     return { ...(videoAudioMap || {}), [videoKey]: { enabled, volumePercent } };
 }
 
-// Thang 0-100 trên UI/DB GIỮ NGUYÊN ý nghĩa cũ — chỉ trần GAIN THẬT áp vào bgVideoElement.volume/
-// GainNode ở 90%, luôn còn "chỗ thở" cho tiếng bài hát chính dù kéo audio video nền lên tối đa.
+// Thang 0-100 trên UI/DB; gain thật trần 90% — luôn còn "chỗ thở" cho tiếng bài hát chính.
 const VISUAL_BG_VIDEO_AUDIO_GAIN_CEILING = 0.9;
 
 /** Core thuần — đổi `volumePercent` (0-100, thang UI/DB) sang gain thật (0-0.9) áp vào
@@ -69,12 +128,8 @@ function resolveVisualBgVideoAudioGain(volumePercent) {
     return (clamped / 100) * VISUAL_BG_VIDEO_AUDIO_GAIN_CEILING;
 }
 
-// ===================== Resolution VBG Video (MỚI 30/09/2026, Giang — dropdown Resolution ở card Media VBG,
-// giống Player) — 3 hàm Core-DOM dưới: KHÔNG tự đọc config/appState (Rule 2), nhận chuỗi CSS ĐÃ TÍNH SẴN qua tham
-// số (Workflow tính bằng resolvePlayerObjectFitCss()/resolvePlayerBackgroundSizeCss(), core/player-display-
-// settings.js — KHÔNG gọi chéo core->core ở đây), CHỈ gán lên 2 biến DOM tĩnh `bgVideoElement` (layer A) /
-// `visualBgImageElement` (layer B — cầu nối thumb full-res của Video surface / thumb placeholder lúc Song dừng),
-// core/dom-refs.js. Chuỗi rỗng = gỡ override, trả CSS tĩnh mặc định (`cover`, assets/css/base.css). =====================
+// ===================== Resolution VBG — layer A `bgVideoElement` (object-fit) + layer B `visualBgImageElement` (background-size,
+// thumb cầu nối / placeholder). Nhận chuỗi CSS đã tính (core/player-display-settings.js, Workflow gọi); '' = gỡ override. =====================
 
 /** Core-DOM — `object-fit` của layer A (`bgVideoElement`). @param {string} objectFitCss - '' = gỡ override */
 function applyVisualBgVideoResolutionToDOM(objectFitCss) {

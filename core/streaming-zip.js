@@ -19,7 +19,7 @@
  */
 
 const ZIP_JS_CDN_URL = 'https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.62/dist/zip-no-worker.min.js';
-const OPFS_ZIP_TEMP_DIR = 'sav-zip-tmp'; // chỉ chứa file .zip vừa ghi xong, chờ người dùng tải/share rồi dọn
+const OPFS_ZIP_TEMP_DIR = 'sav-zip-tmp'; // file .zip đang ghi / chờ tải; dọn CẢ thư mục trừ file đang dùng (workflowStreamingZip.sweepTemp())
 const OPFS_ZIP_WORKER_URL = 'core/workers/opfs-zip-worker.js';
 
 /** Trình duyệt có OPFS không (chỉ soi API, không gọi). @returns {boolean} */
@@ -52,9 +52,10 @@ async function createZipTempFile(dirHandle) {
     return { name, handle };
 }
 
-/** @param {FileSystemDirectoryHandle} dirHandle @param {string} name @returns {Promise<void>} */
+/** Xoá 1 mục trong thư mục tạm (đệ quy nếu là thư mục con). @param {FileSystemDirectoryHandle} dirHandle @param {string} name
+ * @returns {Promise<void>} */
 function removeZipTempFile(dirHandle, name) {
-    return dirHandle.removeEntry(name);
+    return dirHandle.removeEntry(name, { recursive: true });
 }
 
 /** Path A — mở WritableStream (có thể treo thay vì lỗi trên vài bản Safari; Workflow tự hạn giờ).
@@ -85,7 +86,7 @@ function abortZipWritable(writable) {
     return writable.abort();
 }
 
-/** Đọc file zip vừa ghi (File trỏ vào OPFS), gắn `_opfsTempName` để nơi gọi dọn qua cleanupStreamingZipTemp().
+/** Đọc file zip vừa ghi (File trỏ vào OPFS), gắn `_opfsTempName` để nơi gọi trả lại qua workflowStreamingZip.release().
  * @param {FileSystemFileHandle} fileHandle @param {string} name @returns {Promise<File>} */
 async function readZipTempFile(fileHandle, name) {
     const file = await fileHandle.getFile();
@@ -93,17 +94,35 @@ async function readZipTempFile(fileHandle, name) {
     return file;
 }
 
-/** Dọn 1 file zip tạm sau khi người dùng đã tải/share xong — lỗi (file đã mất...) bỏ qua.
- * @param {string} [tmpFileName] - `file._opfsTempName` */
-async function cleanupStreamingZipTemp(tmpFileName) {
-    if (!tmpFileName) return;
-    try {
-        const root = await navigator.storage.getDirectory();
-        const tmpDirHandle = await root.getDirectoryHandle(OPFS_ZIP_TEMP_DIR, { create: false });
-        await tmpDirHandle.removeEntry(tmpFileName);
-    } catch (err) {
-        console.warn('[streaming-zip] Không dọn được file zip tạm trong OPFS (bỏ qua, không nghiêm trọng):', err);
-    }
+// ===================== Dọn thư mục tạm =====================
+
+/** Thư mục tạm zip nếu đã có (chưa từng tạo -> null). @returns {Promise<FileSystemDirectoryHandle|null>} */
+async function openExistingZipTempDir() {
+    const root = await navigator.storage.getDirectory();
+    return root.getDirectoryHandle(OPFS_ZIP_TEMP_DIR, { create: false }).catch(() => null);
+}
+
+/** Xoá CẢ thư mục tạm (đệ quy) — cuốn luôn file nháp ẩn của writable bỏ dở (Path A treo trên Safari), thứ `keys()` không
+ * liệt kê được nên xoá theo tên không tới. Có mục đang bị khoá thì ném lỗi. @returns {Promise<void>} */
+async function removeZipTempDir() {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry(OPFS_ZIP_TEMP_DIR, { recursive: true });
+}
+
+/** Thư mục tạm có đang rảnh hẳn không (không file nào đang dùng, không lượt nén nào đang chạy).
+ * @param {number} inUseCount @param {number} activeBuilds @returns {boolean} */
+function isZipTempIdle(inUseCount, activeBuilds) {
+    return inUseCount === 0 && activeBuilds === 0;
+}
+
+/** Mục trong thư mục tạm không thuộc nhóm đang dùng. @param {string[]} names @param {Set<string>} inUseNames @returns {string[]} */
+function pickStaleZipTempNames(names, inUseNames) {
+    return names.filter((name) => !inUseNames.has(name));
+}
+
+/** Số lượt xoá thành công. @param {PromiseSettledResult[]} results @returns {number} */
+function countZipTempRemoved(results) {
+    return results.filter((r) => r.status === 'fulfilled').length;
 }
 
 // ===================== Path B — Worker =====================

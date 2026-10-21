@@ -241,6 +241,18 @@ function setMotionEngineLayerImage(layerEl, objectUrl) {
     layerEl.style.backgroundImage = objectUrl ? `url(${objectUrl})` : '';
 }
 
+/** `background-size` của 1 layer ảnh ('' = mặc định CSS). @param {HTMLElement|null} layerEl @param {string} backgroundSize */
+function setMotionEngineLayerBackgroundSize(layerEl, backgroundSize) {
+    if (!layerEl) return;
+    layerEl.style.backgroundSize = backgroundSize || '';
+}
+
+/** Đánh dấu layer đang hiện (`.me-current`) — ảnh đầu hiện tĩnh, không qua Transition. @param {HTMLElement|null} layerEl */
+function markMotionEngineLayerCurrent(layerEl) {
+    if (!layerEl) return;
+    layerEl.classList.add('me-current');
+}
+
 /**
  * Core thuần: resolve giá trị THẬT 1 field/point move ({mode,single,rangeMin,rangeMax}) —
  * `mode==='single'` trả thẳng `single`; `mode==='randomRange'` trả 1 số random ĐỀU trong

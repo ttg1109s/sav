@@ -106,7 +106,7 @@
         }
 
         /** Dựng CanvasGradient khớp `linear-gradient(angleDeg, stop.color stop.position%...)` của CSS — visual 2D vẽ đúng
-         * gradient VBG đang hiển thị (core/visual-bg-common.js::getVisualBgFillStyle()). Trục gradient tính theo đúng CSS spec
+         * gradient VBG đang hiển thị (workflowVisualBg.canvasFillStyle(), event/workflow/visual-bg-common.js). Trục gradient tính theo đúng CSS spec
          * (0deg = lên trên, theo chiều kim đồng hồ, điểm chiếu vuông góc qua tâm hộp). `stops` tự sort theo position. */
         function buildCanvasLinearGradient(ctx, angleDeg, width, height, stops) {
             const rad = (angleDeg % 360) * Math.PI / 180;
