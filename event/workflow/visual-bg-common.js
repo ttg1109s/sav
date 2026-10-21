@@ -1,55 +1,154 @@
 /**
- * event/workflow/visual-bg-common.js — Workflow domain "Visual Background", phần CHUNG cho cả
- * Photo lẫn Video: boot/persist, dispatch áp nền, quản lý `source.list`/chọn nguồn/picker, panel
- * màu (solid/gradient + Movement), panel Settings. Phần riêng từng loại: event/workflow/
- * visual-bg-video.js, event/workflow/visual-bg-photo.js — CẢ 3 file cùng ghép vào 1 object
- * `workflowVisualBg` DUY NHẤT (common định nghĩa, 2 file kia `Object.assign()` thêm method/field
- * riêng vào) — vẫn 1 hệ thống Settings > Visualizer > Visual Background, đây chỉ là tách file tổ
- * chức + tên gọi.
- * Xung đột Video Player mode <-> Visual Background giải quyết bằng `clearMediaLayers()` +
- * `applyCurrentVisualBg()` (gọi chéo domain từ event/workflow/video-player.js).
+ * event/workflow/visual-bg-common.js — Workflow domain "Visual Background", phần CHUNG cho Photo lẫn Video: boot/persist,
+ * áp nền, `source.list`/chọn nguồn/picker, nền màu (solid/gradient + Movement), các màn Settings. Phần riêng:
+ * event/workflow/visual-bg-video.js, event/workflow/visual-bg-photo.js — cả 3 file ghép vào 1 object `workflowVisualBg`
+ * (2 file kia `Object.assign()` thêm method/field riêng).
+ * Video/Photo Player mode nhường nền qua `clearMediaLayers()` lúc vào và `restoreAfterPlayerMode()` lúc thoát.
+ * Tính toán: core/visual-bg-common.js; ghi DOM panel: core/visual-bg-panel-ui.js.
  *
- * NẠP SAU: core/config.js, core/visual-bg-common.js, core/color-utils.js, service/db.js,
- * service/state.js. NẠP TRƯỚC: event/workflow/visual-bg-video.js, event/workflow/visual-bg-photo.js,
- * event/router/visual-bg.js.
+ * NẠP SAU: core/config.js, core/visual-bg-common.js, core/visual-bg-panel-ui.js, core/color-utils.js, service/db.js,
+ * service/state.js. NẠP TRƯỚC: event/workflow/visual-bg-video.js, event/workflow/visual-bg-photo.js, event/router/visual-bg.js.
  */
-// Chuỗi owner của VBG khi giữ Image surface (event/workflow/visual-bg-photo-motion.js — dùng chung với Player Photo,
-// so chuỗi này để chặn chéo).
+// Chuỗi owner của VBG khi giữ Image surface (event/workflow/visual-bg-photo-motion.js — dùng chung với Player Photo).
 const VISUAL_BG_IMAGE_SURFACE_OWNER = 'visualBg';
 // Chuỗi owner của VBG khi giữ Video surface (event/workflow/video-motion-surface.js — dùng chung với Player Video).
 const VISUAL_BG_VIDEO_SURFACE_OWNER = 'visualBg';
+const VISUAL_BG_COLOR_PERSIST_TASK = 'visualBgColorPersist'; // debounce lưu DB khi kéo màu/slider
+const VISUAL_BG_COLOR_PERSIST_DELAY_MS = 300;
 let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
 
-// type -> đọc nhiều record theo key trong 1 transaction (service/db.js). Loại không có trong bảng -> 'photo'.
+// type -> đọc nhiều record theo key trong 1 transaction. Loại không có trong bảng -> 'photo'.
 const VISUAL_BG_RECORDS_BY_TYPE = {
     video: (keys) => getVideoRecordsByKeys(keys), // service/db.js
-    photo: (keys) => getImageRecordsByKeys(keys), // service/db.js
+    photo: (keys) => getImageRecordsByKeys(keys),
+};
+const VISUAL_BG_RECORD_BY_TYPE = {
+    video: (key) => getVideoRecord(key), // service/db.js
+    photo: (key) => getImageRecord(key),
 };
 const VISUAL_BG_ITEM_NAME_BY_TYPE = {
-    video: (record) => record.customName || stripFileExtension(record.filename),
+    video: (record) => record.customName || stripFileExtension(record.filename), // core/file-manager/video.js
     photo: (record) => record.filename,
 };
-// Mode không có trong bảng -> A-Z, ĐÚNG hành vi cũ (mọi mode khác newest/oldest sắp theo tên, chỉ 'za' đảo chiều).
+// Mode lạ -> A-Z (mọi mode khác newest/oldest sắp theo tên, chỉ 'za' đảo chiều).
 const VISUAL_BG_SORT_BY_MODE = {
-    newest: (items) => sortVisualBgItemsByAddedAt(items, true), // core/visual-bg-common.js
-    oldest: (items) => sortVisualBgItemsByAddedAt(items, false),
-    za: (items) => sortVisualBgItemsByName(items, true),
-    az: (items) => sortVisualBgItemsByName(items, false),
+    newest: (items) => sortVisualBgKeysByAddedAt(items, true), // core/visual-bg-common.js
+    oldest: (items) => sortVisualBgKeysByAddedAt(items, false),
+    za: (items) => sortVisualBgKeysByName(items, true),
+    az: (items) => sortVisualBgKeysByName(items, false),
 };
-// originKind không có trong bảng -> 'group', ĐÚNG hành vi cũ (nhánh cuối của chuỗi if cũ).
+// originKind lạ -> 'group'.
 const VISUAL_BG_ORIGIN_KEYS_BY_KIND = {
     single: (type, originId) => (originId ? [originId] : []),
     multi: (type, originId) => workflowVisualBg._readMultiOriginKeys(type, originId),
     groupMulti: (type, originId) => workflowVisualBg._readGroupMultiOriginKeys(type, originId),
     group: (type, originId) => workflowVisualBg._readGroupOriginKeys(type, originId),
 };
+// Tên nguồn ở Settings; originKind lạ -> tên item đơn theo type.
+const VISUAL_BG_SOURCE_NAME_BY_KIND = {
+    multi: (type, originId) => tFormat(VISUAL_BG_MULTI_SOURCE_LABEL_KEY_BY_TYPE[type] || VISUAL_BG_MULTI_SOURCE_LABEL_KEY_BY_TYPE.photo, { count: decodeVisualBgMultiOriginId(originId).length }),
+    groupMulti: (type, originId) => tFormat('visualBgSettingsDrawer.sourceLabel.groupMulti', { count: decodeVisualBgMultiOriginId(originId).length }),
+    group: (type, originId) => workflowVisualBg._readFolderName(originId),
+    single: (type, originId) => workflowVisualBg._readItemName(type, originId),
+};
+const VISUAL_BG_MULTI_SOURCE_LABEL_KEY_BY_TYPE = {
+    video: 'visualBgSettingsDrawer.sourceLabel.multiVideo',
+    photo: 'visualBgSettingsDrawer.sourceLabel.multiPhoto',
+};
+const VISUAL_BG_SOURCE_LABEL_BY_HAS_ORIGIN = {
+    true: (type, shown) => workflowVisualBg._readSourceDisplayName(type, shown.originKind, shown.originId),
+    false: () => t('visualBgSettingsDrawer.pickSource.none'),
+};
+const VISUAL_BG_PENDING_NOTICE_KEY_BY_TYPE = {
+    video: 'visualBgSettingsDrawer.pendingSource.video',
+    photo: 'visualBgSettingsDrawer.pendingSource.photo',
+};
+const VISUAL_BG_FOLDER_EMPTY_KEY_BY_TYPE = {
+    video: 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video',
+    photo: 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo',
+};
+const VISUAL_BG_FOLDER_EMPTY_MSG_BY_NO_FOLDER = {
+    true: (type) => t(VISUAL_BG_FOLDER_EMPTY_KEY_BY_TYPE[type] || VISUAL_BG_FOLDER_EMPTY_KEY_BY_TYPE.photo),
+    false: () => '',
+};
+const VISUAL_BG_PICKER_CONFIRM_LABEL_BY_EMPTY = {
+    true: () => t('visualBgSettingsDrawer.picker.confirmEmpty'),
+    false: (count) => tFormat('visualBgSettingsDrawer.picker.confirm', { count }),
+};
+
+// Boot / bật toggle: có pending -> áp pending (tự áp nền sau đó), không -> áp nền hiện tại.
+const VISUAL_BG_APPLY_BY_PENDING = {
+    true: () => workflowVisualBg._checkAndApplyPendingSource(),
+    false: () => workflowVisualBg.applyCurrentVisualBg(),
+};
+// type lạ -> 'photo'.
+const VISUAL_BG_APPLY_BY_TYPE = {
+    video: (cfg) => workflowVisualBg._applyVideo(cfg), // event/workflow/visual-bg-video.js
+    photo: (cfg) => workflowVisualBg._applyPhoto(cfg), // event/workflow/visual-bg-photo.js
+};
+const VISUAL_BG_SONG_ADVANCE_BY_TYPE = {
+    video: () => workflowVisualBg._advanceVideo(),
+    photo: () => workflowVisualBg._photoTick(),
+};
+const VISUAL_BG_PLAYBACK_SYNC_BY_TYPE = {
+    video: (songActive, stoppedAtEnd, cfg) => VISUAL_BG_VIDEO_SYNC_BY_SONG_ACTIVE[songActive](cfg, stoppedAtEnd),
+    photo: (songActive) => workflowVisualBg._syncPhotoToSong(songActive),
+};
+const VISUAL_BG_VIDEO_SYNC_BY_SONG_ACTIVE = {
+    true: (cfg) => VISUAL_BG_VIDEO_RESUME_BY_LOADED[workflowVisualBg._currentVideoKey !== null](cfg),
+    false: (cfg, stoppedAtEnd) => VISUAL_BG_VIDEO_PAUSE_BY_STOPPED_AT_END[stoppedAtEnd](),
+};
+// Song phát: video chưa từng nạp -> nạp lần đầu; đã nạp (đứng vì pause tạm) -> resume câm rồi mới bật tiếng.
+const VISUAL_BG_VIDEO_RESUME_BY_LOADED = {
+    false: (cfg) => workflowVisualBg._playVideoKey(cfg.source.list[workflowVisualBg._listIndex]),
+    true: () => workflowVisualBg._resumeVideoWithDelayedAudio(workflowVisualBg._currentVideoKey),
+};
+// Song dừng: hết playlist thật -> về placeholder tĩnh; pause tạm -> dừng video + Motion, giữ khung đang đứng.
+const VISUAL_BG_VIDEO_PAUSE_BY_STOPPED_AT_END = {
+    true: () => workflowVisualBg._revertToPlaceholder(),
+    false: () => workflowVisualBg._pauseVideoInPlace(),
+};
+// Đổi nextOrder: origin đọc theo thứ tự (group/groupMulti) dựng lại list ngay; còn lại chỉ áp lại.
+const VISUAL_BG_NEXT_ORDER_REAPPLY_BY_KIND = {
+    group: (source) => workflowVisualBg._resolveAndCommitSource(source.originKind, source.originId),
+    groupMulti: (source) => workflowVisualBg._resolveAndCommitSource(source.originKind, source.originId),
+    other: () => workflowVisualBg.applyCurrentVisualBg(),
+};
+// Kết quả 1 lượt đọc lại origin (resolveVisualBgCommitRoute(), core/visual-bg-common.js).
+const VISUAL_BG_COMMIT_BY_ROUTE = {
+    clear: () => workflowVisualBg._clearForEmptyOrigin(),
+    unchanged: (job) => ({ queued: false, added: 0, removed: 0, total: job.diff.total }),
+    queue: (job) => workflowVisualBg._queuePendingSource(job),
+    commit: (job) => workflowVisualBg._commitSourceNow(job.originKind, job.originId, job.keys, job.diff),
+};
+const VISUAL_BG_RESOLUTION_REFRESH_BY_TYPE = {
+    video: () => workflowVisualBg._refreshVideoResolution(), // event/workflow/visual-bg-video.js
+    photo: () => workflowVisualBg._refreshPhotoResolution(), // event/workflow/visual-bg-photo.js
+};
+const VISUAL_BG_FIRST_INDEX_BY_RANDOM = {
+    true: (list) => ({ list: shuffleVisualBgList(list), index: 0 }), // core/visual-bg-common.js
+    false: (list) => ({ list, index: pickNextMotionEngineIndexSequential(-1, list.length) }), // core/motion-engine.js
+};
+const VISUAL_BG_ADVANCE_BY_NEW_ROUND = {
+    true: (list, currentIndex, nextIndex) => advanceVisualBgList(workflowVisualBg._reshuffleRound(list, currentIndex), nextIndex),
+    false: (list, currentIndex, nextIndex) => advanceVisualBgList(list, nextIndex),
+};
+// Canvas 2D tô nền theo màu VBG (vd event/workflow/visualizer/rain.js). colorMode lạ -> solid.
+const VISUAL_BG_CANVAS_FILL_BY_COLOR_MODE = {
+    solid: (vb) => vb.solidColor,
+    gradient: (vb, ctx, width, height) => workflowVisualBg._canvasGradientFill(vb, ctx, width, height),
+};
+// Khung Movement theo mode; mode lạ -> 'time'.
+const VISUAL_BG_MOVEMENT_FRAME_BY_MODE = {
+    time: (gm, now) => workflowVisualBg._timeMovementFrame(gm, now),
+    audio: (gm, now) => workflowVisualBg._audioMovementFrame(gm, now),
+};
 
 const workflowVisualBg = {
     _listIndex: -1, // vị trí hiện tại trong `source.list` — dùng chung video lẫn ảnh
-    _colorPersistTimer: null,
 
-    /** State riêng animation tick Movement (`_tickGradientMovement()`), không lưu DB. */
+    /** State riêng animation Movement (`_tickGradientMovement()`), không lưu DB. */
     _gradientMovementStartTime: null,
     _gradientMovementBaseStops: null,
     _gradientMovementSwapStartTime: null,
@@ -57,8 +156,8 @@ const workflowVisualBg = {
     _gradientMovementSwapToColors: null,
     _gradientMovementLastSwapTime: null,
 
-    /** Mode 'audio' — 1 pha xoay/giãn mượt từ *From -> *To trong `_gradientMovementPhaseDurationMs`,
-     * hết pha mới lấy mẫu BPM/energy mới chốt pha kế (`_commitNextGradientPhase()`). */
+    /** Mode 'audio' — 1 pha xoay/giãn mượt từ *From -> *To trong `_gradientMovementPhaseDurationMs`, hết pha mới lấy mẫu
+     * BPM/energy chốt pha kế (`_commitNextGradientPhase()`). */
     _gradientMovementPhaseStartTime: null,
     _gradientMovementPhaseDurationMs: null,
     _gradientMovementPhaseFromAngle: null,
@@ -66,166 +165,115 @@ const workflowVisualBg = {
     _gradientMovementPhaseFromSpread: null,
     _gradientMovementPhaseToSpread: null,
 
-    /** Picker Generic Drawer multi-select dùng chung cho Video/Ảnh (không bao giờ mở đồng thời). */
+    /** Picker Generic Drawer multi-select dùng chung Video/Ảnh (không bao giờ mở đồng thời). */
     _pickerOpen: false,
-    _pickerSelectedKeys: [], // ordered — thứ tự chọn
+    _pickerSelectedKeys: [], // thứ tự chọn
+
+    // ===================== Boot / persist =====================
 
     /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU workflowConfig.loadOnBoot(). */
     async loadPersistedSettingsOnBoot() {
-        const saved = await getMeta('visualBgConfig');
-        if (saved && typeof saved === 'object') {
-            appConfigVisualBg.mutateAll((cfg) => {
-                if (VISUAL_BG_TYPES.includes(saved.type)) cfg.type = saved.type;
-                if (saved.source && typeof saved.source === 'object') {
-                    if (saved.source.originKind === null || VISUAL_BG_ORIGIN_KINDS.includes(saved.source.originKind)) cfg.source.originKind = saved.source.originKind;
-                    if (saved.source.originId === null || typeof saved.source.originId === 'string') cfg.source.originId = saved.source.originId;
-                    if (Array.isArray(saved.source.list)) cfg.source.list = saved.source.list.filter((k) => k === null || typeof k === 'string');
-                    if (saved.source.videoAudio && typeof saved.source.videoAudio === 'object') {
-                        const cleaned = {};
-                        Object.keys(saved.source.videoAudio).forEach((k) => {
-                            if (typeof k !== 'string') return;
-                            cleaned[k] = getVisualBgVideoAudioSetting(saved.source.videoAudio, k);
-                        });
-                        cfg.source.videoAudio = cleaned;
-                    }
-                }
-                if (saved.pending && typeof saved.pending === 'object') {
-                    if ((saved.pending.originKind === null || VISUAL_BG_ORIGIN_KINDS.includes(saved.pending.originKind)) && Array.isArray(saved.pending.list)) {
-                        cfg.pending.originKind = saved.pending.originKind;
-                        cfg.pending.originId = typeof saved.pending.originId === 'string' ? saved.pending.originId : null;
-                        cfg.pending.list = saved.pending.list.filter((k) => k === null || typeof k === 'string');
-                    }
-                }
-                if (VISUAL_BG_LIST_PLAYBACK_MODES.includes(saved.listPlaybackMode)) cfg.listPlaybackMode = saved.listPlaybackMode;
-                if (VISUAL_BG_NEXT_ORDERS.includes(saved.nextOrder)) cfg.nextOrder = saved.nextOrder;
-                if (VISUAL_BG_DURATION_MODES.includes(saved.durationMode)) cfg.durationMode = saved.durationMode;
-                if (typeof saved.durationSeconds === 'number' && saved.durationSeconds >= 0.5 && saved.durationSeconds <= 60) {
-                    cfg.durationSeconds = saved.durationSeconds;
-                } else if (saved.slideshow && typeof saved.slideshow.intervalSeconds === 'number' && saved.slideshow.intervalSeconds >= 5) {
-                    cfg.durationSeconds = saved.slideshow.intervalSeconds;
-                }
-                if (VISUAL_BG_COLOR_MODES.includes(saved.colorMode)) cfg.colorMode = saved.colorMode;
-                if (typeof saved.solidColor === 'string') cfg.solidColor = saved.solidColor;
-                if (typeof saved.gradientAngleDeg === 'number') cfg.gradientAngleDeg = saved.gradientAngleDeg;
-                if (Array.isArray(saved.gradientStops) && saved.gradientStops.length >= VISUAL_BG_GRADIENT_MIN_STOPS && saved.gradientStops.length <= VISUAL_BG_GRADIENT_MAX_STOPS) cfg.gradientStops = saved.gradientStops;
-                if (saved.gradientMovement && typeof saved.gradientMovement === 'object') {
-                    const gm = saved.gradientMovement;
-                    if (typeof gm.enabled === 'boolean') cfg.gradientMovement.enabled = gm.enabled;
-                    if (VISUAL_BG_GRADIENT_MOVEMENT_MODES.includes(gm.mode)) cfg.gradientMovement.mode = gm.mode;
-                    if (typeof gm.rotateDurationMs === 'number' && gm.rotateDurationMs >= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS && gm.rotateDurationMs <= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS) cfg.gradientMovement.rotateDurationMs = gm.rotateDurationMs;
-                    if (typeof gm.audioRotateFrom === 'number') cfg.gradientMovement.audioRotateFrom = Math.max(0, Math.min(360, gm.audioRotateFrom));
-                    if (typeof gm.audioRotateTo === 'number') cfg.gradientMovement.audioRotateTo = Math.max(0, Math.min(360, gm.audioRotateTo));
-                    if (typeof gm.audioStopSpreadFrom === 'number') cfg.gradientMovement.audioStopSpreadFrom = Math.max(0, Math.min(50, gm.audioStopSpreadFrom));
-                    if (typeof gm.audioStopSpreadTo === 'number') cfg.gradientMovement.audioStopSpreadTo = Math.max(0, Math.min(50, gm.audioStopSpreadTo));
-                    if (typeof gm.colorSwapEnabled === 'boolean') cfg.gradientMovement.colorSwapEnabled = gm.colorSwapEnabled;
-                    if (typeof gm.colorSwapIntervalMs === 'number' && gm.colorSwapIntervalMs >= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS && gm.colorSwapIntervalMs <= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS) cfg.gradientMovement.colorSwapIntervalMs = gm.colorSwapIntervalMs;
-                    if (typeof gm.colorSwapTransitionMs === 'number' && gm.colorSwapTransitionMs >= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS && gm.colorSwapTransitionMs <= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS) cfg.gradientMovement.colorSwapTransitionMs = gm.colorSwapTransitionMs;
-                }
-                if (typeof saved.motionPresetId === 'string' || saved.motionPresetId === null) cfg.motionPresetId = saved.motionPresetId;
-                if (typeof saved.enabled === 'boolean') cfg.enabled = saved.enabled; // toggle tổng
-                // Resolution riêng Video/Photo; thiếu/lạ -> 'fill'. `saved.resolutionMode` (field chung đời cũ) làm dự phòng.
-                cfg.videoResolutionMode = normalizePlayerResolutionMode(saved.videoResolutionMode || saved.resolutionMode);
-                cfg.photoResolutionMode = normalizePlayerResolutionMode(saved.photoResolutionMode || saved.resolutionMode);
-                if (typeof saved.videoSyncPlaybackSpeed === 'boolean') cfg.videoSyncPlaybackSpeed = saved.videoSyncPlaybackSpeed;
-            });
-            console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
-        }
-        if (appConfigVisualBg.getAll().pending.originKind) this._checkAndApplyPendingSource();
-        else this.applyCurrentVisualBg();
+        this._restoreSavedConfig(await getMeta('visualBgConfig'));
+        VISUAL_BG_APPLY_BY_PENDING[shouldApplyVisualBgPending(true, appConfigVisualBg.getAll().pending.originKind)](); // core/visual-bg-common.js
         this._syncGradientMovementTaskState();
+    },
+
+    /** Khôi phục cấu hình đã lưu: field lạ/hỏng giữ mặc định (core thuần), tiếng từng video + Resolution chuẩn hoá ở đây. */
+    _restoreSavedConfig(saved) {
+        if (!saved || typeof saved !== 'object') return;
+        const restored = sanitizeVisualBgConfig(saved, appConfigVisualBg.getAll()); // core/visual-bg-common.js
+        const config = restored.config;
+        if (restored.videoAudioRaw) config.source.videoAudio = this._cleanVideoAudioMap(restored.videoAudioRaw);
+        config.videoResolutionMode = normalizePlayerResolutionMode(restored.videoResolutionRaw); // core/player-display-settings.js
+        config.photoResolutionMode = normalizePlayerResolutionMode(restored.photoResolutionRaw);
+        appConfigVisualBg.mutateAll((cfg) => { Object.assign(cfg, config); });
+        console.log(`writer: "workflowVisualBg._restoreSavedConfig", page: "visualBgConfig", content: "nạp lại từ meta"`);
+    },
+
+    /** Kiểm từng entry tiếng video (mặc định nếu hỏng). @param {object} rawMap @returns {object} */
+    _cleanVideoAudioMap(rawMap) {
+        const cleaned = {};
+        Object.keys(rawMap).forEach((k) => { cleaned[k] = getVisualBgVideoAudioSetting(rawMap, k); }); // core/visual-bg-video.js
+        return cleaned;
     },
 
     async _persist() {
         await setMeta('visualBgConfig', appConfigVisualBg.getAll());
     },
 
-    /** Số item CÒN SỐNG trong 1 mảng `list` (loại null) — 3 trạng thái suy ra: 0 = ẩn media, 1 =
-     * phát tĩnh, >1 = cycle. Nhận thẳng `list` (mảng) — nơi gọi tự quyết truyền `source.list` (nội
-     * dung thật đang phát) hay `_effectiveDisplayedList(cfg)` (nội dung đang hiển thị, có pending).
-     * @param {Array<string|null>} list
-     */
-    _effectiveCount(list) {
-        return list.filter((k) => k !== null).length;
-    },
+    // ===================== source.list =====================
 
-    /** Chọn index LƯỢT ĐẦU (`currentIndex=-1`). `sequential`: index 0, mảng giữ nguyên thứ tự gốc.
-     * `random`: xáo cả mảng 1 lần rồi bắt đầu từ index 0 của mảng đã xáo.
-     * @param {Array<string|null>} list
-     * @param {boolean} isRandom
-     * @returns {{ list: Array<string|null>, index: number }}
-     */
+    /** Index LƯỢT ĐẦU (`currentIndex=-1`). 'sequential': index 0, giữ thứ tự gốc; 'random': xáo cả mảng 1 lần rồi từ 0.
+     * @param {Array<string|null>} list @param {boolean} isRandom @returns {{ list: Array<string|null>, index: number }} */
     firstIndex(list, isRandom) {
-        if (!isRandom) return { list, index: pickNextMotionEngineIndexSequential(-1, list.length) };
-        return { list: shuffleVisualBgList(list), index: 0 };
+        return VISUAL_BG_FIRST_INDEX_BY_RANDOM[isRandom](list);
     },
 
-    /** Chọn index MỖI LƯỢT SAU (cycle) — bước tuần tự qua mảng hiện tại; `random` xáo lại TOÀN mảng
-     * (loại trừ item vừa phát khỏi vị trí đầu mảng mới) đúng lúc vừa đi hết 1 vòng, rồi mới sweep
-     * null qua `advanceVisualBgList()` (core, không đổi — vẫn ĐÚNG chỗ dọn null cho cả 2 nextOrder).
-     * @param {Array<string|null>} list
-     * @param {number} currentIndex
-     * @param {boolean} isRandom
-     * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn.
-     */
+    /** Index MỖI LƯỢT SAU — bước tuần tự; 'random' xáo lại TOÀN mảng đúng lúc hết 1 vòng (item vừa phát không đứng đầu
+     * vòng mới), rồi dọn null qua `advanceVisualBgList()`.
+     * @param {Array<string|null>} list @param {number} currentIndex @param {boolean} isRandom
+     * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn. */
     advanceList(list, currentIndex, isRandom) {
-        const nextIndex = pickNextMotionEngineIndexSequential(currentIndex, list.length);
-        if (isRandom && nextIndex === 0 && list.length > 1) {
-            const justPlayedKey = currentIndex >= 0 ? list[currentIndex] : null;
-            let reshuffled = shuffleVisualBgList(list);
-            if (reshuffled[0] === justPlayedKey) {
-                const swapWith = 1 + Math.floor(Math.random() * (reshuffled.length - 1));
-                [reshuffled[0], reshuffled[swapWith]] = [reshuffled[swapWith], reshuffled[0]];
-            }
-            return advanceVisualBgList(reshuffled, nextIndex);
-        }
-        return advanceVisualBgList(list, nextIndex);
+        const nextIndex = pickNextMotionEngineIndexSequential(currentIndex, list.length); // core/motion-engine.js
+        return VISUAL_BG_ADVANCE_BY_NEW_ROUND[isVisualBgNewRandomRound(isRandom, nextIndex, list.length)](list, currentIndex, nextIndex);
     },
 
-    /** Điểm đồng bộ DUY NHẤT giữa config và DOM — gọi lúc boot + sau mọi thay đổi. Màu LUÔN sơn
-     * (kể cả media rỗng); media chỉ áp khi `source.list` còn ít nhất 1 item sống.
-     * Đang ở Video/Photo Player mode thì bỏ qua (VBG chỉ có nghĩa lúc Song phát; áp đè sẽ phá nội dung + nền đen của
-     * Player) — cấu hình vẫn lưu ở nơi gọi, thoát mode áp lại qua `restoreAfterPlayerMode()`. */
+    /** Xáo vòng mới; item vừa phát rơi lên đầu thì đổi chỗ với 1 vị trí ngẫu nhiên. */
+    _reshuffleRound(list, currentIndex) {
+        let reshuffled = shuffleVisualBgList(list); // core/visual-bg-common.js
+        if (isVisualBgRoundFrontRepeat(reshuffled, list, currentIndex)) reshuffled = swapVisualBgListFront(reshuffled, Math.random());
+        return reshuffled;
+    },
+
+    /** Đang cycle nhiều item kiểu slideshow (dùng chung Photo/Video). @param {object} cfg @returns {boolean} */
+    _isSlideshowCycling(cfg) {
+        return isVisualBgSlideshowCycling(cfg.listPlaybackMode, countVisualBgLiveItems(cfg.source.list)); // core/visual-bg-common.js
+    },
+
+    /** Thời lượng 1 item theo 'fixtime' hay theo chính media ('natural') — Point Move, Transition, hẹn giờ ảnh/video.
+     * @param {object} cfg @returns {'fixtime'|'natural'} */
+    _itemDurationSource(cfg) {
+        return resolveVisualBgItemDurationSource(this._isSlideshowCycling(cfg), cfg.durationMode); // core/visual-bg-common.js
+    },
+
+    // ===================== Áp nền =====================
+
+    /** Điểm đồng bộ DUY NHẤT giữa config và DOM — boot + sau mọi thay đổi. Màu LUÔN sơn; media chỉ áp khi còn item sống.
+     * Đang ở Video/Photo Player mode thì bỏ qua (áp đè sẽ phá nội dung Player) — thoát mode áp lại qua
+     * `restoreAfterPlayerMode()`. */
     async applyCurrentVisualBg() {
-        if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) {
+        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        if (isVideoPlayerMode || isPhotoPlayerMode) {
             console.log('[workflowVisualBg] applyCurrentVisualBg() bỏ qua — đang ở Player mode, áp lại lúc thoát mode');
             return;
         }
         return this._applyCurrentVisualBgNow();
     },
 
-    /** Khôi phục VBG lúc thoát Video/Photo Player mode (exitVideoPlayerMode()/exitPhotoPlayerMode() gọi TRƯỚC khi hạ cờ
-     * mode) — nên bỏ qua chặn của `applyCurrentVisualBg()`. */
+    /** Khôi phục VBG lúc thoát Video/Photo Player mode (gọi TRƯỚC khi hạ cờ mode) — bỏ qua chặn của `applyCurrentVisualBg()`. */
     async restoreAfterPlayerMode() {
         return this._applyCurrentVisualBgNow();
     },
 
-    /** Sơn nền màu `#visualizer-solid-bg` theo cấu hình VBG hiện tại (đen khi video VBG che kín, gradient hoặc màu đặc). Gọi
-     * lúc boot (app-boot.js, sau workflowConfig.loadOnBoot()) và sau mọi thay đổi ảnh hưởng nền màu (miền VBG, Video Player, audio engine). */
+    /** Sơn `#visualizer-solid-bg` theo cấu hình màu VBG — boot (app-boot.js) và sau mọi thay đổi ảnh hưởng nền màu. */
     paintSolidBg() {
         const cfg = appConfigVisualBg.getAll();
         updateDOMBackground(cfg, buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg)); // core/color-utils.js + core/visual-bg-common.js
     },
 
-    /** Thân gốc của `applyCurrentVisualBg()` (KHÔNG chặn) — chỉ gọi qua 2 hàm công khai ngay trên. */
+    /** Thân của `applyCurrentVisualBg()` (không chặn): dỡ media, sơn màu, toggle tổng bật thì nạp media theo type. */
     async _applyCurrentVisualBgNow() {
         this.clearMediaLayers();
         this.paintSolidBg();
         const cfg = appConfigVisualBg.getAll();
-        // Toggle tổng tắt: dừng ở đây — media đã dỡ, màu đã sơn. Mọi đường áp lại đều qua hàm này nên 1 guard là đủ.
-        if (!this._isMediaEnabled()) return;
-        const count = this._effectiveCount(cfg.source.list);
-        if (cfg.type === 'video') return this._applyVideo(cfg);
-        return this._applyPhoto(cfg);
+        if (!isVisualBgMediaEnabled(cfg)) return;
+        return (VISUAL_BG_APPLY_BY_TYPE[cfg.type] || VISUAL_BG_APPLY_BY_TYPE.photo)(cfg);
     },
 
     /**
-     * Kiểm tra + áp `cfg.pending` nếu có — dùng chung cho mọi điểm "lượt kế tiếp" của cả 2 type
-     * (video hết/đổi bài, ảnh hết tick/đổi bài, và boot). Public — `workflowVideoPlayer`/router
-     * cũng gọi được, nguồn sự thật `pending`/`source` vẫn thuộc domain này. Không tự tính lại
-     * `firstIndex()`/mảng — giao thẳng cho `applyCurrentVisualBg()` (quy trình "chọn nguồn mới" có
-     * sẵn, tự reset `_listIndex`/`_currentVideoKey` rồi phát item đầu).
-     * @returns {Promise<boolean>} true nếu vừa áp pending — nơi gọi phải return ngay, không chạy
-     *   tiếp logic advance()/tick() cũ (index/task cũ không còn ý nghĩa).
+     * Áp `cfg.pending` nếu có — mọi điểm "lượt kế tiếp" (video hết/đổi bài, nhịp ảnh, boot). Áp xong giao
+     * `applyCurrentVisualBg()` phát item đầu.
+     * @returns {Promise<boolean>} true nếu vừa áp pending — nơi gọi return ngay (index/task cũ hết ý nghĩa).
      */
     async _checkAndApplyPendingSource() {
         const cfg = appConfigVisualBg.getAll();
@@ -245,13 +293,11 @@ const workflowVisualBg = {
         return true;
     },
 
-    /** Dọn sạch lớp media đang hiện (video + ảnh dự phòng) — gọi trước mọi lần áp lại. Public —
-     * `workflowVideoPlayer` cũng gọi được lúc vào Video Player mode để nhường `bgVideoElement`
-     * (không đụng `visualBgConfig` đã lưu — chỉ dọn DOM/task/object URL runtime, resume nguyên vẹn
-     * lúc thoát qua `applyCurrentVisualBg()`). */
+    /** Dọn lớp media đang hiện (video + ảnh) — trước mọi lần áp lại, và lúc vào Player mode để nhường `bgVideoElement`
+     * (không đụng cấu hình đã lưu, chỉ dọn DOM/task/object URL runtime). */
     clearMediaLayers() {
-        const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
-        if (typeof workflowVisualBgPhotoMotion !== 'undefined') workflowVisualBgPhotoMotion.stop();
+        const imageObjectUrl = appState.get('visualBgImageObjectUrl');
+        workflowVisualBgPhotoMotion.stop(); // event/workflow/visual-bg-photo-motion.js
         taskManager.kill(VISUAL_BG_PHOTO_ADVANCE_TASK);
         this._listIndex = -1;
         this._photoRecord = null;
@@ -259,212 +305,139 @@ const workflowVisualBg = {
         this._videoLoopLastTimeSec = 0;
         this._killStuckRecoveryTimer();
         this._killVideoFixTimeTimer();
-        // Trả Video surface nếu VBG đang giữ (dừng Motion, đưa DOM A/B về chỗ cũ) trước khi dọn nguồn — no-op nếu Player giữ.
-        if (typeof workflowVideoMotionSurface !== 'undefined') workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
-        if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource();
-        // Gỡ override Resolution VBG khỏi layer A/B — Player vào mode nhận 2 element sạch; VBG áp lại ở lượt hiện media sau.
+        // Trả Video surface nếu VBG đang giữ (dừng Motion, DOM A/B về chỗ cũ) trước khi dọn nguồn — no-op nếu Player giữ.
+        workflowVideoMotionSurface.release(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
+        workflowVideoPlayer.clearBgVideoSource(); // event/workflow/video-player.js
+        // Gỡ override Resolution VBG khỏi layer A/B — Player nhận 2 element sạch; VBG áp lại ở lượt hiện media sau.
         this._videoNaturalSize = null;
         applyVisualBgVideoResolutionToDOM(''); // core/visual-bg-video.js
         applyVisualBgVideoBridgeSizeToDOM('');
-        applyVisualBgImageToDOM(false, '');
-        if (visualBgImageObjectUrl) revokeBlobUrl(visualBgImageObjectUrl);
+        applyVisualBgImageToDOM(false, ''); // core/visual-bg-photo.js
+        if (imageObjectUrl) revokeBlobUrl(imageObjectUrl);
         appState.set('visualBgImageObjectUrl', '');
     },
 
-    /** Ứng với bài hát đổi thật ('visualBg.songChanged', router). Check pending trước guard
-     * `listPlaybackMode==='perSong'` — điểm "lượt kế tiếp" duy nhất còn lại cho ca
-     * `source.list.length<=1`. Dùng chung cho cả ảnh lẫn video — mọi quyết định "khi nào chuyển
-     * ảnh" đều qua đúng 1 điểm này. */
+    /** Bài hát đổi thật ('visualBg.songChanged'). Kiểm pending trước guard 'perSong' — điểm "lượt kế tiếp" duy nhất cho
+     * ca `source.list` ≤ 1 item; dùng chung ảnh lẫn video. */
     async advanceForSongChange() {
-        if (!this._isMediaEnabled()) return; // tắt: không advance, pending (nếu có) giữ nguyên chờ bật lại
+        if (!this._isMediaEnabled()) return; // tắt: pending (nếu có) giữ nguyên chờ bật lại
         const cfg = appConfigVisualBg.getAll();
         if (await this._checkAndApplyPendingSource()) return;
         if (cfg.listPlaybackMode !== 'perSong') return;
-        if (cfg.type === 'video') { await this._advanceVideo(); return; }
-        await this._photoTick();
+        await (VISUAL_BG_SONG_ADVANCE_BY_TYPE[cfg.type] || VISUAL_BG_SONG_ADVANCE_BY_TYPE.photo)();
     },
 
-    /** `source.list` rỗng sau sweep -> tự gỡ hẳn nguồn (cùng hành vi nút "Gỡ nguồn" thủ công). PUBLIC
-     * (không dấu `_`) — `workflowVisualBgPhotoMotion` cũng gọi được (liên tuyến domain, nguồn sự thật vẫn ở
-     * domain này). */
+    /** `source.list` rỗng sau sweep -> tự gỡ hẳn nguồn (như nút "Gỡ nguồn"). Public — Photo Motion cũng gọi. */
     async selfHealEmptySource() {
         console.log(`writer: "workflowVisualBg.selfHealEmptySource", page: "visualBgConfig", content: "source rỗng sau sweep -> tự gỡ"`);
         await this.clearSource();
     },
 
-    /** `workflowVisualBgPhotoMotion` gọi khi tự sweep/mark-null mảng ảnh lúc cycle — nguồn sự thật `source.list`
-     * vẫn thuộc domain này (Rule ownership), nơi kia chỉ BÁO thay đổi lại. */
+    /** Photo/Video báo `source.list` vừa đổi lúc cycle (sweep/mark-null) — nguồn sự thật vẫn thuộc domain này. */
     async persistSourceListMutation(list) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.source.list = list; });
         await this._persist();
     },
 
-    /** Đồng bộ play/pause video nền theo nhạc — gọi từ core/player-controls.js + mỗi lần Next/Prev.
-     * `type==='photo'` giữ nguyên hành vi cũ (`syncVisualBgVideoPlayback`). `type==='video'` có 4
-     * khả năng: (1) Song đang phát + video thật chưa từng nạp -> nạp lần đầu qua `_playVideoKey()`
-     * (câm cứng lúc `play()`, unmute sau khi ổn định); (2) Song đang phát + video thật đã nạp rồi
-     * (đứng hình vì pause tạm) -> resume cùng nguyên tắc câm-rồi-unmute, không qua
-     * `waitBgVideoReady()` (gắn với lần swap gần nhất, không hợp lệ cho resume); (3) Song vừa pause
-     * tạm -> pause video, giữ nguyên khung hình đang đứng; (4) Song vừa dừng hẳn (hết playlist
-     * thật) -> quay về placeholder tĩnh của đúng video đang phát, xem `_revertToPlaceholder()`. */
+    /** Đồng bộ play/pause nền theo Song — gọi từ event/workflow/player-controls.js + mỗi lần Next/Prev. Ở Player mode bỏ
+     * qua (không đụng `bgVideoElement`/surface của Player; thoát mode `restoreAfterPlayerMode()` đồng bộ lại). */
     syncPlaybackToAudio() {
         if (this._isSwappingVideo) return;
-        // 'play'/'pause' của Song vẫn tới đây lúc ở Player mode (vd pause trễ khi vào mode) — không đụng bgVideoElement/surface
-        // của Player; thoát mode thì restoreAfterPlayerMode() đồng bộ lại.
-        if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode')) return;
-        if (!this._isMediaEnabled()) return; // tắt: không có media để phát/dừng — không tự nạp video hay hẹn giờ ảnh
+        const state = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode', 'isBackgroundSuspended', 'playbackStoppedAtPlaylistEnd']);
+        if (state.isVideoPlayerMode || state.isPhotoPlayerMode) return;
         const cfg = appConfigVisualBg.getAll();
-        const songActive = this._isSongActiveForVbg(); // app ẩn (chế độ nền) = coi như Song dừng
-        if (cfg.type !== 'video') {
-            syncVisualBgVideoPlayback(!songActive);
-            if (typeof workflowVisualBgPhotoMotion !== 'undefined') { if (!songActive) workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER); else workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER); } // kèm owner: surface dùng chung với Player Photo, không đụng khi Player đang giữ
-            this._syncPhotoTicking();
-            return;
-        }
-        if (songActive) {
-            if (this._currentVideoKey === null) { this._playVideoKey(cfg.source.list[this._listIndex]); return; }
-            this._resumeVideoWithDelayedAudio(this._currentVideoKey);
-            return;
-        }
-        if (appState.get('playbackStoppedAtPlaylistEnd')) { this._revertToPlaceholder(); return; }
-        syncVisualBgVideoPlayback(true);
-        workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js — Motion VBG Video đứng yên theo Song
+        if (!isVisualBgMediaEnabled(cfg)) return; // tắt: không tự nạp video hay hẹn giờ ảnh
+        const songActive = isVisualBgSongActive(audioPlayer.paused, state.isBackgroundSuspended); // app ẩn = coi như Song dừng
+        (VISUAL_BG_PLAYBACK_SYNC_BY_TYPE[cfg.type] || VISUAL_BG_PLAYBACK_SYNC_BY_TYPE.photo)(songActive, !!state.playbackStoppedAtPlaylistEnd, cfg);
     },
 
-    /** Toggle tổng VBG (`enabled`) có bật không. Tắt = không nạp/không cycle media ảnh/video,
-     * lớp màu vẫn sơn. Field thiếu (config cũ) coi như bật. @returns {boolean} */
+    /** Ảnh: video nền (nếu có) + Motion theo Song (kèm owner — surface dùng chung Player Photo), rồi hẹn lại nhịp ảnh. */
+    _syncPhotoToSong(songActive) {
+        syncVisualBgVideoPlayback(!songActive); // core/visual-bg-video.js
+        if (songActive) workflowVisualBgPhotoMotion.resume(VISUAL_BG_IMAGE_SURFACE_OWNER);
+        else workflowVisualBgPhotoMotion.pause(VISUAL_BG_IMAGE_SURFACE_OWNER);
+        this._syncPhotoTicking(); // event/workflow/visual-bg-photo.js
+    },
+
+    /** Video: Song pause tạm -> dừng video + Motion, giữ khung đang đứng. */
+    _pauseVideoInPlace() {
+        syncVisualBgVideoPlayback(true); // core/visual-bg-video.js
+        workflowVideoMotionSurface.pause(VISUAL_BG_VIDEO_SURFACE_OWNER); // event/workflow/video-motion-surface.js
+    },
+
+    /** Toggle tổng (`enabled`) có bật không. @returns {boolean} */
     _isMediaEnabled() {
-        return appConfigVisualBg.getAll().enabled !== false;
+        return isVisualBgMediaEnabled(appConfigVisualBg.getAll()); // core/visual-bg-common.js
     },
 
-    /** Toggle tổng đầu panel ('visualBg.enabled.change'). Tắt: dỡ hẳn media qua đúng đường
-     * áp chung (`applyCurrentVisualBg()` -> `clearMediaLayers()` + sơn màu, guard `_isMediaEnabled()` dừng trước bước
-     * nạp media). Bật: nạp lại TỪ ĐẦU — có pending (chọn nguồn mới lúc đang tắt) thì áp pending trước, cùng thứ tự
-     * boot (`loadPersistedSettingsOnBoot()`). Đang ở Player mode: `applyCurrentVisualBg()` tự bỏ qua, thoát mode sẽ
-     * áp đúng trạng thái qua `restoreAfterPlayerMode()`. Cấu hình nguồn/màu/Motion giữ nguyên.
-     * @param {boolean} checked */
+    /** Toggle tổng ('visualBg.enabled.change'). Tắt: dỡ media qua đường áp chung (màu vẫn sơn). Bật: nạp lại từ đầu, có
+     * pending thì áp pending trước (cùng thứ tự boot). Cấu hình nguồn/màu/Motion giữ nguyên. @param {boolean} checked */
     async toggleEnabled(checked) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.enabled = !!checked; });
         console.log(`writer: "workflowVisualBg.toggleEnabled", page: "visualBgConfig", content: "enabled=${!!checked}"`);
         await this._persist();
         await this.refreshPanelUI();
-        if (checked && appConfigVisualBg.getAll().pending.originKind) { await this._checkAndApplyPendingSource(); return; }
-        await this.applyCurrentVisualBg();
+        await VISUAL_BG_APPLY_BY_PENDING[shouldApplyVisualBgPending(!!checked, appConfigVisualBg.getAll().pending.originKind)]();
     },
 
-    /** "Song đang chạy" theo góc nhìn VBG: Song phát thật VÀ app không ở chế độ nền (`isBackgroundSuspended`, chỉ
-     * event/workflow/app-visibility.js ghi). Mọi quyết định phát video nền/chạy Motion/hẹn giờ đổi ảnh đọc hàm này -> lúc
-     * app ẩn VBG đứng yên như Song pause, kể cả khi đổi bài giữa lúc ẩn. App hiện lại -> `onBackgroundSuspendChange()`.
-     * @returns {boolean} */
+    /** "Song đang chạy" theo góc nhìn VBG (app ẩn = Song dừng) — mọi quyết định phát video nền/Motion/nhịp ảnh đọc hàm
+     * này. @returns {boolean} */
     _isSongActiveForVbg() {
-        return !audioPlayer.paused && !appState.get('isBackgroundSuspended');
+        return isVisualBgSongActive(audioPlayer.paused, appState.get('isBackgroundSuspended')); // core/visual-bg-common.js
     },
 
-    /** App vừa vào/ra chế độ nền (event/workflow/app-visibility.js gọi SAU khi đã ghi
-     * `isBackgroundSuspended`): tạm dừng/chạy lại animation Movement của gradient (task riêng, không theo Song) rồi
-     * đồng bộ video nền/Motion/hẹn giờ ảnh qua đúng 1 đường `syncPlaybackToAudio()` (Player mode tự thoát sớm ở đó). */
+    /** App vừa vào/ra chế độ nền (event/workflow/app-visibility.js, SAU khi ghi `isBackgroundSuspended`): tạm dừng/chạy
+     * lại Movement rồi đồng bộ media qua `syncPlaybackToAudio()`. */
     onBackgroundSuspendChange() {
         if (appState.get('isBackgroundSuspended')) taskManager.pause(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
         else taskManager.resume(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
         this.syncPlaybackToAudio();
     },
 
-    /** Đọc key THẬT của 1 origin tại thời điểm gọi — 1 key (single) hay N key (group/multi/
-     * groupMulti), đã sắp theo `nextOrder`. Không cache. 'multi'/'groupMulti' dùng chung `originId`
-     * = JSON mảng (key thật/folderId) theo đúng thứ tự chọn, xem `_encodeMultiOriginId()`/
-     * `_decodeMultiOriginId()` ngay dưới.
-     * @param {'photo'|'video'} type
-     * @param {'single'|'group'|'multi'|'groupMulti'} originKind
-     * @param {string} originId
-     * @returns {Promise<string[]>}
-     */
+    // ===================== Origin -> key =====================
+
+    /** Key THẬT của 1 origin lúc gọi (không cache), đã sắp theo `nextOrder`.
+     * @param {'photo'|'video'} type @param {string} originKind @param {string} originId @returns {Promise<string[]>} */
     async _readOriginKeys(type, originKind, originId) {
         return (VISUAL_BG_ORIGIN_KEYS_BY_KIND[originKind] || VISUAL_BG_ORIGIN_KEYS_BY_KIND.group)(type, originId);
     },
 
-    /** originKind='multi' — các key đã chọn, bỏ key không còn record (đọc cả lô trong 1 transaction). */
+    /** 'multi' — các key đã chọn, bỏ key không còn record. */
     async _readMultiOriginKeys(type, originId) {
-        const keys = this._decodeMultiOriginId(originId);
+        const keys = decodeVisualBgMultiOriginId(originId); // core/visual-bg-common.js
         const records = await (VISUAL_BG_RECORDS_BY_TYPE[type] || VISUAL_BG_RECORDS_BY_TYPE.photo)(keys);
-        return keys.filter((_, i) => records[i]);
+        return keepVisualBgKeysWithRecords(keys, records);
     },
 
-    /** originKind='groupMulti' — gộp key của nhiều folder theo đúng thứ tự chọn. */
+    /** 'groupMulti' — gộp key của nhiều folder theo đúng thứ tự chọn. */
     async _readGroupMultiOriginKeys(type, originId) {
-        const folderIds = this._decodeMultiOriginId(originId);
         const merged = [];
-        for (const folderId of folderIds) {
-            const map = await getFolderSongMap(folderId);
-            merged.push(...(await this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : [])));
+        for (const folderId of decodeVisualBgMultiOriginId(originId)) {
+            const map = await getFolderSongMap(folderId); // service/db.js
+            merged.push(...(await this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []))); // core/file-manager/folder.js
         }
         return merged;
     },
 
-    /** originKind='group' — key của 1 folder. */
+    /** 'group' — key của 1 folder. */
     async _readGroupOriginKeys(type, originId) {
         const map = await getFolderSongMap(originId);
         return this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []);
     },
 
-    /** Mã hoá 1 mảng key (originKind='multi') hoặc folderId (originKind='groupMulti') thành
-     * `originId` (string) để lưu vào `source.originId`/`pending.originId`. */
-    _encodeMultiOriginId(keys) {
-        return JSON.stringify(keys);
-    },
-
-    /** Chiều ngược lại `_encodeMultiOriginId()`. JSON hỏng/không phải mảng -> mảng rỗng, tự
-     * self-heal qua đường "origin đọc ra rỗng -> gỡ hẳn" ở `_resolveAndCommitSource()`. */
-    _decodeMultiOriginId(originId) {
-        try {
-            const parsed = JSON.parse(originId);
-            return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
-        } catch (e) {
-            return [];
-        }
-    },
-
-    /** Sắp `keys` theo `nextOrder` hiện tại — 'sequential'/'random' giữ nguyên thứ tự gốc (random tự
-     * bốc mỗi lượt advance, không cần sắp trước); 'playlist' đọc thêm record để áp
-     * `appConfigPlaylist.displaySortMode`. */
+    /** Sắp `keys` theo `nextOrder`: 'sequential'/'random' giữ thứ tự gốc; 'playlist' áp `displaySortMode` của Playlist. */
     async _applyNextOrderToKeys(type, keys) {
         if (appConfigVisualBg.getAll().nextOrder !== 'playlist' || keys.length === 0) return keys;
         const records = await (VISUAL_BG_RECORDS_BY_TYPE[type] || VISUAL_BG_RECORDS_BY_TYPE.photo)(keys);
         const nameOf = VISUAL_BG_ITEM_NAME_BY_TYPE[type] || VISUAL_BG_ITEM_NAME_BY_TYPE.photo;
-        const items = keys.map((k, i) => ({
-            key: k,
-            name: records[i] ? nameOf(records[i]) : k,
-            addedAt: records[i] ? records[i].addedAt : 0,
-        }));
-        const mode = appConfigPlaylist.getAll().displaySortMode;
-        const sorted = (VISUAL_BG_SORT_BY_MODE[mode] || VISUAL_BG_SORT_BY_MODE.az)(items);
-        return sorted.map((it) => it.key);
+        const items = buildVisualBgSortItems(keys, records, records.map((r) => (r ? nameOf(r) : null))); // core/visual-bg-common.js
+        return (VISUAL_BG_SORT_BY_MODE[appConfigPlaylist.getAll().displaySortMode] || VISUAL_BG_SORT_BY_MODE.az)(items);
     },
 
-    /** So sánh 2 mảng key — thuật toán duy nhất cho "list mới có khác list cũ không, khác bao
-     * nhiêu" — dùng chung cho `_resolveAndCommitSource()` (quyết định bỏ qua/pending) và
-     * `_commitSourceNow()` (số liệu hiện modal).
-     * `unchanged` nghiêm ngặt hơn `added===0 && removed===0` — 1 danh sách đổi CHỖ (cùng thành
-     * viên, khác thứ tự) vẫn tính là "có thay đổi" (thứ tự có ý nghĩa thật với playback khi
-     * `nextOrder` là 'sequential'/'playlist'), nhưng added/removed lúc đó vẫn ra 0/0.
-     * @param {string[]} oldList - có thể chứa `null` (slot đã gỡ) — bị lọc bỏ trước khi so.
-     * @param {string[]} newList
-     * @returns {{unchanged: boolean, added: number, removed: number, total: number}}
-     */
-    _diffKeyLists(oldList, newList) {
-        const oldKeys = oldList.filter((k) => k !== null);
-        const unchanged = newList.length === oldKeys.length && newList.every((k, i) => k === oldKeys[i]);
-        const oldSet = new Set(oldKeys);
-        const newSet = new Set(newList);
-        const added = newList.filter((k) => !oldSet.has(k)).length;
-        const removed = oldKeys.filter((k) => !newSet.has(k)).length;
-        return { unchanged, added, removed, total: newList.length };
-    },
+    // ===================== Chọn / làm tươi / gỡ nguồn =====================
 
-    /** Hiện modal phản ánh kết quả `_resolveAndCommitSource()` — dùng chung cho nút "Làm tươi" và 3
-     * nút Chọn nguồn mới. `queued:true` đã tự hiện modal "sẽ áp ở lượt kế" bên trong
-     * `_resolveAndCommitSource()` rồi — gọi hàm này với case đó vẫn an toàn, chỉ no-op.
-     * @param {{queued: false, added: number, removed: number, total: number}|{queued: true, total: number}|null} result
-     */
+    /** Modal kết quả `_resolveAndCommitSource()` — nút "Làm tươi" và 3 nút Chọn nguồn. `queued` đã tự báo bên trong.
+     * @param {{queued: boolean, added?: number, removed?: number, total: number}|null} result */
     async _showCommitResultModal(result) {
         if (!result) { await alertModal(t('visualBgSettingsDrawer.commitResult.cleared')); return; }
         if (result.queued) return;
@@ -472,51 +445,39 @@ const workflowVisualBg = {
         await alertModal(tFormat('visualBgSettingsDrawer.commitResult.changed', { added: result.added, removed: result.removed, total: result.total }));
     },
 
-    /** Đọc lại origin + ghi đè `source.list` — dùng chung cho lúc chọn nguồn lẫn bấm "Làm tươi".
-     * Origin đọc ra rỗng (folder/ảnh/video không còn tồn tại) -> gỡ hẳn. Xoá hẳn `source.videoAudio`
-     * mỗi lần gọi (không giữ lại entry nào, kể cả video vẫn còn mặt trong list mới) — ghi đè lại từ
-     * đầu theo đúng source hiện tại mỗi lần origin được đọc lại. Check "có đổi gì không" qua
-     * `_diffKeyLists()` (dùng chung).
-     * @param {'single'|'group'|'multi'|'groupMulti'} originKind
-     * @param {string} originId
+    /**
+     * Đọc lại origin rồi: rỗng -> gỡ hẳn; không đổi -> giữ; đang có media sống -> xếp `pending` (áp ở lượt kế); còn lại ghi
+     * đè `source` ngay. So sánh với nội dung ĐANG HIỂN THỊ (pending nếu có). `source.videoAudio` xoá mỗi lần ghi đè.
      * @returns {Promise<{queued: false, added: number, removed: number, total: number}|{queued: true, total: number}|null>}
-     *   `queued:false` = đã áp NGAY, `added/removed` là diff so với nội dung đang hiển thị thật
-     *   trước lúc gọi (pending nếu có, else `source.list`).
-     *   `queued:true` = đã xếp vào `pending`, chưa áp — modal "sẽ áp ở lượt kế" đã tự hiện bên
-     *   trong hàm này, caller không cần tự hiện modal thêm cho case này.
-     *   `null` nếu bị gỡ hẳn (origin rỗng).
+     *   `null` = đã gỡ hẳn.
      */
     async _resolveAndCommitSource(originKind, originId) {
         const cfg = appConfigVisualBg.getAll();
         const keys = await this._readOriginKeys(cfg.type, originKind, originId);
-        if (keys.length === 0) {
-            appConfigVisualBg.mutateAll((c) => { c.pending = { originKind: null, originId: null, list: [] }; });
-            await this.clearSource();
-            return null;
-        }
-        const effectiveOldList = cfg.pending.originKind ? cfg.pending.list : cfg.source.list;
-        const diff = this._diffKeyLists(effectiveOldList, keys);
-        if (diff.unchanged) return { queued: false, added: 0, removed: 0, total: diff.total };
-        if (this._effectiveCount(cfg.source.list) > 0) {
-            appConfigVisualBg.mutateAll((c) => { c.pending = { originKind, originId, list: keys }; });
-            console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "queued pending=${originKind}:${originId}, count=${keys.length}"`);
-            await this._persist();
-            await this.refreshPanelUI();
-            await alertModal(t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pendingSource.video' : 'visualBgSettingsDrawer.pendingSource.photo'));
-            return { queued: true, total: keys.length };
-        }
-        return await this._commitSourceNow(originKind, originId, keys, diff);
+        const diff = diffVisualBgKeyLists(resolveVisualBgDisplayedSource(cfg).list, keys); // core/visual-bg-common.js
+        const route = resolveVisualBgCommitRoute(keys.length, diff, countVisualBgLiveItems(cfg.source.list));
+        return VISUAL_BG_COMMIT_BY_ROUTE[route]({ type: cfg.type, originKind, originId, keys, diff });
     },
 
-    /** Ghi đè `source` NGAY (không qua pending) — `_checkAndApplyPendingSource()` KHÔNG dùng nhánh
-     * này (áp thẳng, không cần diff added/removed). Nhận thẳng `diff` (đã tính sẵn ở
-     * `_resolveAndCommitSource()` qua `_diffKeyLists()`).
-     * @param {'single'|'group'|'multi'|'groupMulti'} originKind
-     * @param {string} originId
-     * @param {string[]} keys
-     * @param {{unchanged: boolean, added: number, removed: number, total: number}} diff
-     * @returns {Promise<{queued: false, added: number, removed: number, total: number}>}
-     */
+    /** Origin đọc ra rỗng (folder/ảnh/video không còn) -> gỡ hẳn nguồn lẫn pending. @returns {Promise<null>} */
+    async _clearForEmptyOrigin() {
+        appConfigVisualBg.mutateAll((c) => { c.pending = { originKind: null, originId: null, list: [] }; });
+        await this.clearSource();
+        return null;
+    },
+
+    /** Đang có media sống -> nguồn mới chờ "lượt kế tiếp" (chỉ giữ 1 pending, chọn tiếp thì đè) + báo người dùng. */
+    async _queuePendingSource(job) {
+        appConfigVisualBg.mutateAll((c) => { c.pending = { originKind: job.originKind, originId: job.originId, list: job.keys }; });
+        console.log(`writer: "workflowVisualBg._queuePendingSource", page: "visualBgConfig", content: "queued pending=${job.originKind}:${job.originId}, count=${job.keys.length}"`);
+        await this._persist();
+        await this.refreshPanelUI();
+        await alertModal(t(VISUAL_BG_PENDING_NOTICE_KEY_BY_TYPE[job.type] || VISUAL_BG_PENDING_NOTICE_KEY_BY_TYPE.photo));
+        return { queued: true, total: job.keys.length };
+    },
+
+    /** Ghi đè `source` NGAY (không qua pending). @param {{added: number, removed: number}} diff - đã tính sẵn
+     * @returns {Promise<{queued: false, added: number, removed: number, total: number}>} */
     async _commitSourceNow(originKind, originId, keys, diff) {
         appConfigVisualBg.mutateAll((c) => {
             c.source.originKind = originKind;
@@ -532,25 +493,20 @@ const workflowVisualBg = {
         return { queued: false, added: diff.added, removed: diff.removed, total: keys.length };
     },
 
-    /** Ứng nút "Làm tươi" — đọc lại đúng origin đang hiển thị (`_effectiveDisplayedOrigin()`, ưu
-     * tiên pending nếu có), ghi đè `source.list` (hoặc xếp/đè pending nếu đang active — xem
-     * `_resolveAndCommitSource()`). Hiệu ứng xoay trên nút trong lúc đọc DB + modal báo thay đổi
-     * sau khi xong qua `_showCommitResultModal()`. */
+    /** Nút "Làm tươi" — đọc lại origin đang hiển thị (pending nếu có); nút xoay trong lúc đọc DB, xong báo thay đổi. */
     async refreshSource() {
-        const { originKind, originId } = this._effectiveDisplayedOrigin(appConfigVisualBg.getAll());
+        const { originKind, originId } = resolveVisualBgDisplayedSource(appConfigVisualBg.getAll()); // core/visual-bg-common.js
         if (!originKind || !originId) return;
-        const btn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-refresh-source') : null;
-        if (btn) { btn.disabled = true; btn.classList.add('animate-spin'); }
+        setVisualBgRefreshSourceBusy(visualBgSettingsPanelEl, true); // core/visual-bg-panel-ui.js
         try {
             const result = await this._resolveAndCommitSource(originKind, originId);
             await this._showCommitResultModal(result);
         } finally {
-            if (btn) { btn.disabled = false; btn.classList.remove('animate-spin'); }
+            setVisualBgRefreshSourceBusy(visualBgSettingsPanelEl, false);
         }
     },
 
-    /** Gỡ hẳn nguồn hiện tại — về "chưa chọn" (đường DUY NHẤT, không còn Block gate chặn xoá ảnh/
-     * video/folder — Batch 3). */
+    /** Gỡ hẳn nguồn hiện tại — về "chưa chọn". */
     async clearSource() {
         appConfigVisualBg.mutateAll((cfg) => { cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; cfg.pending = { originKind: null, originId: null, list: [] }; });
         console.log(`writer: "workflowVisualBg.clearSource", page: "visualBgConfig", content: "source=cleared, pending=cleared"`);
@@ -559,7 +515,9 @@ const workflowVisualBg = {
         await this.applyCurrentVisualBg();
     },
 
-    /** Ứng select "Cách phát" (chỉ có ý nghĩa khi list.length > 1). */
+    // ===================== Cách phát =====================
+
+    /** Select "Cách phát" (chỉ có nghĩa khi list > 1 item). */
     async changeListPlaybackMode(value) {
         if (!VISUAL_BG_LIST_PLAYBACK_MODES.includes(value)) return;
         appConfigVisualBg.mutateAll((cfg) => { cfg.listPlaybackMode = value; });
@@ -569,10 +527,7 @@ const workflowVisualBg = {
         await this.applyCurrentVisualBg();
     },
 
-    /** Ứng select "Duration mode" — dùng chung video/ảnh (xem docstring `durationMode`,
-     * core/config.js). Đổi mode không retroactive lên item đang hiện — video: hẹn giờ "Fix time"
-     * của video đang phát giữ nguyên, chỉ video kế theo mode mới; ảnh: tick kế tiếp tự đọc
-     * `_computePhotoAdvanceMs()` mới khi rearm. */
+    /** Select "Duration mode" — dùng chung video/ảnh, không áp ngược lên item đang hiện (item kế theo mode mới). */
     async changeDurationMode(value) {
         if (!VISUAL_BG_DURATION_MODES.includes(value)) return;
         appConfigVisualBg.mutateAll((cfg) => { cfg.durationMode = value; });
@@ -581,50 +536,46 @@ const workflowVisualBg = {
         await this.refreshPanelUI();
     },
 
-    /** Ứng nút "Seconds per video/photo" — áp cho cả video (`durationMode='fixtime'`), không riêng
-     * ảnh. Format 's-ms' để chọn được tới mili giây. */
+    /** Nút "Seconds per video/photo" (video lẫn ảnh, `durationMode='fixtime'`) — picker 's-ms' chọn tới 0.1s. */
     openDurationSecondsPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
-        const cfg = appConfigVisualBg.getAll();
         openTimePickerModal({
             title: t('visualBgSettingsDrawer.durationSeconds.pickerTitle'),
             format: 's-ms',
-            valueMs: cfg.durationSeconds * 1000,
-            minMs: 500,
-            maxMs: 60000,
-            onConfirm: async (resultMs) => {
-                const v = Math.max(0.5, Math.round(resultMs / 100) / 10);
-                appConfigVisualBg.mutateAll((c) => { c.durationSeconds = v; });
-                console.log(`writer: "workflowVisualBg.openDurationSecondsPicker", page: "visualBgConfig", content: "durationSeconds=${v}"`);
-                await this._persist();
-                if (genericDrawerPanel.classList.contains('hidden')) return;
-                const btn = visualBgSettingsPanelEl.querySelector('#setting-visual-bg-duration-seconds');
-                if (btn) btn.textContent = `${v.toFixed(1)}s`;
-            },
+            ...buildVisualBgDurationPickerRange(appConfigVisualBg.getAll().durationSeconds), // core/visual-bg-common.js
+            onConfirm: (resultMs) => this._commitDurationSeconds(resultMs),
         });
     },
 
-    /** Ứng select "Thứ tự kế tiếp" — origin là group thì dựng lại `source.list` theo thứ tự mới
-     * ngay (đọc lại origin, như 1 lượt Làm tươi); origin single thì thứ tự không có ý nghĩa. */
+    async _commitDurationSeconds(resultMs) {
+        const seconds = computeVisualBgDurationSeconds(resultMs); // core/visual-bg-common.js
+        appConfigVisualBg.mutateAll((c) => { c.durationSeconds = seconds; });
+        console.log(`writer: "workflowVisualBg._commitDurationSeconds", page: "visualBgConfig", content: "durationSeconds=${seconds}"`);
+        await this._persist();
+        if (!this._isPanelMounted()) return;
+        setVisualBgDurationSecondsLabel(visualBgSettingsPanelEl, seconds); // core/visual-bg-panel-ui.js
+    },
+
+    /** Select "Thứ tự kế tiếp" — origin đọc theo thứ tự (group/groupMulti) dựng lại list ngay như 1 lượt Làm tươi; còn
+     * lại (single/multi giữ thứ tự chọn) chỉ áp lại. */
     async changeNextOrder(value) {
         if (!VISUAL_BG_NEXT_ORDERS.includes(value)) return;
         appConfigVisualBg.mutateAll((cfg) => { cfg.nextOrder = value; });
         console.log(`writer: "workflowVisualBg.changeNextOrder", page: "visualBgConfig", content: "nextOrder=${value}"`);
         await this._persist();
-        const { originKind, originId } = appConfigVisualBg.getAll().source;
-        if (originKind === 'group') await this._resolveAndCommitSource(originKind, originId);
-        else await this.applyCurrentVisualBg();
+        const source = appConfigVisualBg.getAll().source;
+        await (VISUAL_BG_NEXT_ORDER_REAPPLY_BY_KIND[source.originKind] || VISUAL_BG_NEXT_ORDER_REAPPLY_BY_KIND.other)(source);
     },
 
+    // ===================== Nền màu =====================
+
+    /** Ghi 1 thay đổi màu: sơn lại, Movement đang chạy lấy bộ stop mới làm gốc, lưu DB sau 300 ms (debounce khi kéo). */
     _commitColorChange(mutatorFn, logContent) {
         appConfigVisualBg.mutateAll(mutatorFn);
         console.log(`writer: "workflowVisualBg._commitColorChange", page: "visualBgConfig", content: "${logContent}"`);
         this.paintSolidBg();
-        if (taskManager.isTaskRunning(VISUAL_BG_GRADIENT_MOVEMENT_TASK)) {
-            this._gradientMovementBaseStops = appConfigVisualBg.getAll().gradientStops.slice();
-        }
-        clearTimeout(this._colorPersistTimer);
-        this._colorPersistTimer = setTimeout(() => this._persist(), 300);
+        if (taskManager.isTaskRunning(VISUAL_BG_GRADIENT_MOVEMENT_TASK)) this._gradientMovementBaseStops = appConfigVisualBg.getAll().gradientStops.slice();
+        taskManager.once(() => this._persist(), VISUAL_BG_COLOR_PERSIST_DELAY_MS, VISUAL_BG_COLOR_PERSIST_TASK);
     },
 
     async changeColorMode(value) {
@@ -641,30 +592,32 @@ const workflowVisualBg = {
         this._commitColorChange((cfg) => { cfg.solidColor = value; }, `solidColor=${value}`);
     },
 
+    /** Sub panel Gradient đang hiện (Drawer mở và đã từng gắn panel) — điều kiện ghi DOM sau mỗi thay đổi. */
+    _isGradientPanelShown() {
+        return !!visualBgGradientPanelEl && !genericDrawerPanel.classList.contains('hidden');
+    },
+
     changeGradientAngle(value) {
-        const deg = Number(value);
-        if (!Number.isFinite(deg)) return;
+        const deg = parseVisualBgFiniteNumber(value); // core/visual-bg-common.js
+        if (deg === null) return;
         this._commitColorChange((cfg) => { cfg.gradientAngleDeg = deg; }, `gradientAngleDeg=${deg}`);
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-angle-value').textContent = `${deg}°`;
+        if (!this._isGradientPanelShown()) return;
+        setVisualBgGradientAngleLabel(visualBgGradientPanelEl, deg); // core/visual-bg-panel-ui.js
         this._paintGradientPreview(appConfigVisualBg.getAll());
     },
 
     changeGradientStop(index, field, value) {
-        const parsed = field === 'position' ? Number(value) : value;
-        if (field === 'position' && !Number.isFinite(parsed)) return;
-        this._commitColorChange((cfg) => {
-            if (!cfg.gradientStops[index]) return;
-            cfg.gradientStops[index] = { ...cfg.gradientStops[index], [field]: parsed };
-        }, `gradientStops[${index}].${field}=${parsed}`);
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        if (field === 'position') visualBgGradientPanelEl.querySelector(`[data-visual-bg-stop-label="${index}"]`).textContent = `${parsed}%`;
+        const parsed = parseVisualBgGradientStopValue(field, value); // core/visual-bg-common.js
+        if (parsed === null) return;
+        this._commitColorChange((cfg) => { cfg.gradientStops = setVisualBgGradientStopField(cfg.gradientStops, index, field, parsed); }, `gradientStops[${index}].${field}=${parsed}`);
+        if (!this._isGradientPanelShown()) return;
+        if (field === 'position') setVisualBgGradientStopLabel(visualBgGradientPanelEl, index, parsed); // core/visual-bg-panel-ui.js
         this._paintGradientPreview(appConfigVisualBg.getAll());
     },
 
     addGradientStop() {
         this._commitColorChange((cfg) => { cfg.gradientStops = addVisualBgGradientStop(cfg.gradientStops); }, 'gradientStops +1');
-        if (genericDrawerPanel.classList.contains('hidden')) return;
+        if (!this._isGradientPanelShown()) return;
         const cfg = appConfigVisualBg.getAll();
         this._renderGradientStopRows(cfg.gradientStops);
         this._paintGradientPreview(cfg);
@@ -672,55 +625,49 @@ const workflowVisualBg = {
 
     removeGradientStop(index) {
         this._commitColorChange((cfg) => { cfg.gradientStops = removeVisualBgGradientStop(cfg.gradientStops, index); }, `gradientStops -1 (index ${index})`);
-        if (genericDrawerPanel.classList.contains('hidden')) return;
+        if (!this._isGradientPanelShown()) return;
         const cfg = appConfigVisualBg.getAll();
         this._renderGradientStopRows(cfg.gradientStops);
         this._paintGradientPreview(cfg);
     },
 
+    /** Sub panel Gradient vừa gắn (event/workflow/app-settings.js::_renderVisualBgGradient()) — đồng bộ mọi control. */
     openGradientPanel() {
         visualBgGradientPanelEl = genericDrawerBody;
         const cfg = appConfigVisualBg.getAll();
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-angle').value = cfg.gradientAngleDeg;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-angle-value').textContent = `${cfg.gradientAngleDeg}°`;
+        fillVisualBgGradientPanel(visualBgGradientPanelEl, cfg); // core/visual-bg-panel-ui.js
         this._renderGradientStopRows(cfg.gradientStops);
         this._paintGradientPreview(cfg);
-
-        const gm = cfg.gradientMovement;
-        const elMovementEnable = visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-enable');
-        elMovementEnable.checked = gm.enabled;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-options').classList.toggle('hidden', !gm.enabled);
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-mode').value = gm.mode;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-time-block').classList.toggle('hidden', gm.mode !== 'time');
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-audio-block').classList.toggle('hidden', gm.mode !== 'audio');
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-duration-value').textContent = this._formatMovementMs(gm.rotateDurationMs);
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-rotate-from').value = gm.audioRotateFrom;
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-rotate-to').value = gm.audioRotateTo;
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-spread-from').value = gm.audioStopSpreadFrom;
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-spread-to').value = gm.audioStopSpreadTo;
-
-        const elSwapEnable = visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-colorswap-enable');
-        elSwapEnable.checked = gm.colorSwapEnabled;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-options').classList.toggle('hidden', !gm.colorSwapEnabled);
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-interval-value').textContent = this._formatMovementMs(gm.colorSwapIntervalMs);
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-transition-value').textContent = this._formatMovementMs(gm.colorSwapTransitionMs);
     },
 
     _renderGradientStopRows(stops) {
-        const listEl = visualBgGradientPanelEl.querySelector('#visual-bg-gradient-stop-list');
-        const canRemove = stops.length > VISUAL_BG_GRADIENT_MIN_STOPS;
-        listEl.innerHTML = renderVisualBgGradientStopRowsHtml(stops, canRemove); // components/visual-bg-gradient-drawer.js
+        const limits = computeVisualBgGradientStopLimits(stops.length); // core/visual-bg-common.js
+        const listEl = fillVisualBgGradientStopList(visualBgGradientPanelEl, renderVisualBgGradientStopRowsHtml(stops, limits.canRemove), limits.canAdd); // core/visual-bg-panel-ui.js + components/visual-bg-gradient-drawer.js
+        if (!listEl) return;
         applyUiThemeToDom(listEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — hàng vẽ lại sau lúc mở drawer -> áp theme lại
-        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-add').classList.toggle('opacity-30', stops.length >= VISUAL_BG_GRADIENT_MAX_STOPS);
     },
 
     _paintGradientPreview(cfg) {
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-preview').style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg);
+        setVisualBgGradientPreview(visualBgGradientPanelEl, buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg)); // core/visual-bg-panel-ui.js
     },
 
-    /** Đăng ký + bật task tick (taskManager, mode 'timeout' tự lặp — Rule "TaskManager CHỈ Workflow
-     * được dùng"). An toàn gọi nhiều lần — no-op nếu task đã chạy (KHÔNG reset lại pha animation
-     * giữa chừng, tránh giật hình mỗi lần _syncGradientMovementTaskState() được gọi lại). */
+    /** Fill style nền VBG hiện tại cho canvas 2D (vd event/workflow/visualizer/rain.js): solid -> chuỗi màu; gradient ->
+     * CanvasGradient khớp khung đang hiển thị (khung Movement LIVE nếu đang chạy, tĩnh nếu tắt). Hot path — chỉ map + đọc.
+     * @param {CanvasRenderingContext2D} ctx @param {number} width @param {number} height */
+    canvasFillStyle(ctx, width, height) {
+        const vb = appConfigVisualBg.getAll();
+        return (VISUAL_BG_CANVAS_FILL_BY_COLOR_MODE[vb.colorMode] || VISUAL_BG_CANVAS_FILL_BY_COLOR_MODE.solid)(vb, ctx, width, height);
+    },
+
+    _canvasGradientFill(vb, ctx, width, height) {
+        const live = appState.get(['visualBgGradientLiveAngle', 'visualBgGradientLiveStops']);
+        const angle = live.visualBgGradientLiveAngle !== null ? live.visualBgGradientLiveAngle : vb.gradientAngleDeg;
+        return buildCanvasLinearGradient(ctx, angle, width, height, live.visualBgGradientLiveStops || vb.gradientStops); // core/color-utils.js
+    },
+
+    // ===================== Movement =====================
+
+    /** Đăng ký + bật task tick. Task đang chạy -> no-op (không reset pha giữa chừng, tránh giật hình). */
     _startGradientMovementTask() {
         if (taskManager.isTaskRunning(VISUAL_BG_GRADIENT_MOVEMENT_TASK)) return;
         this._gradientMovementStartTime = Date.now();
@@ -737,9 +684,7 @@ const workflowVisualBg = {
         taskManager.operator(VISUAL_BG_GRADIENT_MOVEMENT_TASK, 'enabled');
     },
 
-    /** Dừng hẳn + dọn state transition tráo màu (nếu đang dở) — gọi khi tắt Movement/chuyển khỏi
-     * colorMode 'gradient'. Nền gradient TĨNH (đứng yên tại giá trị GỐC lưu DB) tự động quay lại
-     * qua nhánh paintSolidBg() bình thường ở nơi khác — KHÔNG cần vẽ lại gì thêm ở đây. */
+    /** Dừng hẳn + dọn lượt tráo màu dở — nền gradient tĩnh quay lại qua `paintSolidBg()` ở nơi gọi. */
     _stopGradientMovementTask() {
         taskManager.kill(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
         this._gradientMovementSwapStartTime = null;
@@ -747,77 +692,48 @@ const workflowVisualBg = {
         appState.set('visualBgGradientLiveStops', null, { skipCheck: true });
     },
 
-    /** Bật/tắt task animation theo ĐÚNG điều kiện hiện tại — gọi lại mỗi khi colorMode/
-     * gradientMovement.* đổi (changeColorMode(), toggleGradientMovement(), thay đổi mode...) HOẶC
-     * lúc boot (loadPersistedSettingsOnBoot()). */
+    /** Bật/tắt task theo cấu hình hiện tại — sau mỗi lần đổi colorMode/Movement và lúc boot. */
     _syncGradientMovementTaskState() {
-        const cfg = appConfigVisualBg.getAll();
-        const shouldRun = cfg.colorMode === 'gradient' && cfg.gradientMovement.enabled;
-        if (shouldRun) this._startGradientMovementTask();
+        if (shouldRunVisualBgGradientMovement(appConfigVisualBg.getAll())) this._startGradientMovementTask(); // core/visual-bg-common.js
         else this._stopGradientMovementTask();
     },
 
-    /** 1 khung hình animation — đọc cfg mới nhất mỗi lần (đổi setting giữa lúc chạy không cần
-     * restart task), tính angle+stops rồi vẽ + ghi khung hình LIVE vào appState (cho visual 2D
-     * khác đọc lại, xem core/visual-bg-common.js::getVisualBgFillStyle()).
-     * Mode 'audio' xoay THEO PHA — 1 pha chạy trọn vẹn mượt tới đích rồi mới lấy mẫu nhạc mới chốt
-     * pha kế (`_commitNextGradientPhase()`), không map trực tiếp energy->angle mỗi tick (map thẳng
-     * khiến góc giật, đảo chiều bất cứ lúc nào năng lượng đổi). */
+    /** 1 khung Movement (10fps): đọc cfg mới nhất (đổi setting không cần restart), tính góc + stop theo mode, chồng "Tráo
+     * màu" nếu bật, vẽ rồi ghi khung LIVE vào appState (canvas 2D đọc lại qua `canvasFillStyle()`). */
     _tickGradientMovement() {
-        const cfg = appConfigVisualBg.getAll();
-        const gm = cfg.gradientMovement;
+        const gm = appConfigVisualBg.getAll().gradientMovement;
         const now = Date.now();
-
-        let angle;
-        let stops = this._gradientMovementBaseStops;
-        if (gm.mode === 'audio') {
-            if (this._gradientMovementPhaseStartTime === null) this._commitNextGradientPhase(gm);
-            const progress = Math.min(1, (now - this._gradientMovementPhaseStartTime) / this._gradientMovementPhaseDurationMs);
-            const eased = easeInOutSine(progress);
-            angle = lerpGradientMovementValue(this._gradientMovementPhaseFromAngle, this._gradientMovementPhaseToAngle, eased);
-            const spread = lerpGradientMovementValue(this._gradientMovementPhaseFromSpread, this._gradientMovementPhaseToSpread, eased);
-            stops = computeGradientStopSpread(stops, spread);
-            if (progress >= 1) this._commitNextGradientPhase(gm);
-        } else {
-            const elapsed = now - this._gradientMovementStartTime;
-            angle = computeGradientTimeRotateAngle(elapsed, gm.rotateDurationMs);
-        }
-
-        if (gm.colorSwapEnabled) {
-            if (this._gradientMovementSwapStartTime === null && now - this._gradientMovementLastSwapTime >= gm.colorSwapIntervalMs) {
-                const randomFactors = stops.map(() => Math.random());
-                const shuffled = shuffleGradientStopColors(this._gradientMovementBaseStops, randomFactors);
-                this._gradientMovementSwapFromColors = this._gradientMovementBaseStops.map((s) => s.color);
-                this._gradientMovementSwapToColors = shuffled.map((s) => s.color);
-                this._gradientMovementSwapStartTime = now;
-                this._gradientMovementLastSwapTime = now;
-            }
-            if (this._gradientMovementSwapStartTime !== null) {
-                const progress = Math.min(1, (now - this._gradientMovementSwapStartTime) / gm.colorSwapTransitionMs);
-                const interpolated = this._gradientMovementSwapFromColors.map((c, i) => interpolateColor(c, this._gradientMovementSwapToColors[i], progress));
-                stops = applyGradientStopColors(stops, interpolated);
-                if (progress >= 1) {
-                    this._gradientMovementBaseStops = applyGradientStopColors(this._gradientMovementBaseStops, this._gradientMovementSwapToColors);
-                    this._gradientMovementSwapStartTime = null;
-                }
-            }
-        }
-
-        applyGradientCssFrame(buildVisualBgGradientCss(stops, angle));
-        appState.set('visualBgGradientLiveAngle', angle, { skipCheck: true });
+        const frame = (VISUAL_BG_MOVEMENT_FRAME_BY_MODE[gm.mode] || VISUAL_BG_MOVEMENT_FRAME_BY_MODE.time)(gm, now);
+        const stops = this._colorSwapStops(gm, now, frame.stops);
+        applyGradientCssFrame(buildVisualBgGradientCss(stops, frame.angle)); // core/visual-bg-common.js
+        appState.set('visualBgGradientLiveAngle', frame.angle, { skipCheck: true });
         appState.set('visualBgGradientLiveStops', stops, { skipCheck: true });
     },
 
-    /** Chốt 1 pha xoay/giãn mới cho mode 'audio' — lấy mẫu BPM/energy tại thời điểm gọi (không
-     * hằng số cố định, không bám sát tuyệt đối theo nhịp nhạc). Cùng công thức tốc độ theo nhạc mà
-     * core/visualizer/types/space.js dùng cho camera Space. Pha mới luôn bắt đầu từ đúng giá trị
-     * pha cũ vừa dừng (không "nhảy" góc). */
+    /** Mode 'time' — xoay đều, stop giữ nguyên. */
+    _timeMovementFrame(gm, now) {
+        return { angle: computeGradientTimeRotateAngle(now, this._gradientMovementStartTime, gm.rotateDurationMs), stops: this._gradientMovementBaseStops };
+    },
+
+    /** Mode 'audio' — xoay/giãn THEO PHA: 1 pha chạy trọn tới đích rồi mới chốt pha kế (map thẳng energy->góc mỗi tick
+     * làm góc giật, đảo chiều liên tục). */
+    _audioMovementFrame(gm, now) {
+        if (this._gradientMovementPhaseStartTime === null) this._commitNextGradientPhase(gm);
+        const phase = computeGradientProgress(now, this._gradientMovementPhaseStartTime, this._gradientMovementPhaseDurationMs); // core/visual-bg-common.js
+        const eased = easeInOutSine(phase.progress);
+        const angle = lerpGradientMovementValue(this._gradientMovementPhaseFromAngle, this._gradientMovementPhaseToAngle, eased);
+        const spread = lerpGradientMovementValue(this._gradientMovementPhaseFromSpread, this._gradientMovementPhaseToSpread, eased);
+        const stops = computeGradientStopSpread(this._gradientMovementBaseStops, spread);
+        if (phase.done) this._commitNextGradientPhase(gm);
+        return { angle, stops };
+    },
+
+    /** Chốt 1 pha mới mode 'audio' — mẫu BPM/energy lúc gọi; pha mới bắt đầu đúng giá trị pha cũ vừa dừng (không nhảy góc). */
     _commitNextGradientPhase(gm) {
         const bpm = audioAnalysis.bpmOr(120); // service/audio-analysis.js
         const energy = audioAnalysis.smoothedEnergy();
         const musicSpeedFactor = computeMusicSpeedFactor(bpm, energy, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MIN, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MAX);
         const duration = computeGradientPhaseDuration(VISUAL_BG_GRADIENT_PHASE_BASE_MS, musicSpeedFactor);
-
         this._gradientMovementPhaseFromAngle = this._gradientMovementPhaseToAngle !== null ? this._gradientMovementPhaseToAngle : gm.audioRotateFrom;
         this._gradientMovementPhaseToAngle = lerpGradientMovementValue(gm.audioRotateFrom, gm.audioRotateTo, energy);
         this._gradientMovementPhaseFromSpread = this._gradientMovementPhaseToSpread !== null ? this._gradientMovementPhaseToSpread : gm.audioStopSpreadFrom;
@@ -826,233 +742,185 @@ const workflowVisualBg = {
         this._gradientMovementPhaseDurationMs = duration;
     },
 
-    /** Ứng với toggle bật/tắt Movement. */
+    /** "Tráo màu" chồng lên khung hiện tại: tới lượt thì mở lượt mới, đang chuyển thì trộn màu. */
+    _colorSwapStops(gm, now, stops) {
+        if (!gm.colorSwapEnabled) return stops;
+        if (isGradientColorSwapDue(this._gradientMovementSwapStartTime, this._gradientMovementLastSwapTime, gm.colorSwapIntervalMs, now)) this._beginColorSwap(now, stops.length); // core/visual-bg-common.js
+        if (this._gradientMovementSwapStartTime === null) return stops;
+        return this._colorSwapTransitionStops(gm, now, stops);
+    },
+
+    _beginColorSwap(now, stopCount) {
+        const randomFactors = Array.from({ length: stopCount }, () => Math.random());
+        const swap = planGradientColorSwap(this._gradientMovementBaseStops, randomFactors); // core/visual-bg-common.js
+        this._gradientMovementSwapFromColors = swap.fromColors;
+        this._gradientMovementSwapToColors = swap.toColors;
+        this._gradientMovementSwapStartTime = now;
+        this._gradientMovementLastSwapTime = now;
+    },
+
+    _colorSwapTransitionStops(gm, now, stops) {
+        const phase = computeGradientProgress(now, this._gradientMovementSwapStartTime, gm.colorSwapTransitionMs);
+        const toColors = this._gradientMovementSwapToColors;
+        const colors = this._gradientMovementSwapFromColors.map((c, i) => interpolateColor(c, toColors[i], phase.progress)); // core/color-utils.js
+        const blended = applyGradientStopColors(stops, colors);
+        if (phase.done) this._finishColorSwap();
+        return blended;
+    },
+
+    /** Hết lượt chuyển màu: bộ màu mới thành gốc. */
+    _finishColorSwap() {
+        this._gradientMovementBaseStops = applyGradientStopColors(this._gradientMovementBaseStops, this._gradientMovementSwapToColors);
+        this._gradientMovementSwapStartTime = null;
+    },
+
+    /** Toggle Movement. */
     async toggleGradientMovement(checked) {
         this._commitColorChange((cfg) => { cfg.gradientMovement.enabled = checked; }, `gradientMovement.enabled=${checked}`);
         this._syncGradientMovementTaskState();
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-options').classList.toggle('hidden', !checked);
+        if (!this._isGradientPanelShown()) return;
+        setVisualBgGradientMovementOptionsVisible(visualBgGradientPanelEl, checked); // core/visual-bg-panel-ui.js
     },
 
-    /** Ứng với select đổi mode Movement ('time'/'audio'). */
+    /** Select mode Movement ('time'/'audio') — chạy lại từ đầu pha. */
     changeGradientMovementMode(value) {
         if (!VISUAL_BG_GRADIENT_MOVEMENT_MODES.includes(value)) return;
         this._commitColorChange((cfg) => { cfg.gradientMovement.mode = value; }, `gradientMovement.mode=${value}`);
         this._gradientMovementStartTime = Date.now();
         this._gradientMovementPhaseStartTime = null;
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-time-block').classList.toggle('hidden', value !== 'time');
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-audio-block').classList.toggle('hidden', value !== 'audio');
+        if (!this._isGradientPanelShown()) return;
+        setVisualBgGradientMovementModeBlocks(visualBgGradientPanelEl, value); // core/visual-bg-panel-ui.js
     },
 
-    /** Ứng với nút mở time-picker "Hết 1 vòng sau" (mode 'time'). */
+    /** Picker "Hết 1 vòng sau" (mode 'time'). */
     openGradientMovementDurationPicker() {
-        const cfg = appConfigVisualBg.getAll();
         openTimePickerModal({
             title: t('visualBgSettingsDrawer.gradientMovement.duration.pickerTitle'),
             format: 's-ms',
-            valueMs: cfg.gradientMovement.rotateDurationMs,
+            valueMs: appConfigVisualBg.getAll().gradientMovement.rotateDurationMs,
             minMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS,
             maxMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS,
             onConfirm: (resultMs) => {
-                this._commitColorChange((c) => { c.gradientMovement.rotateDurationMs = resultMs; }, `gradientMovement.rotateDurationMs=${resultMs}`);
+                this._commitGradientMs('rotateDurationMs', resultMs);
                 this._gradientMovementStartTime = Date.now();
-                if (visualBgGradientPanelEl) visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-duration-value').textContent = this._formatMovementMs(resultMs);
             },
         });
     },
 
-    /** 2 hàng number input "From/To" mode 'audio' — góc xoay (0-360) + độ giãn stop (0-50%). Cả 4
-     * field CÙNG 1 process (ghi 1 số vào field tương ứng), gộp 1 hàm nhận tên field — Rule 1. */
+    /** 4 ô "From/To" mode 'audio' — góc xoay (0-360) + độ giãn stop (0-50%); cùng 1 việc (ghi 1 số vào field). */
     changeGradientMovementAudioRange(field, value) {
-        const num = Number(value);
-        if (!Number.isFinite(num)) return;
+        const num = parseVisualBgFiniteNumber(value); // core/visual-bg-common.js
+        if (num === null) return;
         this._commitColorChange((cfg) => { cfg.gradientMovement[field] = num; }, `gradientMovement.${field}=${num}`);
     },
 
-    /** Ứng với toggle bật/tắt "Tráo màu". */
+    /** Toggle "Tráo màu". */
     toggleGradientColorSwap(checked) {
         this._commitColorChange((cfg) => { cfg.gradientMovement.colorSwapEnabled = checked; }, `gradientMovement.colorSwapEnabled=${checked}`);
         this._gradientMovementLastSwapTime = Date.now();
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-options').classList.toggle('hidden', !checked);
+        if (!this._isGradientPanelShown()) return;
+        setVisualBgGradientColorSwapOptionsVisible(visualBgGradientPanelEl, checked); // core/visual-bg-panel-ui.js
     },
 
-    /** Ứng với nút mở time-picker "Tráo mỗi". */
+    /** Picker "Tráo mỗi". */
     openGradientColorSwapIntervalPicker() {
-        const cfg = appConfigVisualBg.getAll();
         openTimePickerModal({
             title: t('visualBgSettingsDrawer.gradientMovement.colorSwapInterval.pickerTitle'),
             format: 's-ms',
-            valueMs: cfg.gradientMovement.colorSwapIntervalMs,
+            valueMs: appConfigVisualBg.getAll().gradientMovement.colorSwapIntervalMs,
             minMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS,
             maxMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS,
-            onConfirm: (resultMs) => {
-                this._commitColorChange((c) => { c.gradientMovement.colorSwapIntervalMs = resultMs; }, `gradientMovement.colorSwapIntervalMs=${resultMs}`);
-                if (visualBgGradientPanelEl) visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-interval-value').textContent = this._formatMovementMs(resultMs);
-            },
+            onConfirm: (resultMs) => this._commitGradientMs('colorSwapIntervalMs', resultMs),
         });
     },
 
-    /** Ứng với nút mở time-picker "Thời gian chuyển cảnh". */
+    /** Picker "Thời gian chuyển cảnh". */
     openGradientColorSwapTransitionPicker() {
-        const cfg = appConfigVisualBg.getAll();
         openTimePickerModal({
             title: t('visualBgSettingsDrawer.gradientMovement.colorSwapTransition.pickerTitle'),
             format: 's-ms',
-            valueMs: cfg.gradientMovement.colorSwapTransitionMs,
+            valueMs: appConfigVisualBg.getAll().gradientMovement.colorSwapTransitionMs,
             minMs: VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS,
             maxMs: VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS,
-            onConfirm: (resultMs) => {
-                this._commitColorChange((c) => { c.gradientMovement.colorSwapTransitionMs = resultMs; }, `gradientMovement.colorSwapTransitionMs=${resultMs}`);
-                if (visualBgGradientPanelEl) visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-transition-value').textContent = this._formatMovementMs(resultMs);
-            },
+            onConfirm: (resultMs) => this._commitGradientMs('colorSwapTransitionMs', resultMs),
         });
     },
 
-    /** @param {number} ms @returns {string} vd "2.0s" — CÙNG khuôn workflowGestureSettings._formatSeekMs(). */
-    _formatMovementMs(ms) {
-        return `${((ms || 0) / 1000).toFixed(1)}s`;
+    /** Ghi 1 thời lượng Movement (ms) từ picker + nhãn "2.0s" nếu sub panel đã gắn. */
+    _commitGradientMs(field, ms) {
+        this._commitColorChange((c) => { c.gradientMovement[field] = ms; }, `gradientMovement.${field}=${ms}`);
+        if (!visualBgGradientPanelEl) return;
+        setVisualBgGradientMsLabel(visualBgGradientPanelEl, field, ms); // core/visual-bg-panel-ui.js
     },
 
-    /** bodyHtml do event/workflow/app-settings.js cung cấp sẵn qua `navigateTo()` — chỉ còn gán
-     * biến (đọc lại bởi mọi hàm bên dưới) + đồng bộ giá trị. */
+    // ===================== Màn Settings =====================
+
+    /** Màn Background Media / Background Color vừa gắn (bodyHtml do event/workflow/app-settings.js dựng). */
     async openPanel() {
         visualBgSettingsPanelEl = genericDrawerBody;
         await this.refreshPanelUI();
     },
 
-    /** 1 trong 2 màn VBG (Background Media / Background Color) có đang gắn trong Generic Drawer không — nhận diện qua
-     * `[data-visual-bg-panel]` ở gốc mỗi màn. Drawer dùng chung 1 body cho mọi màn, nên chỉ hỏi "Drawer có mở" là không đủ
-     * (`visualBgSettingsPanelEl` có thể còn null -> TypeError ở các lượt boot/đổi bài/nhịp ảnh).
-     * @returns {boolean} */
+    /** Màn VBG (bất kỳ) đang gắn trong Generic Drawer — Drawer dùng chung 1 body cho mọi màn, chỉ hỏi "Drawer mở" là
+     * không đủ. @returns {boolean} */
     _isPanelMounted() {
-        if (!visualBgSettingsPanelEl || genericDrawerPanel.classList.contains('hidden')) return false;
-        return !!visualBgSettingsPanelEl.querySelector('[data-visual-bg-panel]');
+        if (genericDrawerPanel.classList.contains('hidden')) return false;
+        return hasVisualBgPanelRoot(visualBgSettingsPanelEl); // core/visual-bg-panel-ui.js
     },
 
-    /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field. Chỉ đồng bộ nếu màn VBG đang
-     * gắn (`_isPanelMounted()`), không tự mở màn nào; mọi control đều `if (el)` (mỗi màn có tập control riêng). */
+    /** Đồng bộ màn VBG đang gắn theo config — lúc mở + sau mọi thay đổi; màn chưa gắn thì bỏ qua. */
     async refreshPanelUI() {
         if (!this._isPanelMounted()) return;
         const cfg = appConfigVisualBg.getAll();
-        const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
-
-        const enabledCheckbox = q('#setting-visual-bg-enabled'); // toggle tổng đầu panel
-        if (enabledCheckbox) enabledCheckbox.checked = cfg.enabled !== false;
-
-        const listPlaybackSelect = q('#setting-visual-bg-list-playback-mode');
-        const listPlaybackRow = q('#visual-bg-list-playback-row');
-        const nextOrderRow = q('#visual-bg-next-order-row');
-        const nextOrderSelect = q('#setting-visual-bg-next-order');
-        if (listPlaybackSelect) listPlaybackSelect.value = cfg.listPlaybackMode;
-        if (nextOrderSelect) nextOrderSelect.value = cfg.nextOrder;
-
-        const count = this._effectiveCount(this._effectiveDisplayedList(cfg));
-        const isList = count > 1;
-        // Chưa có media sống nào thì ẩn cả nhóm Playback (tiêu đề + card).
-        const playbackGroup = q('#visual-bg-playback-group');
-        if (playbackGroup) playbackGroup.classList.toggle('hidden', count < 1);
-        if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
-        if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
-
-        const durationModeRow = q('#visual-bg-duration-mode-row');
-        const durationModeSelect = q('#setting-visual-bg-duration-mode');
-        const durationSecondsRow = q('#visual-bg-duration-seconds-row');
-        const durationSecondsLabel = q('#visual-bg-duration-seconds-label');
-        const durationSecondsBtn = q('#setting-visual-bg-duration-seconds');
-        if (durationModeSelect) durationModeSelect.value = cfg.durationMode;
-        const isSlideshowCycling = isList && cfg.listPlaybackMode === 'slideshow';
-        if (durationModeRow) durationModeRow.classList.toggle('hidden', !isSlideshowCycling);
-        if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !(isSlideshowCycling && cfg.durationMode === 'fixtime'));
-        if (durationSecondsLabel) durationSecondsLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.durationSeconds.labelVideo' : 'visualBgSettingsDrawer.durationSeconds.labelPhoto');
-        if (durationSecondsBtn) durationSecondsBtn.textContent = `${cfg.durationSeconds.toFixed(1)}s`;
-
-        const videoAudioRow = q('#setting-visual-bg-open-video-audio');
-        if (videoAudioRow) videoAudioRow.classList.toggle('hidden', !(cfg.type === 'video' && count >= 1));
-
-        // Resolution (card Media): luôn hiện; nhãn + giá trị theo `type` đang chọn (Video/Photo mỗi bên 1 giá trị).
-        const resolutionLabel = q('#visual-bg-resolution-label');
-        if (resolutionLabel) resolutionLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.resolution.labelVideo' : 'visualBgSettingsDrawer.resolution.labelPhoto');
-        const resolutionSelect = q('#setting-visual-bg-resolution');
-        if (resolutionSelect) resolutionSelect.value = this._resolutionModeFor(cfg.type);
-
-        const syncSpeedRow = q('#visual-bg-sync-speed-row');
-        if (syncSpeedRow) syncSpeedRow.classList.toggle('hidden', cfg.type !== 'video');
-        const syncSpeedCheckbox = q('#setting-visual-bg-sync-speed');
-        if (syncSpeedCheckbox) syncSpeedCheckbox.checked = cfg.videoSyncPlaybackSpeed;
-
-        // Hàng Motion là nút mở màn Chọn — ẩn/hiện + điền tên preset đang gắn ("None" nếu chưa gắn / preset đã xoá).
-        const motionBtn = q('#setting-visual-bg-open-motion-picker');
-        if (motionBtn) motionBtn.classList.toggle('hidden', cfg.type !== 'photo' && cfg.type !== 'video');
-        const motionNameEl = q('[data-visual-bg-motion-name]');
-        const motionPreset = findMotionPresetById(appState.get('motionPresets'), cfg.motionPresetId); // core/motion-presets.js
-        if (motionNameEl) motionNameEl.textContent = motionPreset ? motionPreset.name : t('visualBgSettingsDrawer.motion.none');
-
-        const colorModeSelect = q('#setting-visual-bg-color-mode');
-        const openGradientBtn = q('#setting-visual-bg-open-gradient');
-        const solidColorRow = q('#visual-bg-solid-color-row');
-        const solidColorInput = q('#setting-visual-bg-solid-color');
-        const gradientSwatch = q('#visual-bg-gradient-swatch');
-        const isGradient = cfg.colorMode === 'gradient';
-        if (colorModeSelect) colorModeSelect.value = cfg.colorMode;
-        if (solidColorRow) solidColorRow.classList.toggle('hidden', isGradient);
-        if (openGradientBtn) openGradientBtn.classList.toggle('hidden', !isGradient);
-        if (solidColorInput) solidColorInput.value = cfg.solidColor;
-        if (gradientSwatch) gradientSwatch.style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg);
-
+        const preset = findMotionPresetById(appState.get('motionPresets'), cfg.motionPresetId); // core/motion-presets.js
+        fillVisualBgSettingsPanel(visualBgSettingsPanelEl, cfg, { // core/visual-bg-panel-ui.js
+            liveCount: countVisualBgLiveItems(resolveVisualBgDisplayedSource(cfg).list), // core/visual-bg-common.js
+            resolutionMode: this._resolutionModeFor(cfg.type),
+            motionName: preset ? preset.name : t('visualBgSettingsDrawer.motion.none'),
+            gradientCss: buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg),
+        });
         await this._refreshSourceNameLabel(cfg);
     },
 
-    /** Tap hàng Motion: mở danh sách Motion ở chế độ CHỌN (event/workflow/motion-presets.js::openPicker()). Apply ->
-     * `changeMotionPresetId()` (ghi + áp live), màn Chọn tự back() về đây, `refreshPanelUI()` điền tên preset mới. */
+    /** Hàng Motion: mở danh sách Motion ở chế độ CHỌN; Apply -> `changeMotionPresetId()`, màn Chọn tự back() về đây. */
     openMotionPicker() {
         workflowMotionPresets.openPicker({ // event/workflow/motion-presets.js
             title: t('visualBgSettingsDrawer.motion.label'),
-            currentId: appConfigVisualBg.getAll().motionPresetId, // core/config.js
+            currentId: appConfigVisualBg.getAll().motionPresetId,
             onApply: (id) => this.changeMotionPresetId(id),
         });
     },
 
-    /** Ghi `motionPresetId` (''/null -> null = gỡ) rồi áp live lên ảnh/video VBG đang hiện (`updatePreset()` /
-     * `_refreshVideoMotion()` tự no-op nếu chưa có media nào hiện hoặc surface đang thuộc Player).
-     * @param {string|null} value */
+    /** Ghi `motionPresetId` (''/null = gỡ) rồi áp sống lên ảnh/video VBG đang hiện (tự no-op nếu chưa có media hoặc surface
+     * đang thuộc Player). @param {string|null} value */
     async changeMotionPresetId(value) {
-        appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = value || null; });
-        console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${value || null}"`);
+        const presetId = value || null;
+        appConfigVisualBg.mutateAll((cfg) => { cfg.motionPresetId = presetId; });
+        console.log(`writer: "workflowVisualBg.changeMotionPresetId", page: "visualBgConfig", content: "motionPresetId=${presetId}"`);
         await this._persist();
-        if (typeof workflowVisualBgPhotoMotion !== 'undefined') {
-            workflowVisualBgPhotoMotion.updatePreset(VISUAL_BG_IMAGE_SURFACE_OWNER, this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0); // no-op nếu Player Photo đang giữ surface
-        }
-        // VBG Video: áp sống preset mới lên video đang hiện (Point Move + React Beat).
-        if (typeof this._refreshVideoMotion === 'function') this._refreshVideoMotion(); // event/workflow/visual-bg-video.js — tự no-op nếu chưa có video VBG nào đang hiện
+        workflowVisualBgPhotoMotion.updatePreset(VISUAL_BG_IMAGE_SURFACE_OWNER, this._currentMotionPreset(), this._photoRecord ? this._computePhotoAdvanceMs(this._photoRecord) : 0); // event/workflow/visual-bg-photo-motion.js
+        this._refreshVideoMotion(); // event/workflow/visual-bg-video.js
     },
 
-    /** Toggle "Đồng bộ tốc độ phát" — CHỈ có ý nghĩa khi type='video' (VBG mặc định KHÔNG theo
-     * `playbackSpeed` chung, VBG chạy độc lập thời gian). Lưu + áp NGAY lên `bgVideoElement` nếu VBG-
-     * video đang thật sự sở hữu nó (KHÔNG đụng gì lúc đang ở Video Player mode thật — nhánh đó tự áp
-     * riêng qua `applyPlaybackSpeed()`, core/player-controls.js).
-     * @param {boolean} checked */
+    /** Toggle "Đồng bộ tốc độ phát" (type 'video'). Áp ngay lên `bgVideoElement` khi VBG Video đang giữ nó (Video Player
+     * mode tự áp riêng). @param {boolean} checked */
     async changeSyncPlaybackSpeed(checked) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.videoSyncPlaybackSpeed = checked; });
+        console.log(`writer: "workflowVisualBg.changeSyncPlaybackSpeed", page: "visualBgConfig", content: "videoSyncPlaybackSpeed=${checked}"`);
         await this._persist();
-        if (appConfigVisualBg.getAll().type === 'video' && !appState.get('isVideoPlayerMode') && typeof this._applyVideoPlaybackSpeedSetting === 'function') {
-            this._applyVideoPlaybackSpeedSetting(); // event/workflow/visual-bg-video.js
-            this._refreshVideoMotion(); // Point Move tính lại theo playbackRate mới, không chạy lại hành trình
-        }
+        if (!shouldApplyVisualBgVideoSpeedLive(appConfigVisualBg.getAll().type, appState.get('isVideoPlayerMode'))) return; // core/visual-bg-common.js
+        this._applyVideoPlaybackSpeedSetting(); // event/workflow/visual-bg-video.js
+        this._refreshVideoMotion(); // Point Move tính lại theo playbackRate mới
     },
 
-    /** Resolution VBG của 1 kind, đã chuẩn hoá (core/player-display-settings.js). Dùng chung cho
-     * visual-bg-video.js ('video') + visual-bg-photo.js ('photo') + refreshPanelUI().
+    /** Resolution VBG đã chuẩn hoá của 1 kind (dùng chung visual-bg-video.js, visual-bg-photo.js, refreshPanelUI()).
      * @param {'video'|'photo'} kind @returns {string} */
     _resolutionModeFor(kind) {
         return normalizePlayerResolutionMode(appConfigVisualBg.getAll()[resolvePlayerResolutionField(kind)]); // core/player-display-settings.js
     },
 
-    /** Ứng 'visualBg.resolutionMode.change' (select #setting-visual-bg-resolution, card Media). Ghi vào field của `type`
-     * đang chọn (videoResolutionMode/photoResolutionMode), rồi áp sống lên media VBG đang hiện (không nạp lại, không
-     * Transition). Đang ở Player mode hoặc toggle tổng tắt -> chỉ lưu (lượt áp VBG kế tiếp tự đọc giá trị mới).
-     * @param {string} value - 1 trong PLAYER_RESOLUTION_MODES[].value */
+    /** Select Resolution (card Media) — ghi vào field của `type` đang chọn rồi áp sống lên media đang hiện. Player mode
+     * hoặc toggle tổng tắt -> chỉ lưu. @param {string} value - PLAYER_RESOLUTION_MODES[].value */
     async changeResolutionMode(value) {
         const kind = appConfigVisualBg.getAll().type;
         const field = resolvePlayerResolutionField(kind); // core/player-display-settings.js
@@ -1060,170 +928,94 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((cfg) => { cfg[field] = mode; });
         console.log(`writer: "workflowVisualBg.changeResolutionMode", page: "visualBgConfig", content: "${field}=${mode}"`);
         await this._persist();
-        if (appState.get('isVideoPlayerMode') || appState.get('isPhotoPlayerMode') || !this._isMediaEnabled()) return;
-        const refreshByType = {
-            video: () => this._refreshVideoResolution(), // event/workflow/visual-bg-video.js
-            photo: () => this._refreshPhotoResolution(), // event/workflow/visual-bg-photo.js
-        };
-        const refresh = refreshByType[kind];
-        if (refresh) refresh();
+        const { isVideoPlayerMode, isPhotoPlayerMode } = appState.get(['isVideoPlayerMode', 'isPhotoPlayerMode']);
+        if (isVideoPlayerMode || isPhotoPlayerMode || !this._isMediaEnabled()) return;
+        const refresh = VISUAL_BG_RESOLUTION_REFRESH_BY_TYPE[kind];
+        if (!refresh) return;
+        refresh();
     },
 
-    /** Ghi tên nguồn đang chọn vào `#visual-bg-source-name` + hiện/ẩn nút Làm tươi/Gỡ nguồn theo
-     * có origin hay không. Ưu tiên đọc `cfg.pending` nếu có (origin vừa chọn, chưa áp vào `source`
-     * thật vì đang có media active) — panel phải phản ánh lựa chọn đó ngay, không đợi pending áp
-     * xong (media hiện tại vẫn tiếp tục phát, không gián đoạn). Dùng chung
-     * `_effectiveDisplayedOrigin()` với `refreshSource()`. */
+    /** Tên nguồn + 2 nút Làm tươi/Gỡ theo origin đang hiển thị (pending nếu có — panel phản ánh lựa chọn ngay, media
+     * hiện tại vẫn phát). */
     async _refreshSourceNameLabel(cfg) {
-        const labelEl = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#visual-bg-source-name') : null;
-        const refreshBtn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-refresh-source') : null;
-        const clearBtn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-clear-source') : null;
-        const { originKind, originId } = this._effectiveDisplayedOrigin(cfg);
-        if (refreshBtn) refreshBtn.classList.toggle('hidden', !originId);
-        if (clearBtn) clearBtn.classList.toggle('hidden', !originId);
-        if (!labelEl) return;
-        if (!originId) { labelEl.textContent = t('visualBgSettingsDrawer.pickSource.none'); return; }
-        labelEl.textContent = await this._readSourceDisplayName(cfg.type, originKind, originId);
+        const shown = resolveVisualBgDisplayedSource(cfg); // core/visual-bg-common.js
+        const hasOrigin = !!shown.originId;
+        setVisualBgSourceButtonsVisible(visualBgSettingsPanelEl, hasOrigin); // core/visual-bg-panel-ui.js
+        setVisualBgSourceName(visualBgSettingsPanelEl, await VISUAL_BG_SOURCE_LABEL_BY_HAS_ORIGIN[hasOrigin](cfg.type, shown));
     },
 
-    /** Origin nên hiển thị ở Settings (khác origin đang thật sự phát nếu có pending) — `cfg.pending`
-     * (nếu có) luôn thắng `cfg.source`. Dùng chung cho `_refreshSourceNameLabel()`/`refreshSource()`.
-     * @param {object} cfg
-     * @returns {{originKind: string|null, originId: string|null}}
-     */
-    _effectiveDisplayedOrigin(cfg) {
-        return cfg.pending.originKind ? { originKind: cfg.pending.originKind, originId: cfg.pending.originId } : { originKind: cfg.source.originKind, originId: cfg.source.originId };
-    },
-
-    /** Mảng list song song với `_effectiveDisplayedOrigin()` (cùng ưu tiên pending nếu có) — dùng
-     * cho mọi chỗ cần đếm số lượng item đang hiển thị cho người dùng (`refreshPanelUI()`), khác
-     * `cfg.source.list` thô (nội dung thật đang phát, dùng cho playback logic thật).
-     * @param {object} cfg
-     * @returns {Array<string|null>}
-     */
-    _effectiveDisplayedList(cfg) {
-        return cfg.pending.originKind ? cfg.pending.list : cfg.source.list;
-    },
-
-    /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/folderId, hoặc đếm số lượng cho 2
-     * originKind gộp nhiều — 'multi'/'groupMulti', không có tên đơn lẻ nào để đọc). 'group' đọc
-     * được cả `type==='photo'` (Thư mục Photo). */
+    /** Tên hiển thị của 1 origin: 'multi'/'groupMulti' đếm số lượng, 'group' tên folder, còn lại tên item theo type. */
     async _readSourceDisplayName(type, originKind, originId) {
-        const none = t('visualBgSettingsDrawer.pickSource.none');
-        if (originKind === 'multi') {
-            const count = this._decodeMultiOriginId(originId).length;
-            return tFormat(type === 'video' ? 'visualBgSettingsDrawer.sourceLabel.multiVideo' : 'visualBgSettingsDrawer.sourceLabel.multiPhoto', { count });
-        }
-        if (originKind === 'groupMulti') {
-            const count = this._decodeMultiOriginId(originId).length;
-            return tFormat('visualBgSettingsDrawer.sourceLabel.groupMulti', { count });
-        }
-        if (originKind === 'group') {
-            const folder = await getFolderRecord(originId);
-            return folder ? folder.name : none;
-        }
-        if (type === 'video') {
-            const record = await getVideoRecord(originId);
-            return record ? (record.customName || stripFileExtension(record.filename)) : none;
-        }
-        const record = await getImageRecord(originId);
-        return record ? record.filename : none;
+        return (VISUAL_BG_SOURCE_NAME_BY_KIND[originKind] || VISUAL_BG_SOURCE_NAME_BY_KIND.single)(type, originId);
     },
 
-    /** Visual BG sống trong chính Generic Drawer picker vừa mượn — `closeFully()` sẽ đóng luôn Visual BG, nên mở lại màn
-     * chọn nguồn (Player > Song > Background Media, event/workflow/app-settings.js) thay vì đóng hẳn. */
+    async _readFolderName(folderId) {
+        const folder = await getFolderRecord(folderId); // service/db.js
+        return folder ? folder.name : t('visualBgSettingsDrawer.pickSource.none');
+    },
+
+    async _readItemName(type, key) {
+        const record = await (VISUAL_BG_RECORD_BY_TYPE[type] || VISUAL_BG_RECORD_BY_TYPE.photo)(key);
+        return record ? (VISUAL_BG_ITEM_NAME_BY_TYPE[type] || VISUAL_BG_ITEM_NAME_BY_TYPE.photo)(record) : t('visualBgSettingsDrawer.pickSource.none');
+    },
+
+    // ===================== Picker Video/Ảnh/Thư mục =====================
+
+    /** Picker mượn chính Generic Drawer của VBG — đóng thì mở lại màn chọn nguồn (Player > Song > Background Media). */
     _closePickerDrawer() {
         this._pickerOpen = false;
         workflowAppSettings._renderPlayerSongBgMedia(); // event/workflow/app-settings.js
     },
 
-    /** HTML khung picker Video/Ảnh: scroll container (grid windowing chèn vào TRONG) + nút "Chọn"
-     * xác nhận cố định phía dưới (id khớp `openMediaPickerDrawerUi()`'s `showConfirmButton`, core/
-     * media-picker-drawer-ui.js — tự wire click -> `${msgPrefix}.confirm.click`). */
-    _buildMultiPickerBodyHtml(scrollId, emptyId, emptyText) {
-        return `
-            <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">
-                <p id="${emptyId}" class="hidden text-sm text-center py-10 px-6" data-uitk="textSecondary">${emptyText}</p>
-            </div>
-            <div class="px-5 py-3 shrink-0 border-t" data-uitk="dividerBorder">
-                <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed" data-uitk="btnPrimaryPillBg btnPrimaryPillHoverBg textOnAccent" disabled>${t('visualBgSettingsDrawer.picker.confirmEmpty')}</button>
-            </div>
-        `;
-    },
-
-    /** Cập nhật nhãn/trạng thái nút "Chọn" theo SỐ LƯỢNG đang chọn — gọi lại SAU mỗi lần toggle 1
-     * tile (KHÔNG dựng lại cả header/nút, chỉ patch text/disabled — nút đã được wire click 1 LẦN lúc
-     * mở picker). */
+    /** Nút "Chọn" theo SỐ LƯỢNG đang chọn — gọi lại sau mỗi lần bấm tile (nút đã wire 1 lần lúc mở picker). */
     _syncPickerConfirmButton() {
-        const btn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
-        if (!btn) return;
         const count = this._pickerSelectedKeys.length;
-        btn.disabled = count === 0;
-        btn.textContent = count === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count });
+        setVisualBgPickerConfirmButton(genericDrawerBody, count, VISUAL_BG_PICKER_CONFIRM_LABEL_BY_EMPTY[count === 0](count)); // core/visual-bg-panel-ui.js
     },
 
-    /** Thêm/bớt 1 key khỏi `_pickerSelectedKeys` — ĐANG chọn thì bỏ (đúng ý "bấm lại để huỷ chọn"),
-     * chưa có thì thêm vào CUỐI mảng (thứ tự mảng = thứ tự chọn, Giang chốt mục 5 "đánh số theo thứ
-     * tự"). */
+    /** Bấm tile: đang chọn thì bỏ, chưa có thì thêm cuối (thứ tự chọn = thứ tự phát). */
     _togglePickerKey(key) {
-        const idx = this._pickerSelectedKeys.indexOf(key);
-        if (idx >= 0) this._pickerSelectedKeys.splice(idx, 1); else this._pickerSelectedKeys.push(key);
+        this._pickerSelectedKeys = toggleVisualBgPickerKey(this._pickerSelectedKeys, key); // core/visual-bg-common.js
     },
 
-    /** `Map<key, order>` từ `_pickerSelectedKeys` — truyền vào `setBadgeMode()` để vẽ LẠI số thứ tự
-     * của MỌI tile đang chọn (không chỉ tile vừa bấm — bỏ chọn 1 item ở giữa làm lệch số các item
-     * sau nó, phải vẽ lại đồng loạt mới đúng, xem docstring `setBadgeMode()`). */
+    /** `Map<key, số thứ tự>` cho `setBadgeMode()` — vẽ lại số của MỌI tile (bỏ chọn 1 item giữa làm lệch số các item sau). */
     _pickerKeyOrderMap() {
-        const map = new Map();
-        this._pickerSelectedKeys.forEach((k, i) => map.set(k, i + 1));
-        return map;
+        return buildVisualBgPickerOrderMap(this._pickerSelectedKeys); // core/visual-bg-common.js
     },
 
-    /** Commit chung cho picker Video/Ảnh — đổi `type` nếu khác (gỡ hẳn source/pending cũ), rồi giao
-     * `_resolveAndCommitSource('multi', ...)` xử lý tiếp (pending/áp ngay, persist, refreshPanelUI,
-     * applyCurrentVisualBg), rồi hiện modal kết quả qua `_showCommitResultModal()`.
-     * @param {'video'|'photo'} type
-     * @param {string[]} keys - thứ tự chọn, giữ nguyên khi lưu.
-     */
+    /** Chọn sang type khác -> gỡ hẳn source/pending cũ (khác kiểu key). */
+    _resetSourceForType(type) {
+        if (appConfigVisualBg.getAll().type === type) return;
+        appConfigVisualBg.mutateAll((c) => { c.type = type; c.source = { originKind: null, originId: null, list: [], videoAudio: {} }; c.pending = { originKind: null, originId: null, list: [] }; });
+        console.log(`writer: "workflowVisualBg._resetSourceForType", page: "visualBgConfig", content: "type=${type}, source/pending cleared"`);
+    },
+
+    /** Commit picker Video/Ảnh ('multi', giữ thứ tự chọn) rồi báo kết quả. @param {'video'|'photo'} type @param {string[]} keys */
     async _commitPickedKeys(type, keys) {
         if (keys.length === 0) return;
-        appConfigVisualBg.mutateAll((c) => {
-            if (c.type !== type) { c.type = type; c.source = { originKind: null, originId: null, list: [], videoAudio: {} }; c.pending = { originKind: null, originId: null, list: [] }; }
-        });
-        const result = await this._resolveAndCommitSource('multi', this._encodeMultiOriginId(keys));
+        this._resetSourceForType(type);
+        const result = await this._resolveAndCommitSource('multi', encodeVisualBgMultiOriginId(keys)); // core/visual-bg-common.js
         await this._showCommitResultModal(result);
     },
 
-    /** Thư mục — multi-select GỘP nhiều folder (originKind='groupMulti'), dropdown Video/Ảnh ngay
-     * trong header picker (đổi loại đang duyệt, tự re-fetch danh sách folder + re-render tại chỗ,
-     * KHÔNG đóng/mở lại picker). Mặc định mở đúng `cfg.type` hiện tại (photo/video), rơi về 'video'
-     * nếu chưa từng chọn gì. */
+    /** Thư mục — chọn nhiều folder gộp lại ('groupMulti'), dropdown Video/Ảnh trong header picker. Mở đúng `type` hiện
+     * tại, chưa từng chọn -> 'video'. */
     async openPickFolder() {
         const currentType = appConfigVisualBg.getAll().type;
         await this._openFolderPickerForType(VISUAL_BG_TYPES.includes(currentType) ? currentType : 'video');
     },
 
-    /** Đọc danh sách folder đúng `type`, lọc bỏ folder rỗng (0 item — không đóng góp gì khi gộp),
-     * rồi mở/vẽ lại picker Thư mục dùng chung với Playlist
-     * (`workflowPlaylist._openFolderPickerDrawer()`, phần mở rộng multi-select +
-     * typeOptions/onTypeChange).
-     * @param {'photo'|'video'} type
-     * @param {boolean} [isUpdate] - true khi gọi lại từ `onTypeChange` (picker đang mở, chỉ đổi
-     *        loại) -> vẽ lại tại chỗ (`updateGenericDrawer()`); bỏ trống = mở mới, từ
-     *        `openPickFolder()` -> `openGenericDrawer()`.
-     */
+    /** Mở/vẽ lại picker Thư mục dùng chung Playlist (`workflowPlaylist._openFolderPickerDrawer()`) với folder không rỗng
+     * của `type`. @param {'photo'|'video'} type @param {boolean} [isUpdate] - true: đổi loại khi picker đang mở */
     async _openFolderPickerForType(type, isUpdate) {
-        const eligible = await workflowFolder.listNonEmpty(type); // event/workflow/folder.js — folder rỗng không làm nguồn được
-
-        await workflowPlaylist._openFolderPickerDrawer(
+        const eligible = await workflowFolder.listNonEmpty(type); // event/workflow/folder.js
+        await workflowPlaylist._openFolderPickerDrawer( // event/workflow/playlist.js
             (folderIds, pickedType) => this._commitFolderMultiSelection(folderIds, pickedType),
             {
                 folders: eligible,
                 showAddTile: false,
-                emptyMsg: eligible.length === 0
-                    ? t(type === 'video' ? 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video' : 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo')
-                    : '',
-                onClose: () => workflowAppSettings._renderPlayerSongBgMedia(), // màn chọn nguồn: Player > Song > Background Media
+                emptyMsg: VISUAL_BG_FOLDER_EMPTY_MSG_BY_NO_FOLDER[eligible.length === 0](type),
+                onClose: () => workflowAppSettings._renderPlayerSongBgMedia(),
                 multiSelect: true,
                 typeOptions: { current: type },
                 onTypeChange: (newType) => this._openFolderPickerForType(newType, true),
@@ -1232,19 +1024,11 @@ const workflowVisualBg = {
         );
     },
 
-    /** Commit picker Thư mục — gộp `folderIds` (đã theo ĐÚNG thứ tự chọn) thành 1 nguồn
-     * 'groupMulti'. Cùng lý do đổi `type` như `_commitPickedKeys()`, cùng modal kết quả qua
-     * `_showCommitResultModal()`.
-     * @param {string[]} folderIds
-     * @param {'photo'|'video'} type
-     */
+    /** Commit picker Thư mục — `folderIds` theo đúng thứ tự chọn thành 1 nguồn 'groupMulti'. */
     async _commitFolderMultiSelection(folderIds, type) {
         if (!folderIds || folderIds.length === 0) return;
-        appConfigVisualBg.mutateAll((c) => {
-            if (c.type !== type) { c.type = type; c.source = { originKind: null, originId: null, list: [], videoAudio: {} }; c.pending = { originKind: null, originId: null, list: [] }; }
-        });
-        const result = await this._resolveAndCommitSource('groupMulti', this._encodeMultiOriginId(folderIds));
+        this._resetSourceForType(type);
+        const result = await this._resolveAndCommitSource('groupMulti', encodeVisualBgMultiOriginId(folderIds));
         await this._showCommitResultModal(result);
     },
-
 };

@@ -10,8 +10,9 @@
  *      (groupZipEntriesBySize()), nén từng nhóm vào OPFS (`_compressEntries()` -> workflowStreamingZip), cập nhật chữ tiến độ.
  *   2. `deliver(parts)` — gọi SAU khi shield đóng: 1 phần -> modal `promptSingle()`; nhiều phần -> modal danh sách
  *      (components/zip-download-parts.js + core/zip-download-ui.js), mỗi phần 1 nút Tải xuống (mỗi lượt share cần 1 lần
- *      chạm thật). Đóng modal xong tự dọn file zip tạm OPFS. Resolve `true` chỉ khi MỌI phần đã tải — Storage Management
- *      dựa vào đó để không xoá dữ liệu khi chưa tải đủ.
+ *      chạm thật). Đóng modal (Done/Huỷ) xong trả các phần cho workflowStreamingZip.release() — dọn cả thư mục tạm OPFS trừ
+ *      file đang dùng. Resolve `true` chỉ khi MỌI phần đã tải — Storage Management dựa vào đó để không xoá dữ liệu khi chưa
+ *      tải đủ. Nén lỗi giữa chừng cũng trả các phần đã nén rồi mới ném lỗi.
  *   - `deliverFile(blob, filename)` — chọn đường Share / <a download>, core thi hành từng đường (core/id3-export.js).
  *   - `promptSingle(blob, filename)` — modal "Sẵn sàng tải xuống" 1 file, nút đi qua eventBus ('zipDownload.single.click'
  *     / '.cancel').
@@ -86,12 +87,17 @@ const workflowZipDownload = {
         const groups = groupZipEntriesBySize(entries, ZIP_PART_MAX_BYTES); // core/storage-manager.js
         const isSingle = groups.length === 1;
         const parts = [];
-        for (let i = 0; i < groups.length; i++) {
-            const partNumber = i + 1;
-            const blob = await this._compressEntries(groups[i], (done, total, percent) => {
-                setLoadingShieldText(ZIP_PROGRESS_TEXT_BY_SINGLE[isSingle](partNumber, groups.length, percent)); // core/loading-shield-util.js
-            });
-            parts.push({ blob, filename: ZIP_PART_FILENAME_BY_SINGLE[isSingle](zipFileName, partNumber, groups.length), fileCount: groups[i].length });
+        try {
+            for (let i = 0; i < groups.length; i++) {
+                const partNumber = i + 1;
+                const blob = await this._compressEntries(groups[i], (done, total, percent) => {
+                    setLoadingShieldText(ZIP_PROGRESS_TEXT_BY_SINGLE[isSingle](partNumber, groups.length, percent)); // core/loading-shield-util.js
+                });
+                parts.push({ blob, filename: ZIP_PART_FILENAME_BY_SINGLE[isSingle](zipFileName, partNumber, groups.length), fileCount: groups[i].length });
+            }
+        } catch (err) {
+            await workflowStreamingZip.release(parts.map((part) => part.blob._opfsTempName)); // event/workflow/streaming-zip.js — bỏ các phần đã nén + file dở
+            throw err;
         }
         console.log(formatZipPartsDoneLog(parts.length, ZIP_PART_MAX_BYTES, zipFileName)); // core/storage-manager.js
         return parts;
@@ -124,7 +130,7 @@ const workflowZipDownload = {
             false: () => this._presentParts(parts),
         };
         const allDownloaded = await deliverByCount[parts.length === 1]();
-        await Promise.all(parts.map((part) => cleanupStreamingZipTemp(part.blob._opfsTempName))); // core/streaming-zip.js — không có tên tạm thì bỏ qua
+        await workflowStreamingZip.release(parts.map((part) => part.blob._opfsTempName)); // event/workflow/streaming-zip.js — dọn cả thư mục tạm trừ file đang dùng
         return allDownloaded;
     },
 

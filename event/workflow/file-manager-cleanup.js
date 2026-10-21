@@ -3,7 +3,7 @@
  * lượt các bước dọn rác ở `FILE_MANAGER_CLEANUP_STEPS` — mỗi bước tự đọc DB cần cho nó rồi giao core
  * (core/file-manager/cleanup.js) dọn — rồi báo tổng số mục đã dọn. Thêm 1 kiểu rác mới = thêm 1 hàm core + 1 dòng ở bảng.
  *
- * NẠP SAU: core/file-manager/cleanup.js, service/db.js, core/loading-shield-util.js, core/modal-choice-ui.js.
+ * NẠP SAU: core/file-manager/cleanup.js, event/workflow/streaming-zip.js, service/db.js, core/loading-shield-util.js, core/modal-choice-ui.js.
  * NẠP TRƯỚC: event/router/file-manager-cleanup.js.
  */
 
@@ -11,7 +11,7 @@
 const FILE_MANAGER_CLEANUP_STEPS = [
     { name: 'orphanedSongFolderFields', run: () => workflowFileManagerCleanup._cleanSongFolderFields() },
     { name: 'orphanedFolderSongMaps', run: () => workflowFileManagerCleanup._cleanFolderSongMaps() },
-    { name: 'orphanedZipTempFiles', run: () => cleanupOrphanedZipTempFiles() }, // core/file-manager/cleanup.js
+    { name: 'zipTempFiles', run: () => workflowStreamingZip.sweepTemp() }, // event/workflow/streaming-zip.js — cả thư mục tạm zip trừ file đang dùng
 ];
 
 const workflowFileManagerCleanup = {

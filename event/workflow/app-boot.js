@@ -43,6 +43,8 @@ const workflowAppBoot = {
 
         // Dọn 4 khoá meta mồ côi của cơ chế nền cũ (có bản sao Blob ảnh/video lớn). Không chặn boot.
         purgeVisualBgLegacyMeta(); // core/file-manager/cleanup.js
+        // Dọn thư mục zip tạm OPFS còn sót từ phiên trước (đóng app giữa lúc nén / lúc modal tải còn mở). Không chặn boot.
+        workflowStreamingZip.sweepTemp(); // event/workflow/streaming-zip.js
         // AWAIT: `workflowFolder.list()` giả định `meta.folderIndex` đã đúng — migrate xong TRƯỚC khi người dùng mở được
         // Folder Browser/Add to Folder; `activePlayListFolder` dạng cũ (string phẳng) -> {song,video,photo} TRƯỚC mọi chỗ
         // đọc field này ngay dưới.
