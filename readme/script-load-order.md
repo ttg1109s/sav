@@ -409,6 +409,7 @@ của group.
 181. `core/visual-bg-common.js`
 182. `core/visual-bg-video.js`
 183. `core/visual-bg-photo.js`
+183a. `core/visual-bg-panel-ui.js` — ghi DOM các màn Visual Background + nút "Chọn" picker; không phụ thuộc lúc nạp (gọi `t()` lúc chạy); dùng bởi `event/workflow/visual-bg-common.js`
 184. `core/subtitle/subtitle-transition.js`
 185. `core/subtitle/subtitle-style-settings.js`
 186. `core/subtitle/subtitle-display-ui.js`

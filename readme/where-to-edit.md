@@ -104,7 +104,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 |---|---|
 | Preset Motion (CRUD) | `components/motion-settings-drawer.js`, `core/motion-presets.js`, `event/workflow/motion-presets.js`, state `service/state/motion-presets.js`; cụm `motionPresets`; trục Timing `core/point-move-timing-ui.js` |
 | Cơ chế Motion (engine, runner, host) | `core/motion-engine.js`; `event/workflow/motion-stage.js`, `motion-transition-runner.js`, `motion-point-move-runner.js`, `motion-beat-react-runner.js` |
-| VBG chung | `components/visual-bg-settings-drawer.js`, `core/visual-bg-common.js`, `event/workflow/visual-bg-common.js`, state `service/state/visual-bg.js`; cụm `visualBg` |
+| VBG chung | `components/visual-bg-settings-drawer.js`, `core/visual-bg-common.js` (tính thuần), `core/visual-bg-panel-ui.js` (ghi DOM các màn), `event/workflow/visual-bg-common.js`, state `service/state/visual-bg.js`; cụm `visualBg` |
 | VBG Photo | `core/visual-bg-photo.js`, `event/workflow/visual-bg-photo.js`, `event/workflow/visual-bg-photo-motion.js` |
 | VBG Video, âm thanh từng video | `core/visual-bg-video.js`, `event/workflow/visual-bg-video.js`, `components/visual-bg-video-audio-drawer.js` |
 | Nền gradient | `components/visual-bg-gradient-drawer.js` |

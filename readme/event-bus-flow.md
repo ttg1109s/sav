@@ -18,7 +18,7 @@ Listener (DOM/tab/window/...)
 ┌─────────────────────────────────────────────────────────────────┐
 │ event/bus.js                                                    │
 │                                                                 │
-│  Block gate (event/block.js — DATA, 15 entry: xem mục 2)        │
+│  Block gate (event/block.js — DATA, 17 entry: xem mục 2)        │
 │  isBlocked(msg.type, payload)? ── true ──▶ DỪNG, KHÔNG vào Router│
 │       │ false                     (im lặng, hoặc alert notify)  │
 └───────┼─────────────────────────────────────────────────────────┘
@@ -177,7 +177,7 @@ eventBus.registerBlock('router.action.event', [
 - **`options.notify`** — chặn thật thì tự `alertModal(notify)` (không chờ modal đóng). Không có → chặn im lặng.
 - **`options.groupNotify[i]`** — thông báo riêng cho nhóm thứ `i` khớp đầu tiên; không có thì dùng `notify`.
 
-### Entry hiện có (15)
+### Entry hiện có (17)
 
 | `msg.type` | Chặn khi | Thông báo |
 |---|---|---|
@@ -187,6 +187,7 @@ eventBus.registerBlock('router.action.event', [
 | `recorder.start.click` | Đang có phiên ghi, hoặc Photo Player mode, hoặc đang ở Game (3 nhóm OR) | Im lặng |
 | `playerControls.next.click`, `.prev.click`, `.playPause.click`, `.restart.click` | Đang có phiên ghi (`recordPhase !== 'idle'`) — dùng chung `RECORDER_SESSION_ACTIVE_BLOCK` | Im lặng |
 | `playerControls.video.play`, `.pause`, `.loadedmetadata`, `.timeupdate`, `.ended` | Không ở Video Player mode (`isVideoPlayerMode !== true` — `#bg-video` chỉ là nền trang trí) — dùng chung `VIDEO_PLAYER_MODE_OFF_BLOCK` | Im lặng |
+| `visualBg.video.ended`, `.timeupdate` | Đang ở Video Player mode (`isVideoPlayerMode === true` — `#bg-video` là màn Player, không phải nền VBG) — dùng chung `VIDEO_PLAYER_MODE_ON_BLOCK` | Im lặng |
 | `perfHud.app.pointerdown` | Perf HUD tắt (`perfHudConfig.enabled !== true`) | Im lặng |
 | `imageEdit.layers.click` | Generic Drawer đang mở (`isGenericDrawerOpen`) | Im lặng |
 
