@@ -473,7 +473,9 @@ KHÔNG được tự nhận "giống modalChoice()" để suy ra miễn trừ (t
 **Ngoại lệ ĐÃ chốt chính thức (13/10/2026) — `core/dynamic-object-ui.js`:** adapter sự kiện của đối tượng TẠO ĐỘNG
 (`<video>`/`<script>` tạm, MediaRecorder, ScriptProcessorNode) — đổi sự kiện thành Promise / callback dữ liệu cho
 Workflow, không qua bus. Chỉ cho sự kiện là nửa sau bất đồng bộ của chính API đang gọi; danh sách nơi dùng ở
-[event-bus-flow.md](./event-bus-flow.md) mục "Ngoại lệ: adapter đối tượng tạo động".
+[event-bus-flow.md](./event-bus-flow.md) mục "Ngoại lệ: adapter đối tượng tạo động". Mở rộng (Giang chốt 21/10/2026):
+`requestVideoFrameOnce()` — `requestVideoFrameCallback` 1 lần (callback dữ liệu đồng bộ), dùng được cho cả `bgVideoElement`
+tĩnh vì là yêu cầu 1 lần của chính API, không phải sự kiện DOM gắn trước được.
 
 Gán `.onX = ...` tính như `addEventListener`. Lệnh tra phần tử (`querySelector`) và `return` xen giữa khối gắn cuối
 hàm không tính là "rải rác". Hàm wire của file `-ui.js` không đạt 2 điều kiện trên là vi phạm (sổ vi phạm, mục

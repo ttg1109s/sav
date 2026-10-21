@@ -358,8 +358,8 @@ của group.
 138a. `core/file-manager/gallery-window.js` — MỚI 13/10/2026 (core thuần badge lưới — đợt 7)
 138b. `core/file-manager/gallery-window-ui.js` — MỚI 13/10/2026 (ghi DOM lưới nhóm ngày — đợt 7)
 138c. `core/image-load-ui.js` — MỚI 12/10/2026 (decodeImageFromUrl/renderImageScaledToJpegBlob/releaseDecodedImage — plan-event-bus-wiring đợt 6b-1); gọi lúc chạy từ event/workflow/file-manager-photo.js, file-manager-storage.js, visualizer/shape.js
-138d. `core/dynamic-object-ui.js` — MỚI 13/10/2026 (adapter sự kiện đối tượng tạo động — ngoại lệ chính thức, plan-event-bus-wiring đợt 6b-3); không phụ thuộc; gọi lúc chạy từ event/workflow/recorder.js, video-thumb-extract.js
-138e. `core/media-element-ui.js` — MỚI 13/10/2026 (setMediaElementSource/seekMediaElement/seekMediaElementClamped/playMediaElement — plan-event-bus-wiring đợt 6b-4); không phụ thuộc; gọi lúc chạy từ event/workflow/player.js, video-player.js, visual-bg-video.js
+138d. `core/dynamic-object-ui.js` — adapter sự kiện đối tượng tạo động + `requestVideoFrameOnce()` (ngoại lệ chính thức); không phụ thuộc; gọi lúc chạy từ event/workflow/recorder.js, video-thumb-extract.js, video-player.js
+138e. `core/media-element-ui.js` — gán nguồn/nạp lại/tua/phát/dừng phần tử media nhận qua tham số; không phụ thuộc; gọi lúc chạy từ event/workflow/{player,player-controls,video-player,visual-bg-video,video-thumb-extract}.js
 139. `core/media-picker-drawer-ui.js`
 140. `core/photo-editor-engine.js`
 141. `core/media-transform.js`
@@ -896,7 +896,8 @@ của video; Back/Lưu quay về `../index.html` và cuộn tới mục. Một v
 48. `core/file-manager/video.js`
 49. `components/video-preview.js` — cần: `core/ui-theme/icon-svg-ui.js` (iconSvg)
 50. `core/file-manager/video-ui.js`
-50a. `core/dynamic-object-ui.js` — MỚI 13/10/2026; cần trước lúc chạy của `event/workflow/video-thumb-extract.js`, `event/workflow/video-preview.js`
+50a. `core/dynamic-object-ui.js` — cần trước lúc chạy của `event/workflow/video-thumb-extract.js`, `event/workflow/video-preview.js`
+50b. `core/media-element-ui.js` — cần trước lúc chạy của `event/workflow/video-thumb-extract.js` (seek/phát/dừng `<video>` tạm)
 
 **Workflow dùng chung và cụm videoPreview**
 
@@ -921,7 +922,8 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `assets/icon/icons.js` | index, subtitle-editor, video-editor | `20261007svg1` |
 | `components/loading-shield.js` | index, video-editor | `20260910v1` |
 | `core/dropdown-menu.js` | index, video-editor | `20260921v7` |
-| `core/dynamic-object-ui.js` | index, video-editor | `20261020w18a` |
+| `core/dynamic-object-ui.js` | index, video-editor | `20261021w20c` |
+| `core/media-element-ui.js` | index, video-editor | `20261020w19b` |
 | `core/file-manager/folder.js` | index, video-editor | `20261006db2` |
 | `core/file-manager/image.js` | index, video-editor | `20261014w11` |
 | `core/file-manager/video.js` | index, video-editor | `20261013w7` |
@@ -938,14 +940,14 @@ Các file sau được nạp ở hơn 1 trang — sửa file thì nâng `?v=` �
 | `core/ui-theme/morphin.js` | index, subtitle-editor, video-editor | `20260923v5` |
 | `core/ui-theme/registry.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `core/upload-validation.js` | index, subtitle-editor, video-editor | `20261020w18a` |
-| `core/video-player-capture.js` | index, video-editor | `20261007sg1` |
+| `core/video-player-capture.js` | index, video-editor | `20261021w20a` |
 | `event/bus.js` | index, subtitle-editor, video-editor | `20260703v1` |
 | `event/virtual-machine-state.js` | index, video-editor | `20260701v1` |
 | `event/workflow/generic-drawer-helpers.js` | index, subtitle-editor | `20261007svg1` |
 | `event/workflow/media-transform-helpers.js` | index, video-editor | `20261013w7` |
 | `event/workflow/photo-duration.js` | index, video-editor | `20261014w11` |
-| `event/workflow/video-frame-capture.js` | index, video-editor | `20261006r6` |
-| `event/workflow/video-thumb-extract.js` | index, video-editor | `20261006r6` |
+| `event/workflow/video-frame-capture.js` | index, video-editor | `20261021w20a` |
+| `event/workflow/video-thumb-extract.js` | index, video-editor | `20261021w20c` |
 | `lang/lang.js` | index, subtitle-editor, video-editor | `20260731v1` |
 | `lang/patch/patch-app-panel-nav.js` | index, subtitle-editor, video-editor | `20261014w8` |
 | `lang/patch/patch-common.js` | index, subtitle-editor, video-editor | `20261020w18a` |
