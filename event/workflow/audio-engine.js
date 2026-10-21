@@ -1,27 +1,18 @@
 /**
- * event/workflow/audio-engine.js — Workflow điều phối Web Audio graph (AudioContext/EQ/master gain/2 analyser) và
- * pitch worker (YIN, core/workers/pitch-worker.js).
+ * event/workflow/audio-engine.js — Workflow điều phối Web Audio graph (AudioContext/EQ/master gain/volume gain/2 analyser) và
+ * pitch worker (YIN, core/workers/pitch-worker.js). Core (core/audio-engine.js) chỉ có builder thuần.
+ *   - `setup()` — chưa có context -> dựng graph lần đầu + khởi động vòng lặp; đã có -> resume nếu 'suspended'/'interrupted'.
+ *     Gọi lại nhiều lần/nhiều nguồn an toàn (Song/Video/Photo/VBG Video đều gọi).
+ *   - `connectVideoElement()` — nối `bgVideoElement` vào graph (Video Player / Audio B của VBG Video), sau `setup()`.
+ *   - `ensurePitchWorker()`, `requestPitch()` (event/workflow/audio-analysis.js gọi mỗi frame), `discardPendingPitch()` (đổi bài).
+ *   - `setVolume()` — âm lượng tách khỏi phân tích (volumeGainNode).
+ * Gọi `workflowVisualizerRender.start()` (Workflow gọi Workflow).
  *
- * [MỚI — 01/10/2026, Giang yêu cầu "xử lý toàn bộ" vi phạm core rule phân tích audio] Thay 3 hàm di sản của
- * core/audio-engine.js (setupAudioContext / initPitchWorker / requestPitchDetection — vi phạm R1-R4, xem header file
- * đó). Core bên kia chỉ còn builder thuần; file này làm phần CHUẨN BỊ + ĐIỀU PHỐI:
- *   - `setup()`            — thay `setupAudioContext()`: chưa có context -> dựng graph lần đầu + khởi động vòng lặp;
- *                            đã có -> resume nếu 'suspended'/'interrupted'. Rẽ nhánh bằng object map (mục 7).
- *                            Gọi lại nhiều lần/nhiều nguồn an toàn (Song/Video/Photo/VBG Video đều gọi).
- *   - `ensurePitchWorker()`— thay `initPitchWorker()`.
- *   - `requestPitch()`     — thay `requestPitchDetection()` (event/workflow/audio-analysis.js gọi mỗi frame).
- *   - `setVolume()`        — (01/10/2026) thay `setVolume()` core cũ; âm lượng tách khỏi phân tích (volumeGainNode).
- *   - `discardPendingPitch()` — (01/10/2026) bỏ hồi đáp pitch của bài cũ khi đổi bài.
+ * Hồi đáp của pitch worker (`onmessage`/`onerror`) gắn và xử lý NGAY TẠI ĐÂY, không qua Listener -> Router: đó là nửa sau
+ * của vòng phân tích mỗi frame (Web Worker nằm ngoài kiến trúc). Hot path: `appState.set()` của hồi đáp/khung gửi đi KHÔNG
+ * log (ngoại lệ Rule 4 hot path 60fps); các lần ghi 1 lần/phiên (dựng graph, gắn worker, lỗi worker) CÓ log.
  *
- * `workflowVisualizerRender.start()` nay do Workflow này gọi (Workflow gọi Workflow — hợp lệ), hết ngoại lệ
- * "Core gọi Workflow" duy nhất từng ghi ở readme/event-bus-flow.md mục 1.
- *
- * Hồi đáp của pitch worker (`onmessage`/`onerror`) được gắn và xử lý NGAY TẠI ĐÂY, không qua Listener -> Router:
- * đó là nửa sau của vòng phân tích mỗi frame (cùng trường hợp riêng với task `raf` ở mục 1 event-bus-flow.md) —
- * đi qua eventBus ~60 lần/giây không mang thêm giá trị gì. Hot path: các `appState.set()` của hồi đáp/khung gửi
- * đi KHÔNG log (ngoại lệ Rule 4 hot path 60fps); các lần ghi 1 lần/phiên (dựng graph, gắn worker, lỗi worker) CÓ log.
- *
- * NẠP: sau core/audio-engine.js + core/eq-presets.js + service/state/audio-engine.js, TRƯỚC
+ * NẠP: sau core/audio-engine.js + core/eq-presets.js + core/video-player.js + service/state/audio-engine.js, TRƯỚC
  * event/workflow/audio-analysis.js (xem index.html). Mọi tham chiếu tới workflow khác chỉ xảy ra lúc chạy.
  */
 
@@ -32,23 +23,29 @@ const AUDIO_ENGINE_SETUP_BY_HAS_CONTEXT = {
 };
 
 const workflowAudioEngine = {
-    /** Nguồn MediaElement của `audioPlayer` — giữ tham chiếu suốt phiên (thay biến toàn cục `source` cũ ở
-     * core/dom-refs.js). KHÔNG thuộc STATE: không ai khác cần đọc. */
+    /** Nguồn MediaElement của `audioPlayer` — giữ tham chiếu suốt phiên. KHÔNG thuộc STATE: không ai khác cần đọc. */
     _songSourceNode: null,
     /** Bộ đếm reqId tăng dần + reqId mới nhất đã nhận — loại hồi đáp CŨ về trễ/sai thứ tự (hiếm, lúc giật khung). */
     _pitchReqCounter: 0,
     _latestPitchReqId: -1,
-    /** Hồi đáp worker mới nhất (đầu VÀO của phân tích — không phải đặc trưng; trước đây appState latestPitch*). */
+    /** Hồi đáp worker mới nhất (đầu VÀO của phân tích — không phải đặc trưng). */
     _pitchFrequency: -1,
     _pitchConfidence: 0,
 
     latestPitchFrequency() { return this._pitchFrequency; },
     latestPitchConfidence() { return this._pitchConfidence; },
 
-    /** Đảm bảo audio graph tồn tại và đang chạy. Thay `setupAudioContext()` (core cũ) ở mọi nơi gọi. */
+    /** Đảm bảo audio graph tồn tại và đang chạy. */
     setup() {
         const audioContext = appState.get('audioContext');
         AUDIO_ENGINE_SETUP_BY_HAS_CONTEXT[!!audioContext](audioContext);
+    },
+
+    /** Nối `bgVideoElement` vào ĐIỂM VÀO chuỗi EQ (chưa có EQ thì master gain) — gọi sau `setup()`, gọi lặp vô hại. */
+    connectVideoElement() {
+        const { audioContext, eqBandNodes, masterGainNode } = appState.get(['audioContext', 'eqBandNodes', 'masterGainNode']);
+        const eqEntryNode = (eqBandNodes && eqBandNodes.length > 0) ? eqBandNodes[0] : masterGainNode; // chọn GIÁ TRỊ
+        connectVideoElementToAnalyser(audioContext, eqEntryNode); // core/video-player.js
     },
 
     /** Lần đầu trong phiên: dựng toàn bộ graph (thứ tự nối giữ nguyên bản cũ), ghi state, tạo pitch worker, khởi
@@ -59,7 +56,7 @@ const workflowAudioEngine = {
         this._songSourceNode = sourceNode;
         const analyserPitch = createAnalyserNode(audioContext, APP_CONFIG.fftSizePitch); // core
         const masterGainNode = createGainNode(audioContext, 1); // core — cổng seek (câm cả loa lẫn phân tích), bình thường = 1
-        const volumeGainNode = createGainNode(audioContext, vizCfg.volume / 100); // core — CHỈ nhánh ra loa (01/10/2026)
+        const volumeGainNode = createGainNode(audioContext, vizCfg.volume / 100); // core — CHỈ nhánh ra loa
         const eq = buildPeakingEqChain(audioContext, sourceNode, EQ_FREQS); // core
         // Preset EQ nạp lúc boot (workflowEqPresets.loadPresetsOnBoot()) — luôn xong trước lượt phát đầu tiên; không
         // khớp id nào (chưa nạp kịp/đã xoá) thì EQ phẳng.
@@ -155,9 +152,8 @@ const workflowAudioEngine = {
     },
 
     /**
-     * Đổi bài/video (event/workflow/audio-analysis.js::resetForNewMedia()): mọi hồi đáp đang "bay" của bài CŨ phải bị bỏ —
-     * trước đây chỉ đặt `latestPitchFrequency = -1` nên hồi đáp cũ về sau vẫn được nhận, nốt bài cũ hiện ~250 ms (lỗi 4,
-     * 01/10/2026). Nâng mốc reqId lên trên mọi request đã gửi; request kế tiếp (= mốc mới) vẫn được nhận.
+     * Đổi bài/video (event/workflow/audio-analysis.js::resetForNewMedia()): mọi hồi đáp đang "bay" của bài CŨ phải bị bỏ
+     * (không thì nốt bài cũ hiện ~250 ms) — nâng mốc reqId lên trên mọi request đã gửi; request kế tiếp (= mốc mới) vẫn được nhận.
      */
     discardPendingPitch() {
         this._latestPitchReqId = this._pitchReqCounter + 1;

@@ -679,7 +679,8 @@ const workflowPlayerControls = {
      * đồng bộ Visual BG (đúng thứ tự). */
     handleAudioPlayEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // play() tạm của cổng seek, không phải người dùng phát lại
-        handleAudioPlay(); // core/player-controls.js
+        clearPlaybackStoppedAtPlaylistEnd(); // core/player-controls.js
+        setPlayerPlayingUi(true); // core/player-controls.js
         workflowListenStats.startClock(); // event/workflow/listen-stats.js
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js
         const currentKey = appState.get('currentKey');
@@ -691,7 +692,7 @@ const workflowPlayerControls = {
     /** Ứng với 'playerControls.audio.pause', đối xứng `handleAudioPlayEvent()` ngay trên. Cuối cùng xả hàng đợi tiếng iOS (`_flushSongQueueAfterPause()`), xem docblock method đó. */
     handleAudioPauseEvent() {
         if (this.isHeldBySeekGate(audioPlayer)) return; // pause() tạm của cổng seek, không đổi icon/đồng hồ/VBG
-        handleAudioPause(); // core/player-controls.js
+        setPlayerPlayingUi(false); // core/player-controls.js
         workflowWakeLock.release();
         workflowListenStats.stopClock(); // event/workflow/listen-stats.js
         workflowAutoSwitchVisual.syncPlayState(); // event/workflow/auto-switch-visual.js

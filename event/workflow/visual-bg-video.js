@@ -392,7 +392,7 @@ Object.assign(workflowVisualBg, {
     /** Audio B bật: đảm bảo audio graph (event/workflow/audio-engine.js), nối bgVideoElement vào graph rồi đặt gain. */
     _connectVideoAudio(gain) {
         workflowAudioEngine.setup(); // event/workflow/audio-engine.js — thay setupAudioContext() (core cũ)
-        connectVideoElementToAnalyser(); // core/video-player.js
+        workflowAudioEngine.connectVideoElement(); // event/workflow/audio-engine.js
         setVideoBgGain(gain); // core/video-player.js
     },
 

@@ -4,9 +4,11 @@
  * đúng hàm này lúc Lưu nhưng không nạp được cả workflowPlaylist. Public: `extract(file)`, `probeFrame(source)`.
  * Dùng ở: index.html (upload video, Scan & fix video thumbnails) + video-editor.html (Lưu).
  *
- * `<video>` tạm + sự kiện của nó đi qua core/dynamic-object-ui.js (ngoại lệ chính thức — đối tượng tạo động).
+ * `<video>` tạm + sự kiện của nó đi qua core/dynamic-object-ui.js (ngoại lệ chính thức — đối tượng tạo động); vẽ/đo/mã hoá
+ * khung ở core/video-player-capture.js, điều khiển `<video>` tạm ở core/media-element-ui.js.
  *
- * NẠP SAU: service/task-manager.js, core/dynamic-object-ui.js. Không phụ thuộc gì khác của index.html.
+ * NẠP SAU: service/task-manager.js, service/blob-url.js, core/dynamic-object-ui.js, core/video-player-capture.js,
+ * core/media-element-ui.js (cả 2 trang đều nạp).
  */
 /** Cạnh thumbnail vuông cố định của video (`extract()`). */
 const VIDEO_THUMBNAIL_SIZE = 320;
@@ -23,6 +25,37 @@ const VIDEO_FIRST_FRAME_MAX_ATTEMPTS = 12; // số lần thử ở đường d�
 const VIDEO_FIRST_FRAME_RETRY_MS = 150; // khoảng cách giữa 2 lần thử
 const VIDEO_SEEK_TIMEOUT_MS = 3000; // đợi 'seeked' tối đa
 const VIDEO_EXTRACT_TIMEOUT_MS = 10000; // timeout tổng 1 file
+
+/** 1 lần chụp khung đầu (classifyFrameGrab()) — trả true = xong. 'black': giữ làm ứng viên, đủ VIDEO_BLACK_CONFIRM_COUNT lần
+ * (mà vẫn vẽ được) = đen THẬT. `session` = { best, blackCount }. */
+const FIRST_FRAME_GRAB_BY_VERDICT = {
+    none: () => false,
+    ok: (session, grab) => {
+        workflowVideoThumbExtract._keepBestGrab(session, grab);
+        return true;
+    },
+    black: (session, grab) => {
+        workflowVideoThumbExtract._keepBestGrab(session, grab);
+        session.blackCount += 1;
+        return isBlackFrameConfirmed(session.blackCount, VIDEO_BLACK_CONFIRM_COUNT); // core/video-player-capture.js
+    },
+};
+
+/** Khung requestVideoFrameCallback: còn là khung đầu -> giữ; quá mốc -> bỏ (giải phóng canvas). */
+const FIRST_FRAME_PRESENTED_BY_IS_FIRST = {
+    true: (grab) => grab,
+    false: (grab) => {
+        releaseCanvas(grab.canvas); // core/video-player-capture.js
+        return null;
+    },
+};
+
+/** 1 lần thử ở đường dự phòng (resolveFirstFrameRetryStep()) — trả true = xong. */
+const FIRST_FRAME_RETRY_BY_STEP = {
+    grab: (videoEl, width, height, session) => workflowVideoThumbExtract._considerGrab(session, workflowVideoThumbExtract._grabFullFrame(videoEl, width, height)),
+    nudge: (videoEl, width, height, session, retry) => workflowVideoThumbExtract._nudgeDecode(videoEl, retry),
+    wait: () => false,
+};
 
 const workflowVideoThumbExtract = {
     // ===================== Chụp khung hình đầu video =====================
@@ -41,159 +74,130 @@ const workflowVideoThumbExtract = {
         });
     },
 
-    /** Ngủ `ms` — qua taskManager (quy ước project, thay setTimeout). */
+    /** Ngủ `ms` qua taskManager. */
     _sleep(ms) {
         return new Promise((resolve) => { taskManager.once(resolve, ms); });
     },
 
     /** Seek `videoEl` tới `timeSec` và đợi 'seeked' (+ 60ms cho khung kịp sẵn sàng). Đã đứng đúng mốc thì bỏ qua (không có 'seeked' để đợi). */
     async _seekVideoTo(videoEl, timeSec) {
-        if (Math.abs(videoEl.currentTime - timeSec) < 0.0001) return;
+        if (isAtMediaTime(videoEl.currentTime, timeSec)) return; // guard — core/video-player-capture.js
         const seeked = this._waitVideoEvent(videoEl, 'seeked', VIDEO_SEEK_TIMEOUT_MS); // đăng ký TRƯỚC khi gán currentTime
-        videoEl.currentTime = timeSec;
+        seekMediaElement(videoEl, timeSec); // core/media-element-ui.js
         await seeked;
         await this._sleep(60);
     },
 
-    /** Vẽ khung hình HIỆN TẠI của `source` (`<video>`, hoặc `<img>` đã decode — dùng cho scan thumb cũ,
-     * xem workflowFileManagerStorage._classifyThumbBlob()) xuống canvas nhỏ rồi đo. `drawn=false` khi không vẽ được gì
-     * (drawImage ném lỗi, hoặc mọi pixel alpha=0 — theo spec `drawImage()` không vẽ gì nếu video chưa có
-     * khung); `isBlack=true` khi ≥ VIDEO_BLACK_FRAME_RATIO số pixel có luma ≤ VIDEO_BLACK_PIXEL_LUMA.
-     * Không đọc được pixel (getImageData lỗi) -> coi như vẽ được + không đen (không đủ dữ kiện để từ chối). */
+    /** Đo khung HIỆN TẠI của `source` (`<video>`, hoặc `<img>` đã decode — scan thumb cũ, workflowFileManagerStorage) theo
+     * ngưỡng đen của file này — xem probeDrawableFrame() (core/video-player-capture.js). @returns {{drawn: boolean, isBlack: boolean}} */
     probeFrame(source) {
-        const size = VIDEO_PROBE_SIZE;
-        const probeCanvas = document.createElement('canvas');
-        probeCanvas.width = size; probeCanvas.height = size;
-        let drawn = false, isBlack = false;
-        let data = null;
-        try {
-            const ctx = probeCanvas.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(source, 0, 0, size, size);
-            try { data = ctx.getImageData(0, 0, size, size).data; }
-            catch (readErr) { drawn = true; } // vẽ được nhưng không đo được
-        } catch (drawErr) { drawn = false; } // Firefox/Safari có thể ném lỗi khi video chưa có khung
-        if (data) {
-            let blackPixels = 0;
-            for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] > 0) drawn = true;
-                const luma = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
-                if (luma <= VIDEO_BLACK_PIXEL_LUMA) blackPixels++;
-            }
-            isBlack = drawn && (blackPixels / (size * size)) >= VIDEO_BLACK_FRAME_RATIO;
-        }
-        probeCanvas.width = 0; probeCanvas.height = 0;
-        return { drawn, isBlack };
+        return probeDrawableFrame(source, VIDEO_PROBE_SIZE, VIDEO_BLACK_PIXEL_LUMA, VIDEO_BLACK_FRAME_RATIO); // core/video-player-capture.js
     },
 
-    /** Chụp full-res khung hình HIỆN TẠI — ĐỒNG BỘ (đo + vẽ trong CÙNG 1 tick, không thể lệch khung).
-     * Cạnh canvas giữ nguyên kích thước gốc, chỉ thu nhỏ đều nếu vượt VIDEO_MAX_CANVAS_PIXELS (Safari/iOS).
+    /** Chụp full-res khung HIỆN TẠI — ĐỒNG BỘ (đo + vẽ trong CÙNG 1 tick, không thể lệch khung).
      * @returns {{drawn: boolean, isBlack: boolean, canvas: HTMLCanvasElement|null}} */
     _grabFullFrame(videoEl, width, height) {
         const probe = this.probeFrame(videoEl);
-        if (!probe.drawn) return { drawn: false, isBlack: false, canvas: null };
-        const scale = Math.min(1, Math.sqrt(VIDEO_MAX_CANVAS_PIXELS / (width * height)));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.floor(width * scale));
-        canvas.height = Math.max(1, Math.floor(height * scale));
-        try {
-            canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        } catch (err) {
-            canvas.width = 0; canvas.height = 0;
-            return { drawn: false, isBlack: false, canvas: null };
-        }
-        return { drawn: true, isBlack: probe.isBlack, canvas };
+        if (!probe.drawn) return { drawn: false, isBlack: false, canvas: null }; // guard
+        return drawVideoFrameFull(videoEl, width, height, VIDEO_MAX_CANVAS_PIXELS, probe.isBlack); // core/video-player-capture.js
     },
 
-    /** canvas -> JPEG Blob, rồi thu nhỏ canvas về 0 (giải phóng bộ nhớ — Safari giữ canvas rất lâu). */
-    _canvasToJpegBlob(canvas, quality) {
-        return new Promise((resolve) => {
-            canvas.toBlob((blob) => {
-                canvas.width = 0; canvas.height = 0;
-                resolve(blob);
-            }, 'image/jpeg', quality);
-        });
+    /** Giữ lần chụp mới làm ứng viên, giải phóng canvas ứng viên cũ. */
+    _keepBestGrab(session, grab) {
+        releaseCanvas(session.best && session.best.canvas); // core/video-player-capture.js
+        session.best = grab;
     },
 
-    /** KHUNG ĐẦU TIÊN của video — đúng thứ player sẽ hiện lúc bắt đầu phát (xem docstring extract()).
-     * Đường chính: `requestVideoFrameCallback` — play() từ t=0 (không seek), callback bắn khi khung đầu THẬT SỰ
-     * được present; chụp NGAY trong callback rồi pause(). Khung có `mediaTime` > VIDEO_FIRST_FRAME_MAX_MEDIA_TIME_SEC
-     * không còn là khung đầu -> bỏ. Đường dự phòng (không có rVFC / hết giờ / khung không vẽ được hoặc đen):
-     * seek về 0 rồi thử lại tối đa VIDEO_FIRST_FRAME_MAX_ATTEMPTS lần. Đen ≥ VIDEO_BLACK_CONFIRM_COUNT lần liên
-     * tiếp (mà vẫn VẼ ĐƯỢC) = đen THẬT (fade-in...) -> chấp nhận, KHÔNG đổi sang khung khác.
+    /** @returns {boolean} true = đã có khung dùng được (xem FIRST_FRAME_GRAB_BY_VERDICT) */
+    _considerGrab(session, grab) {
+        return FIRST_FRAME_GRAB_BY_VERDICT[classifyFrameGrab(grab)](session, grab); // core/video-player-capture.js
+    },
+
+    /** KHUNG ĐẦU TIÊN của video — đúng thứ player sẽ hiện lúc bắt đầu phát (xem docstring extract()). Đường chính:
+     * `_captureViaFrameCallback()`. Đường dự phòng (không có rVFC / hết giờ / khung không vẽ được hoặc đen): seek về 0 rồi thử
+     * lại tối đa VIDEO_FIRST_FRAME_MAX_ATTEMPTS lần. Đen ≥ VIDEO_BLACK_CONFIRM_COUNT lần (mà vẫn VẼ ĐƯỢC) = đen THẬT -> chấp
+     * nhận, KHÔNG đổi sang khung khác.
      * @returns {Promise<{drawn: boolean, isBlack: boolean, canvas: HTMLCanvasElement}>} ném lỗi nếu không lần nào vẽ được. */
     async _captureFirstFrame(videoEl, width, height) {
-        let best = null;
-        let blackCount = 0;
-        const releaseCanvas = (c) => { if (c) { c.width = 0; c.height = 0; } };
-        const consider = (grab) => { // 'ok' | 'black' | 'none'
-            if (!grab || !grab.drawn) return 'none';
-            if (best) releaseCanvas(best.canvas);
-            best = grab;
-            return grab.isBlack ? 'black' : 'ok';
-        };
-        const isDone = (verdict) => {
-            if (verdict === 'ok') return true;
-            if (verdict === 'black') { blackCount++; return blackCount >= VIDEO_BLACK_CONFIRM_COUNT; }
-            return false;
-        };
-
-        // ---- Đường chính: requestVideoFrameCallback ----
-        if (typeof videoEl.requestVideoFrameCallback === 'function') {
-            let abandoned = false; // callback tới trễ sau khi đã hết giờ -> bỏ, không tạo canvas mồ côi
-            const grabbed = await new Promise((resolve) => {
-                const timer = taskManager.once(() => { abandoned = true; resolve(null); }, VIDEO_FIRST_FRAME_RVFC_TIMEOUT_MS);
-                videoEl.requestVideoFrameCallback((now, metadata) => {
-                    if (abandoned) return;
-                    timer.kill();
-                    let grab = this._grabFullFrame(videoEl, width, height); // ĐỒNG BỘ trong callback = đúng khung vừa present
-                    if (metadata && metadata.mediaTime > VIDEO_FIRST_FRAME_MAX_MEDIA_TIME_SEC) { releaseCanvas(grab.canvas); grab = null; }
-                    videoEl.pause();
-                    resolve(grab);
-                });
-                videoEl.play().catch(() => {}); // muted + playsInline — autoplay được phép
-            });
-            if (isDone(consider(grabbed))) return best;
-        }
+        const session = { best: null, blackCount: 0 };
+        if (await this._captureViaFrameCallback(videoEl, width, height, session)) return session.best;
 
         // ---- Đường dự phòng / thử lại ----
-        videoEl.pause();
+        pauseMediaElement(videoEl); // core/media-element-ui.js
         await this._seekVideoTo(videoEl, 0);
-        let nudged = false; // chỉ "nhá" play() ép decode 1 lần (iOS không tải khung nếu chưa play)
+        const retry = { nudged: false }; // chỉ "nhá" play() ép decode 1 lần
         for (let i = 0; i < VIDEO_FIRST_FRAME_MAX_ATTEMPTS; i++) {
-            if (videoEl.readyState >= 2) {
-                if (isDone(consider(this._grabFullFrame(videoEl, width, height)))) return best;
-            } else if (!nudged) {
-                nudged = true;
-                try { await Promise.race([videoEl.play(), this._sleep(1500)]); } catch (e) {}
-                videoEl.pause();
-                await this._seekVideoTo(videoEl, 0);
-            }
+            const step = resolveFirstFrameRetryStep(hasMediaCurrentFrame(videoEl.readyState), retry.nudged); // core/video-player-capture.js
+            if (await FIRST_FRAME_RETRY_BY_STEP[step](videoEl, width, height, session, retry)) return session.best;
             await this._sleep(VIDEO_FIRST_FRAME_RETRY_MS);
         }
-        if (best) return best; // các lần vẽ được đều đen -> đen thật
+        if (session.best) return session.best; // guard — các lần vẽ được đều đen -> đen thật
         throw new Error('[extractVideoThumbAndMeta] không vẽ được khung hình đầu (video không cho khung nào sau nhiều lần thử)');
+    },
+
+    /** Đường chính: `requestVideoFrameCallback` — play() từ t=0 (không seek), callback bắn khi khung đầu THẬT SỰ được present;
+     * chụp NGAY trong callback rồi pause(). Trình duyệt không có rVFC -> bỏ qua. @returns {Promise<boolean>} true = xong */
+    async _captureViaFrameCallback(videoEl, width, height, session) {
+        const capture = { settled: false, resolve: null, timer: null };
+        const grabbedPromise = new Promise((resolve) => { capture.resolve = resolve; });
+        const frameWait = requestVideoFrameOnce(videoEl, (metadata) => this._onFirstPresentedFrame(capture, videoEl, width, height, metadata)); // core/dynamic-object-ui.js
+        if (!frameWait.supported) return false; // guard — trình duyệt không có rVFC
+        capture.timer = taskManager.once(() => this._abandonFirstFrameWait(capture, frameWait), VIDEO_FIRST_FRAME_RVFC_TIMEOUT_MS);
+        playMediaElementAwaitable(videoEl).catch(() => {}); // core/media-element-ui.js — muted + playsInline: autoplay được phép
+        return this._considerGrab(session, await grabbedPromise);
+    },
+
+    /** Khung đầu vừa trình chiếu (ĐỒNG BỘ trong callback rVFC). Đã hết giờ -> bỏ (không tạo canvas mồ côi). */
+    _onFirstPresentedFrame(capture, videoEl, width, height, metadata) {
+        if (capture.settled) return; // guard
+        capture.settled = true;
+        capture.timer.kill();
+        capture.resolve(this._grabPresentedFrame(videoEl, width, height, metadata));
+    },
+
+    /** Hết giờ chờ khung đầu -> huỷ yêu cầu rVFC, đi đường dự phòng. */
+    _abandonFirstFrameWait(capture, frameWait) {
+        if (capture.settled) return; // guard
+        capture.settled = true;
+        frameWait.cancel();
+        capture.resolve(null);
+    },
+
+    /** Trong callback rVFC: chụp ĐỒNG BỘ (= đúng khung vừa present), bỏ nếu không còn là khung đầu, rồi dừng video. */
+    _grabPresentedFrame(videoEl, width, height, metadata) {
+        const grab = this._grabFullFrame(videoEl, width, height);
+        const kept = FIRST_FRAME_PRESENTED_BY_IS_FIRST[isFirstPresentedFrame(metadata, VIDEO_FIRST_FRAME_MAX_MEDIA_TIME_SEC)](grab); // core/video-player-capture.js
+        pauseMediaElement(videoEl); // core/media-element-ui.js
+        return kept;
+    },
+
+    /** iOS không tải khung nếu chưa play: "nhá" play() (tối đa 1,5 s) rồi dừng, tua lại về 0. @returns {Promise<boolean>} luôn false */
+    async _nudgeDecode(videoEl, retry) {
+        retry.nudged = true;
+        try { await Promise.race([playMediaElementAwaitable(videoEl), this._sleep(1500)]); } catch (e) {} // core/media-element-ui.js
+        pauseMediaElement(videoEl);
+        await this._seekVideoTo(videoEl, 0);
+        return false;
     },
 
     /** Thumb VUÔNG (lưới/cover) ở mốc `min(1, duration/2)` — center-crop `VIDEO_THUMBNAIL_SIZE`. Thử lại tới khi vẽ được. @returns {Promise<Blob|null>} */
     async _captureSquareThumb(videoEl) {
-        await this._seekVideoTo(videoEl, Math.min(1, videoEl.duration / 2 || 0));
+        await this._seekVideoTo(videoEl, computeSquareThumbTimeSec(videoEl.duration)); // core/video-player-capture.js
         for (let i = 0; i < VIDEO_FIRST_FRAME_MAX_ATTEMPTS; i++) {
-            if (videoEl.readyState >= 2 && this.probeFrame(videoEl).drawn) {
-                const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                const side = Math.min(width, height);
-                const sx = (width - side) / 2, sy = (height - side) / 2;
-                const canvas = document.createElement('canvas');
-                canvas.width = VIDEO_THUMBNAIL_SIZE; canvas.height = VIDEO_THUMBNAIL_SIZE;
-                try {
-                    canvas.getContext('2d').drawImage(videoEl, sx, sy, side, side, 0, 0, VIDEO_THUMBNAIL_SIZE, VIDEO_THUMBNAIL_SIZE);
-                    return await this._canvasToJpegBlob(canvas, 0.85);
-                } catch (err) {
-                    canvas.width = 0; canvas.height = 0; // rớt xuống thử lại
-                }
-            }
+            const attempt = await this._trySquareThumb(videoEl);
+            if (attempt) return attempt.blob; // guard — đã vẽ được (blob có thể null nếu mã hoá lỗi)
             await this._sleep(VIDEO_FIRST_FRAME_RETRY_MS);
         }
         return null;
+    },
+
+    /** 1 lần chụp thumb vuông. @returns {Promise<{blob: Blob|null}|null>} null = chưa vẽ được, thử lại */
+    async _trySquareThumb(videoEl) {
+        if (!hasMediaCurrentFrame(videoEl.readyState)) return null; // guard — core/video-player-capture.js
+        if (!this.probeFrame(videoEl).drawn) return null; // guard
+        const canvas = drawVideoSquareThumb(videoEl, VIDEO_THUMBNAIL_SIZE); // core/video-player-capture.js
+        if (!canvas) return null; // guard — vẽ lỗi
+        return { blob: await canvasToJpegBlobReleased(canvas, 0.85) }; // core/video-player-capture.js
     },
 
     /** Đọc thời lượng/kích thước + chụp 2 thumbnail của 1 file video:
@@ -215,7 +219,7 @@ const workflowVideoThumbExtract = {
      */
     extract(file) {
         return new Promise((resolve, reject) => {
-            const objectUrl = URL.createObjectURL(file);
+            const objectUrl = createBlobUrl(file); // service/blob-url.js
             const videoEl = createDetachedVideoElement(); // core/dynamic-object-ui.js
             const errorWait = listenEventOnce(videoEl, 'error'); // core/dynamic-object-ui.js
             let metaWait = null;
@@ -224,7 +228,7 @@ const workflowVideoThumbExtract = {
                 errorWait.cancel();
                 if (metaWait) metaWait.cancel();
                 releaseMediaElement(videoEl); // core/dynamic-object-ui.js — giải phóng decoder thật sự, không chờ GC
-                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+                revokeBlobUrl(objectUrl); // service/blob-url.js
             };
             const safetyTimeout = taskManager.once(() => fail(new Error('[extractVideoThumbAndMeta] timeout đọc video')), VIDEO_EXTRACT_TIMEOUT_MS);
             const fail = (err) => { if (settled) return; settled = true; safetyTimeout.kill(); dispose(); reject(err); };
@@ -239,7 +243,7 @@ const workflowVideoThumbExtract = {
                     if (!width || !height) throw new Error('[extractVideoThumbAndMeta] video không có kích thước hợp lệ');
 
                     const first = await this._captureFirstFrame(videoEl, width, height);
-                    const thumbFullBlob = await this._canvasToJpegBlob(first.canvas, 0.92);
+                    const thumbFullBlob = await canvasToJpegBlobReleased(first.canvas, 0.92); // core/video-player-capture.js
                     if (!thumbFullBlob) throw new Error('[extractVideoThumbAndMeta] chụp full-res thất bại (canvas.toBlob trả về null)');
 
                     const thumbBlob = await this._captureSquareThumb(videoEl);

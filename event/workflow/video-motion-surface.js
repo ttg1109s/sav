@@ -1,19 +1,19 @@
 /**
- * event/workflow/video-motion-surface.js — "VIDEO SURFACE": tầng 2 "bề mặt media" cho nội dung VIDEO A/B,
- * DÙNG CHUNG cho mọi nơi tiêu thụ nội dung video nền (Player Video — đợt 4; VBG Video — đợt 5).
- * MỚI (25/09/2026, đợt 4 — Giang duyệt mô hình 3 tầng: Motion (cơ chế) -> Bề mặt media -> Nơi tiêu thụ).
+ * event/workflow/video-motion-surface.js — "VIDEO SURFACE": tầng 2 "bề mặt media" cho nội dung VIDEO A/B, DÙNG CHUNG cho
+ * mọi nơi tiêu thụ nội dung video nền (Player Video, VBG Video). Mô hình 3 tầng (Giang duyệt): Motion (cơ chế) -> Bề mặt
+ * media -> Nơi tiêu thụ.
  *
  * NGUYÊN TẮC TUA VÍT: file này NẰM NGOÀI domain Motion — biết nội dung là video A/B (layer A = `bgVideoElement`
  * bọc trong `videoPlayerMotionPointMoveElement`, layer B = `visualBgImageElement` làm cầu nối thumb full-res),
  * nhưng KHÔNG biết ai dùng nó: không tra preset, không tính thời lượng, không hẹn giờ, không biết VBG/Player.
  * Mọi quyết định (preset nào, advanceMs bao nhiêu, React Beat lấy preset gì, tốc độ) do nơi tiêu thụ truyền vào.
  *
- * GOM về đây (trước nằm rải ở event/workflow/player-display-settings.js — 3 Runner RIÊNG của Player Video):
- *   - Mượn `workflowMotionStage` (event/workflow/motion-stage.js) — 3 Runner giờ là của Stage, KHÔNG còn bộ
- *     Runner riêng nào cho video (hết rủi ro 2 bộ Runner cùng ghi transform lên `motionEngineReactLayer`).
+ * Việc của surface:
+ *   - Mượn `workflowMotionStage` (event/workflow/motion-stage.js) — 3 Runner là của Stage, không có bộ Runner riêng cho
+ *     video (không có 2 bộ Runner cùng ghi transform lên `motionEngineReactLayer`).
  *   - Gắn/gỡ cấu trúc DOM A/B vào `motionEngineReactLayer` (`attachVideoPlayerMotionToSharedReactLayer()`/
- *     `detachVideoPlayerMotionFromSharedReactLayer()`, core/player-display-apply.js — GIỮ NGUYÊN tên, Giang
- *     chốt không đổi tên) — gắn lúc `acquire()`, gỡ lúc `release()`.
+ *     `detachVideoPlayerMotionFromSharedReactLayer()`, core/player-display-apply.js — Giang chốt giữ tên) — gắn lúc
+ *     `acquire()`, gỡ lúc `release()`.
  *   - Transition giữa layer A (frame đóng băng) và layer B (thumb mới) — container `motionEngineReactLayer`.
  *
  * `owner` — chuỗi MỜ do nơi tiêu thụ tự đặt, surface chỉ so bằng (CÙNG khuôn Image surface): mọi lệnh sai
@@ -21,10 +21,9 @@
  *
  * Phần CƠ CHẾ ĐỔI NGUỒN video (pause frame cũ -> decode thumb full-res vào layer B -> [Transition] -> ẩn A ->
  * gán src -> hiện lại khi 'playing') VẪN ở `workflowVideoPlayer.swapBgVideoSource()` (event/workflow/video-
- * player.js) — hàm đó giờ nhận HOOK (`runTransition`/`onLayerBFilled`) do nơi gọi truyền, KHÔNG còn tự rẽ nhánh
- * Player hay gọi thẳng workflowPlayerDisplaySettings cho phần Motion.
+ * player.js) — hàm đó nhận HOOK (`runTransition`/`onLayerBFilled`) do nơi gọi truyền.
  *
- * NẠP SAU: core/player-display-apply.js, core/dom-refs.js. Gọi `workflowMotionStage` lúc chạy.
+ * NẠP SAU: core/player-display-apply.js, core/video-player.js, core/dom-refs.js. Gọi `workflowMotionStage` lúc chạy.
  */
 
 const workflowVideoMotionSurface = {
@@ -39,20 +38,20 @@ const workflowVideoMotionSurface = {
         return !!owner && this._owner === owner && workflowMotionStage.isCurrent(this._stageToken); // event/workflow/motion-stage.js
     },
 
-    /** MỚI (đợt 5) — DOM A/B đang gắn trên surface (bất kể owner nào) hay không — cơ chế đổi nguồn
+    /** DOM A/B đang gắn trên surface (bất kể owner nào) hay không — cơ chế đổi nguồn
      * (`workflowVideoPlayer.swapBgVideoSource()`) dùng để biết layer đang ở chế độ `.motion-layer` (layer B mặc
      * định `opacity:0`, cần `.me-current` mới thấy). @returns {boolean} */
     isAttached() {
         return !!this._owner;
     },
 
-    /** MỚI (đợt 5) — đưa layer B (cầu nối thumb) lên làm "current" NGAY — dùng khi nơi tiêu thụ vừa mượn surface
+    /** Đưa layer B (cầu nối thumb) lên làm "current" NGAY — dùng khi nơi tiêu thụ vừa mượn surface
      * trong lúc layer B ĐANG hiện sẵn 1 thumb tĩnh (vd VBG Video: thumb placeholder lúc Song còn dừng) — gắn vào
      * `.motion-layer` sẽ ẩn nó (opacity 0) cho tới khi lượt đổi nguồn kịp decode lại, gây chớp đen. Không đụng
      * nội dung layer. No-op nếu sai owner. @param {string} owner */
     showBridgeLayer(owner) {
         if (!this.hasLease(owner) || !visualBgImageElement) return;
-        visualBgImageElement.classList.add('me-current'); // core/dom-refs.js
+        markBridgeLayerCurrent(visualBgImageElement); // core/video-player.js
     },
 
     /** Mượn surface: gắn DOM A/B vào lớp React Beat + mượn Stage. Cùng owner gọi lại -> chỉ cập nhật getter.
@@ -91,7 +90,7 @@ const workflowVideoMotionSurface = {
      * VỪA nhận thumb MỚI) — nơi gọi tự lo NỘI DUNG 2 layer trước/sau (surface không đụng). Sai owner -> resolve
      * ngay (coi như cắt cứng, không chặn luồng đổi nguồn).
      * @param {string} owner @param {object} preset @param {number} capMs - 0 = không kẹp
-     * @param {{releaseBeat?: boolean}} [options] - MỚI (29/09/2026): `releaseBeat` — nơi tiêu thụ muốn React Beat nhả
+     * @param {{releaseBeat?: boolean}} [options] - `releaseBeat` — nơi tiêu thụ muốn React Beat nhả
      *        về baseline SONG SONG và KẾT THÚC ĐÚNG cùng lúc Transition (thời lượng thật do Stage trả về; cắt cứng -> decay
      *        chuẩn của Runner). Surface chỉ nối 2 cơ chế theo yêu cầu, không tự quyết.
      * @returns {Promise<void>} resolve khi layer A "xong việc" */
@@ -140,7 +139,7 @@ const workflowVideoMotionSurface = {
         workflowMotionStage.resume(this._stageToken);
     },
 
-    /** MỚI (29/09/2026) — React Beat nhả êm về baseline (Point Move giữ nguyên trạng thái), `resume()` kết thúc.
+    /** React Beat nhả êm về baseline (Point Move giữ nguyên trạng thái), `resume()` kết thúc.
      * @param {string} owner @param {number} [durationMs] - xem workflowMotionStage.releaseBeat() */
     releaseBeat(owner, durationMs) {
         if (!this.hasLease(owner)) return;
