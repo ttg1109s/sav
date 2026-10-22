@@ -31,11 +31,10 @@ function renderFileManagerStorageManagementPanelBody() {
                             <span id="stat-storage-total-bytes" class="text-lg font-bold font-mono tabular-nums" data-uitk="textPrimary">—</span>
                         </div>
                         <!-- Mỗi đoạn ấn được (data-legend-key) — hiện số byte THẬT của đoạn đó
-                             (workflowFileManagerStorage.showSegmentBytes()). Có navigator.storage.estimate():
-                             thang đo = quota của app — 3 đoạn media + "Khác" (usage origin trừ media), phần
-                             track còn lại = còn trống. Không có estimate (trình duyệt cũ/file://): tỉ lệ giữa
-                             3 media, dòng "còn trống" ẩn. Đoạn "Khác" màu inline (slate-400) vì bg-slate-400
-                             chưa có trong assets/css/tailwind.css. -->
+                             (workflowFileManagerStorage.showSegmentBytes()). Có quota (estimate(), hoặc mốc 1 GB
+                             của Safari < 17): thang đo = quota — 3 đoạn media + "Khác" (usage origin trừ media),
+                             phần track còn lại = còn trống. Không có quota: tỉ lệ giữa 3 media, dòng "còn trống"
+                             ẩn. Đoạn "Khác" màu inline (slate-400) vì bg-slate-400 chưa có trong tailwind.css. -->
                         <div class="flex flex-col gap-1.5">
                             <div class="h-2.5 w-full rounded-full overflow-hidden flex" data-uitk="progressTrackBg">
                                 <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
@@ -50,6 +49,16 @@ function renderFileManagerStorageManagementPanelBody() {
                                     ${renderInfoIconHtml(t('storageDrawer.statFreeBytesInfo'))}
                                 </span>
                                 <span id="stat-storage-free-bytes" class="text-xs font-mono tabular-nums" data-uitk="textSecondary">—</span>
+                            </div>
+                            <!-- Chỉ hiện khi Safari < 17 (không có estimate(), quota là mốc mặc định 1 GB). -->
+                            <p id="stat-storage-legacy-quota-note" class="hidden text-[11px] leading-snug" data-uitk="textSecondary" data-i18n="storageDrawer.legacyQuotaNote">${t('storageDrawer.legacyQuotaNote')}</p>
+                            <!-- Chế độ lưu trữ theo navigator.storage.persisted(); trình duyệt không có API -> ẩn. -->
+                            <div id="stat-storage-persist-row" class="hidden flex items-baseline justify-between">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="text-xs" data-uitk="textSecondary" data-i18n="storageDrawer.persistLabel">${t('storageDrawer.persistLabel')}</span>
+                                    ${renderInfoIconHtml(t('storageDrawer.persistInfo'))}
+                                </span>
+                                <span id="stat-storage-persist-text" class="text-xs" data-uitk="textSecondary">—</span>
                             </div>
                         </div>
                         <!-- List số lượng 3 domain, chấm màu khớp màu thanh chia đoạn ở trên. -->
