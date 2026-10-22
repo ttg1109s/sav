@@ -27,6 +27,35 @@ const RAIN_STREET_GROUND_STOPS_BY_MODE = {
     gradient: () => [{ offset: 0, color: 'rgba(15, 20, 28, 0.9)' }, { offset: 1, color: 'rgba(8, 10, 15, 0.95)' }],
 };
 
+/** 2 kiểu mưa street (customEffect.rain.streetRainStyle) — thông số bể hạt, lớp vẽ, sương/quầng (chỉ phùn), vùng sáng,
+ * tia nước (chỉ mưa thường). Kiểu lạ -> 'normal'. */
+const RAIN_STREET_STYLES = {
+    normal: {
+        spec: STREET_RAIN_SPEC_NORMAL, layers: STREET_RAIN_STREAK_LAYERS, // core/visualizer/groups/rain/street.js
+        paintMist: () => {},
+        paintLampHaze: () => {},
+        paintLayer: paintStreetRainStreakLayer, // core
+        paintLit: paintStreetRainStreakLit, // core
+        splashHits: spawnStreetSplashes, // core
+        splashBurst: (W, H, groundY, dpr) => spawnStreetSplashes(buildStreetSplashBurst(W, H, groundY), dpr), // core
+    },
+    drizzle: {
+        spec: STREET_RAIN_SPEC_DRIZZLE, layers: STREET_DRIZZLE_LAYERS, // core
+        paintMist: paintStreetDrizzleMist, // core
+        paintLampHaze: paintStreetDrizzleLampHaze, // core
+        paintLayer: paintStreetDrizzleLayer, // core
+        paintLit: paintStreetDrizzleLit, // core
+        splashHits: () => {},
+        splashBurst: () => {},
+    },
+};
+
+/** Gió street theo toggle streetWindEnabled: bật -> gió theo giai điệu + giật khi chuyển đoạn; tắt -> lặng (rơi thẳng). */
+const RAIN_STREET_WIND_BY_ENABLED = {
+    true: (wind, audio, isTransition) => stepStreetWind(wind, audio.melodyDirection(), isTransition, audio.frameIndex()), // core
+    false: () => STREET_WIND_CALM, // core
+};
+
 const workflowVizRain = {
     defaultStyle: 'glass',
     /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
@@ -37,8 +66,9 @@ const workflowVizRain = {
         street: (frame) => workflowVizRain._drawStreet(frame),
     },
 
-    /** Trạng thái riêng của street: dải tần từng đèn, gió, mốc chớp trời, mốc snare đã xử lý, cửa sổ beat dò chuyển đoạn. */
-    _street: { bands: [], wind: null, thunderAt: -Infinity, snareSeenMs: 0, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
+    /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, mốc snare đã xử lý, cửa
+     * sổ beat dò chuyển đoạn. */
+    _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, snareSeenMs: 0, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
 
     // ===================== Vòng đời =====================
 
@@ -55,7 +85,8 @@ const workflowVizRain = {
         const streetLamps = buildStreetLamps(canvas.width, canvas.height, groundY, viewport.dpr, rainCfg.customLamps); // core
         appState.set('streetLamps', streetLamps);
         this._street.bands = resolveStreetLampBands(streetLamps.length); // core/visualizer/groups/rain/street.js
-        appState.set('streetRain', buildStreetRain(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr)); // core
+        const style = RAIN_STREET_STYLES[rainCfg.streetRainStyle] || RAIN_STREET_STYLES.normal;
+        appState.set('streetRain', buildStreetRainPool(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr, style.spec)); // core
         appState.set('streetSplashes', []);
         console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Rain theo khung nhìn"');
     },
@@ -139,14 +170,16 @@ const workflowVizRain = {
 
     // ===================== street =====================
 
-    /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> đèn (cột/quầng) -> nón sáng + mặt đường ướt -> mưa mờ 3 lớp -> mưa
-     * sáng trong nón -> tia nước -> gợn nước. Âm thanh -> cảnh: xem đầu core/visualizer/groups/rain/street.js. */
+    /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> sương (phùn) -> đèn (cột/quầng) + mặt đường ướt + quầng tán xạ
+     * (phùn) -> mưa 3 lớp -> mưa sáng trong vùng đèn -> tia nước -> gợn nước. Âm thanh -> cảnh: xem đầu
+     * core/visualizer/groups/rain/street.js. */
     _drawStreet(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying, audio } = frame;
         const W = canvas.width, H = canvas.height;
         const nowMs = performance.now();
         const smoothedEnergy = audio.smoothedEnergy(); // service/audio-analysis.js
         const st = this._street;
+        const style = RAIN_STREET_STYLES[cfg.streetRainStyle] || RAIN_STREET_STYLES.normal;
         const s = appState.get(['streetRain', 'streetGroundY', 'streetLamps', 'streetSplashes', 'ripples']);
         this._paintBackdrop(frame);
 
@@ -159,27 +192,29 @@ const workflowVizRain = {
         paintRainGroundGradient(ctx, W, H, groundY, stopColors); // core
         paintParkFence(ctx, W, groundY, dpr); // core
 
+        st.energy = smoothStreetRainEnergy(st.energy, audio.energyPercent()); // core
+        const density = computeStreetRainDensity(s.streetRain.length, isPlaying, st.energy); // core — nghịch Energy % (chủ đích)
+        style.paintMist(ctx, W, H, groundY, density.ratio);
+
         const bandLevels = st.bands.map((b) => audio.band(b)); // service/audio-analysis.js
         const onsetTimes = st.bands.map((b) => audio.lastBandOnsetTime(b));
         const specs = advanceRainLampsAndBuildSpecs(s.streetLamps, isPlaying, bandLevels, onsetTimes, audio.vibrato(), nowMs, dpr); // core
         const lamps = specs.map((spec) => {
             const lampColor = workflowVisualizerRender.colorAt(...spec.colorArgs); // event/workflow/visualizer-render.js
-            return { spec, fill: workflowVisualizerRender.modeColor(cfg, spec.colorArgs[0], lampColor.fill, 'gradient'), cone: computeStreetLampCone(spec, groundY, dpr, smoothedEnergy) }; // core
+            return { spec, fill: workflowVisualizerRender.modeColor(cfg, spec.colorArgs[0], lampColor.fill, 'gradient'), light: computeStreetLampLight(spec, groundY, dpr, smoothedEnergy) }; // core
         });
         lamps.forEach((l) => {
             paintRainLamp(ctx, l.spec, l.fill, dpr); // core
-            paintStreetLampCone(ctx, l.cone, l.fill); // core
-            paintStreetLampPool(ctx, l.cone, l.fill, H, dpr); // core
+            paintStreetLampPool(ctx, l.light, l.fill, H, dpr); // core
+            style.paintLampHaze(ctx, l.light, l.fill, density.ratio);
             this._rippleOnLampOnset(l, groundY, H, dpr);
         });
 
-        st.wind = stepStreetWind(st.wind, audio.melodyDirection(), isTransition, audio.frameIndex()); // core
-        const rainIntensity = computeRainIntensity(isPlaying, smoothedEnergy); // core — nghịch cường độ nhạc (chủ đích)
-        const activeCount = computeStreetActiveRainCount(s.streetRain.length, rainIntensity); // core
-        this._splashOnSnare(frame, groundY, dpr); // trước tia nước của mưa — chùm snare được ưu tiên chỗ khi chạm trần
-        spawnStreetSplashes(advanceStreetRainDrops(W, H, groundY, dpr, activeCount, rainIntensity, st.wind.value), dpr); // core
-        STREET_RAIN_LAYERS.forEach((layer) => paintStreetRainLayer(ctx, s.streetRain, activeCount, layer, rainIntensity, st.wind.value, dpr)); // core
-        lamps.forEach((l) => paintStreetRainLit(ctx, s.streetRain, activeCount, l.cone, l.fill, rainIntensity, st.wind.value, dpr)); // core
+        st.wind = RAIN_STREET_WIND_BY_ENABLED[cfg.streetWindEnabled !== false](st.wind, audio, isTransition);
+        this._splashOnSnare(frame, groundY, dpr, style); // trước tia nước của mưa — chùm snare được ưu tiên chỗ khi chạm trần
+        style.splashHits(advanceStreetRainDrops(W, H, groundY, dpr, density.activeCount, st.wind.value, nowMs), dpr); // core
+        style.layers.forEach((layer) => style.paintLayer(ctx, s.streetRain, layer, dpr));
+        lamps.forEach((l) => style.paintLit(ctx, s.streetRain, l.light, l.fill, dpr, nowMs));
 
         advanceStreetSplashes(); // core
         paintStreetSplashes(ctx, s.streetSplashes, dpr); // core
@@ -213,12 +248,12 @@ const workflowVizRain = {
         spawnRainRipple(lamp.spec.x, groundY, H, dpr, lamp.fill, lamp.fill); // core
     },
 
-    /** Snare (dải mid có nốt mới) -> 1 chùm tia nước rải trên mặt đường. */
-    _splashOnSnare(frame, groundY, dpr) {
+    /** Snare (dải mid có nốt mới) -> 1 chùm tia nước rải trên mặt đường (mưa phùn: không bắn). */
+    _splashOnSnare(frame, groundY, dpr, style) {
         const onsetMs = frame.audio.lastBandOnsetTime('mid'); // service/audio-analysis.js
         if (!frame.isPlaying || onsetMs <= this._street.snareSeenMs) return;
         this._street.snareSeenMs = onsetMs;
-        spawnStreetSplashes(buildStreetSplashBurst(frame.canvas.width, frame.canvas.height, groundY), dpr); // core
+        style.splashBurst(frame.canvas.width, frame.canvas.height, groundY, dpr);
     },
 };
 
