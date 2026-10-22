@@ -444,25 +444,33 @@ function hasCircuitSignalBetween(activeSignals, sourceChip, targetChip) {
     return activeSignals.some((s) => s.source === sourceChip && s.target === targetChip);
 }
 
-// GIỮ NGUYÊN — 3 chế độ + hằng số hình học + tween GSAP của triggerCinematicCameraShift() gốc (chỉ chạy ở camera orbit).
-function triggerCinematicCameraShift(camera, controls, chips, activeSignals) {
+/** Cinematic shift (camera orbit): chọn ngẫu nhiên 1 trong 3 chế độ. @returns {'ORBIT_SWEEP'|'TRACK_SIGNAL'|'CLOSE_NODE'} */
+function pickCinematicCameraMode() {
     const modes = ['ORBIT_SWEEP', 'TRACK_SIGNAL', 'CLOSE_NODE'];
-    const mode = modes[Math.floor(Math.random() * modes.length)];
+    return modes[Math.floor(Math.random() * modes.length)];
+}
 
-    if (mode === 'ORBIT_SWEEP') {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 55 + Math.random() * 30;
-        gsap.to(camera.position, { x: Math.cos(angle) * radius, y: 20 + Math.random() * 30, z: Math.sin(angle) * radius, duration: 4.5, ease: 'power2.inOut' });
-        gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 3.5, ease: 'power2.inOut' });
-    } else if (mode === 'CLOSE_NODE' && chips.length > 0) {
-        const targetChip = chips[Math.floor(Math.random() * chips.length)];
-        gsap.to(camera.position, { x: targetChip.pos.x + 12, y: targetChip.pos.y + 8, z: targetChip.pos.z + 14, duration: 3.5, ease: 'power3.inOut' });
-        gsap.to(controls.target, { x: targetChip.pos.x, y: targetChip.pos.y, z: targetChip.pos.z, duration: 3.0, ease: 'power3.inOut' });
-    } else if (mode === 'TRACK_SIGNAL' && activeSignals.length > 0) {
-        const sig = activeSignals[Math.floor(Math.random() * activeSignals.length)];
-        gsap.to(controls.target, { x: sig.source.pos.x, y: sig.source.pos.y, z: sig.source.pos.z, duration: 2.5, ease: 'power2.out' });
-    }
-    return mode;
+/** ORBIT_SWEEP: camera bay tới 1 góc ngẫu nhiên quanh cụm chip, đích nhìn về tâm (GSAP tween). */
+function startCinematicOrbitSweep(camera, controls) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 55 + Math.random() * 30;
+    gsap.to(camera.position, { x: Math.cos(angle) * radius, y: 20 + Math.random() * 30, z: Math.sin(angle) * radius, duration: 4.5, ease: 'power2.inOut' });
+    gsap.to(controls.target, { x: 0, y: 0, z: 0, duration: 3.5, ease: 'power2.inOut' });
+}
+
+/** CLOSE_NODE: áp sát 1 chip ngẫu nhiên (chưa có chip -> không làm gì). */
+function startCinematicCloseNode(camera, controls, chips) {
+    if (chips.length === 0) return;
+    const targetChip = chips[Math.floor(Math.random() * chips.length)];
+    gsap.to(camera.position, { x: targetChip.pos.x + 12, y: targetChip.pos.y + 8, z: targetChip.pos.z + 14, duration: 3.5, ease: 'power3.inOut' });
+    gsap.to(controls.target, { x: targetChip.pos.x, y: targetChip.pos.y, z: targetChip.pos.z, duration: 3.0, ease: 'power3.inOut' });
+}
+
+/** TRACK_SIGNAL: chỉ xoay đích nhìn về chip nguồn của 1 xung đang bay (không có xung -> không làm gì). */
+function startCinematicTrackSignal(controls, activeSignals) {
+    if (activeSignals.length === 0) return;
+    const sig = activeSignals[Math.floor(Math.random() * activeSignals.length)];
+    gsap.to(controls.target, { x: sig.source.pos.x, y: sig.source.pos.y, z: sig.source.pos.z, duration: 2.5, ease: 'power2.out' });
 }
 
 // ===================== bootstrap =====================
