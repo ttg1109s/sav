@@ -27,8 +27,8 @@ const RAIN_STREET_GROUND_STOPS_BY_MODE = {
     gradient: () => [{ offset: 0, color: 'rgba(15, 20, 28, 0.9)' }, { offset: 1, color: 'rgba(8, 10, 15, 0.95)' }],
 };
 
-/** 2 kiểu mưa street (customEffect.rain.streetRainStyle) — thông số bể hạt, lớp vẽ, sương/quầng (chỉ phùn), vùng sáng,
- * tia nước (chỉ mưa thường). Kiểu lạ -> 'normal'. */
+/** 2 kiểu hạt street (customEffect.rain.streetRainStyle: mưa / tuyết) — thông số bể hạt, lớp vẽ, màn mờ + quầng (chỉ tuyết),
+ * vùng sáng, tia nước (chỉ mưa). Kiểu lạ -> 'normal'. */
 const RAIN_STREET_STYLES = {
     normal: {
         spec: STREET_RAIN_SPEC_NORMAL, layers: STREET_RAIN_STREAK_LAYERS, // core/visualizer/groups/rain/street.js
@@ -39,12 +39,12 @@ const RAIN_STREET_STYLES = {
         splashHits: spawnStreetSplashes, // core
         splashBurst: (W, H, groundY, dpr) => spawnStreetSplashes(buildStreetSplashBurst(W, H, groundY), dpr), // core
     },
-    drizzle: {
-        spec: STREET_RAIN_SPEC_DRIZZLE, layers: STREET_DRIZZLE_LAYERS, // core
-        paintMist: paintStreetDrizzleMist, // core
-        paintLampHaze: paintStreetDrizzleLampHaze, // core
-        paintLayer: paintStreetDrizzleLayer, // core
-        paintLit: paintStreetDrizzleLit, // core
+    snow: {
+        spec: STREET_RAIN_SPEC_SNOW, layers: STREET_SNOW_LAYERS, // core
+        paintMist: paintStreetSnowMist, // core
+        paintLampHaze: paintStreetSnowLampHaze, // core
+        paintLayer: paintStreetSnowLayer, // core
+        paintLit: paintStreetSnowLit, // core
         splashHits: () => {},
         splashBurst: () => {},
     },
@@ -170,8 +170,8 @@ const workflowVizRain = {
 
     // ===================== street =====================
 
-    /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> sương (phùn) -> đèn (cột/quầng) + mặt đường ướt + quầng tán xạ
-     * (phùn) -> mưa 3 lớp -> mưa sáng trong vùng đèn -> tia nước -> gợn nước. Âm thanh -> cảnh: xem đầu
+    /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> màn tuyết (tuyết) -> đèn (cột/quầng) + mặt đường ướt + quầng tán
+     * xạ (tuyết) -> hạt 3 lớp -> hạt sáng trong vùng đèn -> tia nước -> gợn nước. Âm thanh -> cảnh: xem đầu
      * core/visualizer/groups/rain/street.js. */
     _drawStreet(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying, audio } = frame;
@@ -248,7 +248,7 @@ const workflowVizRain = {
         spawnRainRipple(lamp.spec.x, groundY, H, dpr, lamp.fill, lamp.fill); // core
     },
 
-    /** Snare (dải mid có nốt mới) -> 1 chùm tia nước rải trên mặt đường (mưa phùn: không bắn). */
+    /** Snare (dải mid có nốt mới) -> 1 chùm tia nước rải trên mặt đường (tuyết: không bắn). */
     _splashOnSnare(frame, groundY, dpr, style) {
         const onsetMs = frame.audio.lastBandOnsetTime('mid'); // service/audio-analysis.js
         if (!frame.isPlaying || onsetMs <= this._street.snareSeenMs) return;
