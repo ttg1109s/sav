@@ -1,6 +1,6 @@
 /**
  * core/storage-manager.js — Quản lý lưu trữ (panel Storage, 3 domain Song/Video/Photo): vẽ thanh dung lượng + đếm-lên,
- * tính phần "Khác"/"còn trống", chọn nguồn/hành động, chia nhóm + đặt tên zip, phán định file lỗi từ kết quả thử giải mã
+ * tính phần "Khác"/"còn trống" (quota từ `estimate()` hoặc mốc Safari < 17), chế độ lưu trữ bền (`persist()`), chọn nguồn/hành động, chia nhóm + đặt tên zip, phán định file lỗi từ kết quả thử giải mã
  * (Workflow thử), xoá file lỗi, vẽ kết quả quét. Không đọc DB/appState, không shield/modal/timer/sự kiện — Workflow
  * (event/workflow/file-manager-storage.js, event/workflow/zip-download.js) đọc dữ liệu, thử giải mã, gọi và bọc; phần tử
  * DOM nhận qua tham số.
@@ -76,6 +76,75 @@
                 freeBytes: Math.max(0, estimate.quota - usedBytes),
                 quota: estimate.quota,
             };
+        }
+
+        /** Mốc quota khi WebKit không có `estimate()` (Safari < 17): ~1 GB/origin, vượt thì Safari hỏi người dùng. */
+        const LEGACY_WEBKIT_QUOTA_BYTES = 1024 * 1024 * 1024;
+
+        /**
+         * Nguồn số quota: 'browser' (có kết quả `estimate()`), 'legacyWebKit' (WebKit có `navigator.storage` nhưng thiếu
+         * `estimate()` — Safari 15.2–16.x), 'none' (còn lại: không có StorageManager — trang không an toàn/trình duyệt rất cũ).
+         * @param {StorageManager|null} storage - `navigator.storage` (Workflow lấy)
+         * @param {{usage?: number, quota?: number}|null} rawEstimate - kết quả `estimate()`; null = không có/lỗi
+         * @param {{engineName: string}|null} deviceInfo - appState `deviceInfo` (null khi chưa nhận diện xong)
+         * @returns {'browser'|'legacyWebKit'|'none'}
+         */
+        function classifyOriginEstimateSource(storage, rawEstimate, deviceInfo) {
+            if (rawEstimate) return 'browser';
+            const lacksEstimateApi = !!storage && typeof storage.estimate !== 'function';
+            return lacksEstimateApi && !!deviceInfo && deviceInfo.engineName === 'WebKit' ? 'legacyWebKit' : 'none';
+        }
+
+        /** Chuẩn hoá kết quả `estimate()`; quota không dương -> null. @returns {{usage: number, quota: number}|null} */
+        function normalizeOriginEstimate(rawEstimate) {
+            if (!(rawEstimate.quota > 0)) return null;
+            return { usage: rawEstimate.usage || 0, quota: rawEstimate.quota };
+        }
+
+        /** Safari < 17: không biết usage thật -> lấy tổng media, quota = mốc 1 GB (đã vượt thì bằng chính tổng media).
+         * @param {number} mediaBytes @returns {{usage: number, quota: number}} */
+        function buildLegacyWebKitEstimate(mediaBytes) {
+            return { usage: mediaBytes, quota: Math.max(LEGACY_WEBKIT_QUOTA_BYTES, mediaBytes) };
+        }
+
+        /** Nhãn chế độ lưu trữ theo `persisted()`; null = trình duyệt không có API -> ẩn dòng. */
+        const STORAGE_PERSIST_LABEL_KEY = { true: 'storageDrawer.persistOn', false: 'storageDrawer.persistOff' };
+
+        /**
+         * Dòng "Chế độ lưu trữ" + ghi chú mốc 1 GB của Safari < 17.
+         * @param {boolean|null} persisted - `navigator.storage.persisted()` (Workflow đọc)
+         * @param {'browser'|'legacyWebKit'|'none'} estimateSource - classifyOriginEstimateSource()
+         * @returns {{persistLabelKey: string|null, showLegacyQuotaNote: boolean}}
+         */
+        function resolveStorageOriginNotesView(persisted, estimateSource) {
+            return {
+                persistLabelKey: STORAGE_PERSIST_LABEL_KEY[persisted] || null,
+                showLegacyQuotaNote: estimateSource === 'legacyWebKit',
+            };
+        }
+
+        /** Ghi dòng chế độ lưu trữ + ghi chú Safari < 17 (phần tử thiếu = panel đóng).
+         * @param {{persistRowEl, persistTextEl, legacyQuotaNoteEl}} els @param {ReturnType<typeof resolveStorageOriginNotesView>} view */
+        function renderStorageOriginNotes(els, view) {
+            const { persistRowEl, persistTextEl, legacyQuotaNoteEl } = els;
+            if (persistRowEl) persistRowEl.classList.toggle('hidden', !view.persistLabelKey);
+            if (persistTextEl && view.persistLabelKey) persistTextEl.textContent = t(view.persistLabelKey);
+            if (legacyQuotaNoteEl) legacyQuotaNoteEl.classList.toggle('hidden', !view.showLegacyQuotaNote);
+        }
+
+        /**
+         * Xin lưu trữ bền — trình duyệt không tự xoá dữ liệu origin khi máy thiếu chỗ / lâu không mở (Safari). Chrome/Safari
+         * tự quyết không hỏi (Safari ưu tiên web app màn hình chính), Firefox hiện hộp hỏi.
+         * @param {StorageManager} storage - `navigator.storage` (Workflow lấy) @returns {Promise<boolean>} false nếu không hỗ trợ/lỗi
+         */
+        async function requestPersistentStorage(storage) {
+            if (typeof storage.persist !== 'function') return false;
+            try {
+                return await storage.persist();
+            } catch (err) {
+                console.warn('[storage-manager] navigator.storage.persist() lỗi:', err);
+                return false;
+            }
         }
 
         /** Tổng byte 3 loại media. @returns {number} */
