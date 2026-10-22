@@ -1,14 +1,7 @@
 /**
- * Cấp phát buffer phân tích âm thanh, tạo blob từ DataURI, resize canvas, khởi tạo các hiệu ứng (sao, rubik, mưa phố...).
- * (Trích từ file gốc, dòng 576-671 trong khối <script>)
+ * core/canvas-scene-setup.js — dựng cảnh tĩnh cho visualizer canvas 2D: kích thước canvas, giọt kính / dãy nhà (Rain glass),
+ * sao hố đen, khối Rubik, mặt đất + đèn + hạt mưa (Rain street). Thuần — Workflow từng group gọi khi resize/chọn style.
  */
-
-        // [XOÁ — 28/09/2026, Phase 3 dọn visualizer] `resizeCanvas()` + `window.addEventListener('resize', resizeCanvas)`
-        // ĐÃ BỎ: core tự nghe sự kiện cửa sổ (bỏ qua Listener -> Router) và tự gọi 6 core khác (initStars/
-        // initThreeJS/initRubik/generateStreetScene...), kèm lỗi dựng lại cả scene Vortex mỗi lần resize (rò GPU).
-        // Nay: event/listener/visualizer-viewport.js -> router -> workflowVisualizerRender.onViewportResize() —
-        // Workflow đổi kích thước canvas/renderer rồi báo từng group (event/workflow/visualizer/*.js) tự dựng lại
-        // phần của mình. 3 hàm thuần dưới đây là các mảnh tách ra từ thân resizeCanvas() cũ.
 
         /** Đặt kích thước pixel thật của canvas 2D theo khung nhìn CSS × dpr. */
         function resizeVisualizerCanvas(canvasEl, cssWidth, cssHeight, dpr) {
@@ -16,15 +9,14 @@
             canvasEl.height = cssHeight * dpr;
         }
 
-        /** Giọt nước tĩnh trên kính (Rain glass) rải ngẫu nhiên khắp canvas — y hệt công thức trong resizeCanvas() cũ. */
+        /** Giọt nước tĩnh trên kính (Rain glass) rải ngẫu nhiên khắp canvas. */
         function buildGlassStaticDrops(count, width, height, dpr) {
             const drops = [];
             for (let i = 0; i < count; i++) drops.push({ x: Math.random() * width, y: Math.random() * height, r: (Math.random() * 1.5 + 0.5) * dpr });
             return drops;
         }
 
-        /** Dãy nhà thành phố phía sau kính (Rain glass) — y hệt công thức trong resizeCanvas() cũ (màu cửa theo color
-         * mode, xem core/visualizer/groups/rain/glass.js). */
+        /** Dãy nhà thành phố phía sau kính (Rain glass; màu cửa theo color mode ở core/visualizer/groups/rain/glass.js). */
         function buildRainCityBuildings(width, dpr, bldScale) {
             const buildings = []; let currentX = -50 * dpr;
             while (currentX < width + 50 * dpr) {
@@ -87,11 +79,11 @@
             return lamps;
         }
 
-        /** Hạt mưa phố rải ngẫu nhiên. */
+        /** Hạt mưa phố rải ngẫu nhiên, mỗi hạt 1 độ sâu `z` (0 xa – 1 gần, core/visualizer/groups/rain/street.js). */
         function buildStreetRain(count, w, h, dpr) {
             const rain = [];
             for (let i = 0; i < count; i++) {
-                rain.push({ x: Math.random() * w, y: Math.random() * h, len: (14 + Math.random() * 18) * dpr, speed: (10 + Math.random() * 8) * dpr, drift: (Math.random() - 0.5) * 0.6 });
+                rain.push({ x: Math.random() * w, y: Math.random() * h, len: (14 + Math.random() * 18) * dpr, speed: (10 + Math.random() * 8) * dpr, z: Math.random() });
             }
             return rain;
         }

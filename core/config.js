@@ -94,8 +94,7 @@
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', gradientPalette: [],
                 vortexStyle: 'rings', tunnelRingCount: 60,
                 warpSpeedBase: 10, warpSpeedEnergyMult: 40,
-                // Ống rẽ hướng khi nhạc vừa biến động (detectMusicTransition(), core/audio-analysis.js + _tickVortexCurve(),
-                // event/workflow/visualizer-render.js); tắt redirectEnabled = ống đi thẳng mãi.
+                // Ống rẽ 8 hướng khi nhạc chuyển đoạn (event/workflow/visualizer/vortex.js::_steerTunnel()); tắt = ống thẳng.
                 redirectEnabled: true,
                 sectionWindowBeats: 12, fluxThreshold: 0.5,
                 barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,

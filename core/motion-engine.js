@@ -134,24 +134,6 @@ function computeMotionEngineTransitionInOutMs(totalMs, ratioPercent) {
 }
 
 /**
- * Core thuần: KẸP thời gian transition đã cấu hình về NHỎ HƠN thời gian hiển thị mỗi ảnh (interval)
- * TỐI THIỂU 200ms (SỬA, phản hồi Giang — hạ khoảng cách bắt buộc từ 1s xuống 200ms) — tránh xung
- * đột: transition dài hơn (hoặc bằng) khoảng cách tới lượt đổi ảnh KẾ TIẾP sẽ bị `_tick()` mới cắt
- * ngang giữa chừng (dùng lại ĐÚNG 2 layer đó cho lượt mới trong khi animation cũ chưa xong) —
- * giật/lỗi hình. `Math.max(MOTION_ENGINE_TRANSITION_MIN_TIME_MS, ...)` — sàn an toàn phòng
- * `intervalMs` cực nhỏ.
- * GENERIC — chỉ nhận 2 SỐ THUẦN, không tự đọc/biết bất kỳ consumer/domain nào — nơi gọi tự tính
- * `intervalMs` theo đúng ngữ cảnh của mình rồi truyền vào (xem event/workflow/motion-beat-react-
- * runner.js::_tick(), event/workflow/motion-presets.js::openTransitionDurationPicker()).
- * @param {number} configuredMs
- * @param {number} intervalMs
- * @returns {number}
- */
-function capMotionEngineTransitionDurationMs(configuredMs, intervalMs) {
-    return Math.min(configuredMs, Math.max(MOTION_ENGINE_TRANSITION_MIN_TIME_MS, intervalMs - 200));
-}
-
-/**
  * Core thuần: set duration + easing của animation TRÊN 1 layer — PHẢI gọi TRƯỚC khi
  * `startMotionEngineTransitionVisuals()` thêm class enter/exit (đổi thứ tự sẽ khiến animation đã lỡ
  * bắt đầu chạy với giá trị CŨ 1-2 frame trước khi kịp áp giá trị mới). TÁCH RIÊNG khỏi
@@ -279,16 +261,6 @@ function resolvePointMoveFieldValue(field) {
  */
 function buildPointMoveTransformString(v) {
     return `translate(${v.linearX}${v.linearXUnit}, ${v.linearY}${v.linearYUnit}) rotate(${v.rotate}deg) scale(${1 + v.zoom}) rotateY(${v.flipX}deg) rotateX(${v.flipY}deg)`;
-}
-
-/**
- * Core thuần: nội suy tuyến tính thuần (không đơn vị) — dùng CHUNG cho MỌI cặp giá trị cần lerp
- * trong Point Move (từng field/segment theo thời gian).
- * @param {number} from @param {number} to @param {number} progress01 - 0-1.
- * @returns {number}
- */
-function lerpPointMoveNumber(from, to, progress01) {
-    return from + (to - from) * progress01;
 }
 
 /**
@@ -460,96 +432,3 @@ function resetMotionEngineLayerClasses(layerEl) {
     layerEl.classList.remove('me-current', 'me-layer-enter', 'me-layer-exit');
 }
 
-/**
- * Core thuần: tỉ lệ ZOOM react-beat LIÊN TỤC — VIẾT LẠI (30/08/2026, phản hồi Giang, bỏ hẳn cơ chế
- * "bắn theo N beat rồi tự về gốc") — không còn pulse rời rạc, giờ nội suy TUYẾN TÍNH từ baseline
- * 100% (không zoom) CỐ ĐỊNH CỨNG (Giang chốt — "min không phải tuỳ chọn", KHÔNG phải field trong
- * preset/không có slider riêng) lên `maxPct` (NGƯỜI DÙNG tự chỉnh, trần 200 — nơi gọi validate, xem
- * core/motion-presets.js) theo `energy` (0-1, đọc `beatScale` mỗi frame — cùng tín hiệu năng lượng
- * liên tục các hiệu ứng "beatscale" khác trong app đang dùng, vd core/visualizer/types/bar.js) —
- * nhạc CÀNG mạnh, zoom CÀNG gần `maxPct`; nhạc nhẹ/im lặng, zoom về gần 100% (không zoom).
- * @param {number} maxPct
- * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
- * @returns {number} hệ số scale (vd 1.5 = phóng 150%).
- */
-function computeMotionEngineBeatReactZoomScale(maxPct, energy) {
-    const e = Math.max(0, Math.min(1, energy));
-    return (100 + (maxPct - 100) * e) / 100;
-}
-
-/**
- * Core thuần: offset pan/rotate react-beat LIÊN TỤC theo `direction` + `energy` — DÙNG CHUNG pan
- * (đơn vị %, `maxVal` = `maxPct-100` ĐÃ trừ baseline, nơi gọi tự trừ trước khi truyền) LẪN rotate
- * (đơn vị độ, `maxVal` = `maxDeg` thẳng, baseline vốn đã là 0 — xem
- * event/workflow/motion-beat-react-runner.js::_tick()). Biên độ nội suy tuyến tính từ 0 (baseline CỐ
- * ĐỊNH CỨNG, Giang chốt — "min không phải tuỳ chọn", KHÔNG phải field trong preset) lên `maxVal`
- * theo `energy`.
- * "left"/"right" — biên độ (luôn không âm) nội suy tuyến tính [0,maxVal] theo `energy`, DẤU CỐ ĐỊNH
- * theo hướng. VIẾT LẠI (30/08/2026, phản hồi Giang — "reverse" checkbox) — "leftToRight"/
- * "rightToLeft" KHÔNG còn quét liên tục theo `energy` nữa (bản cũ `magnitude*(2*energy-1)` đã bỏ) —
- * giờ CÙNG công thức biên độ với "left"/"right" (`maxVal * energy`), CHỈ khác ở dấu: dấu (`polarity`,
- * 1 hoặc -1) do NƠI GỌI tự tính + ĐẢO mỗi lần có "beat mới" (xem
- * `computeMotionEngineBeatReactNextPolarity()` + event/workflow/motion-beat-react-runner.js::_tick())
- * — lượt beat NÀY lệch 1 bên, lượt KẾ TIẾP tự đảo sang bên kia, cứ thế xen kẽ.
- * @param {'left'|'right'|'leftToRight'|'rightToLeft'} direction
- * @param {number} maxVal - biên độ tại energy=1 (ĐÃ trừ baseline, luôn >=0).
- * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
- * @param {number} polarity - 1 hoặc -1 — CHỈ dùng khi `direction` là "leftToRight"/"rightToLeft"
- *   (nơi gọi tự tính/đảo, xem `computeMotionEngineBeatReactNextPolarity()`); "left"/"right" bỏ qua
- *   tham số này (dấu đã cố định theo hướng).
- * @returns {number}
- */
-function computeMotionEngineBeatReactOffset(direction, maxVal, energy, polarity) {
-    const e = Math.max(0, Math.min(1, energy));
-    const magnitude = maxVal * e; // baseline 0 cố định -> nội suy [0,maxVal]
-    if (direction === 'left') return -magnitude;
-    if (direction === 'right') return magnitude;
-    return polarity * magnitude; // 'leftToRight'/'rightToLeft' — dấu do nơi gọi tự đảo mỗi beat mới
-}
-
-/**
- * Core thuần: cực (polarity, 1 hoặc -1) cho lượt beat MỚI của "leftToRight"/"rightToLeft" — MỚI
- * (30/08/2026, phản hồi Giang — checkbox "reverse"). Lượt ĐẦU (`prevPolarity===0`, chưa từng có
- * lượt nào) — cực khởi đầu theo `direction` + `reverse`: 'leftToRight' mặc định bắt đầu DƯƠNG
- * (phải), 'rightToLeft' mặc định bắt đầu ÂM (trái) — `reverse=true` ĐẢO lại cực khởi đầu đó (XOR).
- * Lượt SAU (`prevPolarity` đã là 1/-1) — LUÔN đảo ngược lượt trước, bất kể `direction`/`reverse` —
- * đây chính là hành vi "xen kẽ" Giang mô tả (vd left-right 120: lượt 1 dương, lượt 2 ép âm, lượt 3
- * lại dương...; right-left thì khởi đầu âm, xen kẽ ngược lại).
- * @param {number} prevPolarity - 1 hoặc -1 (lượt trước); 0 = CHƯA từng có lượt nào (lượt đầu).
- * @param {'leftToRight'|'rightToLeft'} direction
- * @param {boolean} reverse
- * @returns {number} 1 hoặc -1.
- */
-function computeMotionEngineBeatReactNextPolarity(prevPolarity, direction, reverse) {
-    if (prevPolarity !== 0) return -prevPolarity; // đã có lượt trước -> luôn đảo, không quan tâm direction/reverse nữa
-    const startsPositive = (direction === 'leftToRight') !== reverse; // XOR — reverse lật cực khởi đầu
-    return startsPositive ? 1 : -1;
-}
-
-/**
- * Core thuần: tiến 1 bước ENVELOPE react-beat — MỚI (30/08/2026, phản hồi Giang báo bug — dùng
- * THẲNG `beatScale` liên tục khiến hiệu ứng "mắc kẹt" ở mức cao suốt đoạn nhạc bass kéo dài, KHÔNG
- * có cảm giác "đập rồi nghỉ"). VIẾT LẠI NGAY sau đó (30/08/2026, phản hồi Giang — bản gate "phải
- * decay HẾT về baseline mới cho attack lại" gây "cục giật": suốt đoạn nhạc bass kéo dài, envelope
- * bị ép chạy 1 chu kỳ sawtooth CỐ ĐỊNH theo `decayMs`, cắt đứt khỏi diễn biến THẬT của nhạc — "vẫn
- * phải có react liên tục chứ không nhất định phải về 100%"). Đổi sang envelope follower CHUẨN
- * (kiểu VU meter, KHÔNG gate/khoá gì cả):
- *   - `beatScale` >= envelope hiện tại -> "attack" TỨC THỜI lên thẳng `beatScale` (nhạc mạnh lên
- *     lúc nào, bắt theo NGAY lúc đó, kể cả đang giữa chừng 1 lượt decay — KHÔNG chờ về baseline).
- *   - `beatScale` < envelope -> "decay" tuyến tính theo THỜI GIAN THẬT (`deltaMs`, không phụ thuộc
- *     framerate) với tốc độ sao cho hết `decayMs` thì đi hết quãng đường 1→0, NHƯNG kẹp SÀN ở đúng
- *     `beatScale` hiện tại (`Math.max`) — không bao giờ rơi THẤP HƠN mức nhạc đang có, nên khi nhạc
- *     bass kéo dài đều đều, envelope tự ổn định BÁM theo `beatScale` (không còn bị ép rơi xuống rồi
- *     bật lên lặp lại giả tạo); khi nhạc THẬT SỰ nhẹ/im lặng (`beatScale` gần 0), sàn cũng gần 0 nên
- *     envelope vẫn tự êm về gần baseline như cũ — chỉ khác là KHÔNG còn bị khoá/ép buộc.
- * @param {number} prevEnvelope - 0-1, giá trị envelope frame TRƯỚC.
- * @param {number} beatScale - 0-1, năng lượng bass tức thời frame NÀY.
- * @param {number} deltaMs - thời gian trôi qua kể từ frame trước (ms).
- * @param {number} decayMs - thời gian để envelope decay hết quãng đường 1→0 (ms) — dùng làm TỐC ĐỘ,
- *   không phải "khoá cứng phải chờ hết mới thôi" như bản trước.
- * @returns {number}
- */
-function computeMotionEngineBeatReactEnvelope(prevEnvelope, beatScale, deltaMs, decayMs) {
-    if (beatScale >= prevEnvelope) return beatScale; // attack tức thời — nhạc mạnh lên là bắt theo ngay, không cần chờ gì cả
-    return Math.max(beatScale, prevEnvelope - (deltaMs / decayMs)); // decay êm, kẹp sàn ở beatScale hiện tại — không rơi thấp hơn mức nhạc đang có
-}
