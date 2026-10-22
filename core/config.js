@@ -71,6 +71,8 @@
                 glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
                 glassDropDensity: 250, glassStreakFrequency: 20,
                 streetDensity: 220, streetBuildingScale: 1.0,
+                // Kiểu hạt mưa street ('normal' | 'drizzle' — mưa phùn bụi) + bật/tắt hướng gió (tắt = rơi thẳng).
+                streetRainStyle: 'normal', streetWindEnabled: true,
                 // Đèn thêm vào 3 cột gốc (tối đa 8) — generateStreetScene(), core/canvas-scene-setup.js; mỗi đèn
                 // xPercent/heightPx/flareScale riêng.
                 customLamps: [],

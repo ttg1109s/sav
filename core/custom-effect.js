@@ -196,10 +196,15 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'glassMoonVisible', labelKey: 'visualizerSettingsDrawer.rainMoonVisible.label', type: 'toggle', card: 'element', showIf: (cfg) => cfg.rainStyle === 'glass' },
         // ── layout ── (card Đèn tuỳ chỉnh của style street vẽ NGAY SAU card này)
         { id: 'glassDropDensity', labelKey: 'customEffectDrawer.field.glassDropDensity', type: 'slider', min: 40, max: 400, step: 10, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'glass', refresh: 'resizeCanvas' },
+        { id: 'streetRainStyle', labelKey: 'customEffectDrawer.field.streetRainStyle', type: 'select', card: 'layout', showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas', options: [
+            { value: 'normal', labelKey: 'customEffectDrawer.streetRainStyle.normal' },
+            { value: 'drizzle', labelKey: 'customEffectDrawer.streetRainStyle.drizzle' },
+        ] },
         { id: 'streetDensity', labelKey: 'customEffectDrawer.field.streetDensity', type: 'slider', min: 40, max: 400, step: 10, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas' },
         { id: 'streetBuildingScale', labelKey: 'customEffectDrawer.field.streetBuildingScale', type: 'sliderFloat', min: 0.5, max: 3.0, step: 0.1, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas' },
         // ── motion ──
         { id: 'glassStreakFrequency', labelKey: 'customEffectDrawer.field.glassStreakFrequency', type: 'slider', min: 0, max: 100, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'glass' },
+        { id: 'streetWindEnabled', labelKey: 'customEffectDrawer.field.streetWindEnabled', type: 'toggle', card: 'motion', showIf: (cfg) => cfg.rainStyle === 'street' },
     ],
     shape: [ // ĐỔI TÊN (05/09/2026) — trước đây khoá 'rubik', field không đổi.
         // SỬA (26/09/2026) — group có thêm style 'clock' -> field rubik gắn showIf theo style.
