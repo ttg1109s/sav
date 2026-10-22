@@ -157,6 +157,10 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.glassDropDensity': 'Droplet density',
     'customEffectDrawer.field.glassStreakFrequency': 'Streak frequency',
     'customEffectDrawer.field.streetDensity': 'Rain density',
+    'customEffectDrawer.field.streetRainStyle': 'Rain type',
+    'customEffectDrawer.streetRainStyle.normal': 'Normal rain',
+    'customEffectDrawer.streetRainStyle.drizzle': 'Drizzle (fine mist)',
+    'customEffectDrawer.field.streetWindEnabled': 'Wind direction',
     'customEffectDrawer.field.streetBuildingScale': 'Building size',
     'customEffectDrawer.field.tunnelRingCount': 'Number of rings',
 
