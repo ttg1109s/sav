@@ -1,30 +1,23 @@
 /**
  * event/workflow/visualizer/vortex.js — Group "vortex" (WebGL, 3 style: rings / bars / wave).
  *
- * [TÁCH — 28/09/2026, Phase 3-4 dọn visualizer] Từ `_tickVortexCurve()`/`_tickVortexRender()` của
- * event/workflow/visualizer-render.js cũ + các biến `_vx*`. Hành vi mỗi frame giữ nguyên; thay đổi:
- *   - Vòng đời (Phase 3): resize CHỈ đổi aspect camera (trước đây dựng lại cả scene mỗi lần resize, scene cũ
- *     không dispose — rò GPU, đồng thời reset ống về đầu). Dựng lại theo Custom Effect (số vòng/bar) dispose
- *     scene cũ trước.
- *   - Beat flux dùng cửa sổ chung (event/workflow/visualizer/beat-window.js).
- *   - Rẽ nhánh theo style/color mode -> object map (readme/event-bus-flow.md mục 7).
- * Phase 5 (28/09/2026): scene dựng bằng builder thuần `buildVortexScene()` (core/webgl/three-vortex.js), renderer dùng
- * chung qua `workflowVisualizerRender.ensureSharedRenderer()`; toán đường ống (quấn pha, lệch pha, z vòng) Workflow ghép
- * từ các core nhỏ — không core nào gọi core khác.
+ * Mỗi frame: đồng bộ toggle Redirect -> rẽ theo nhạc (beat flux + nốt) -> bay + uốn ống + đặt camera + render. Toán đường
+ * ống ở core/webgl/three-vortex.js, mesh từng style ở core/visualizer/groups/vortex/. Resize chỉ đổi aspect camera; đổi số
+ * vòng/bar (Custom Effect) dispose scene cũ rồi dựng lại.
  */
 
-/** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
+/** Cỡ phổ VẼ của group (host xin qua audioAnalysis.requireSpectrum()). */
 const VORTEX_FFT_SIZE = 2048;
 
-/** Bước cập nhật mesh theo style — object map thay if/else theo cfg.vortexStyle. */
-/** Biên độ uốn ống theo toggle Redirect (SỬA 01/10/2026, Giang báo "tắt Redirect ống vẫn đảo qua đảo lại"): đường tâm ống
- * là đường SIN theo chiều sâu (getVortexCenterAt(), core/webgl/three-vortex.js) với biên độ mặc định 450/300 — camera bay
- * dọc nên DÙ không rẽ vẫn lượn trái-phải/lên-xuống. Tắt Redirect -> biên độ đích về 0 (ống thẳng tắp; computeNextVortexPath()
- * lerp êm, ~1 s thẳng được một nửa, ~5 s thẳng hẳn). Bật lại khi đang thẳng -> trả biên độ mặc định (giá trị khởi tạo,
- * service/state/three-vortex.js), lượt rẽ sau tự rung quanh mức này như cũ. Khoá = `cfg.redirectEnabled !== false`. */
-const VORTEX_AMPLITUDE_BY_REDIRECT = {
-    false: Object.freeze({ ampX: 0, ampY: 0 }),
-    true: Object.freeze({ ampX: 450, ampY: 300 }),
+/** Toggle Redirect: tắt -> đích thẳng (ống duỗi êm về thẳng); bật -> lượt rẽ do _steerTunnel() đặt. */
+const VORTEX_BEND_SYNC_BY_REDIRECT = {
+    false: (s) => workflowVizVortex._straightenTunnel(s),
+    true: () => {},
+};
+/** Lượt rẽ: đang thẳng -> rẽ ngay beat đủ điều kiện; đang giữ 1 hướng -> chờ nhạc chuyển đoạn (detectMusicTransition()). */
+const VORTEX_TURN_GATE_BY_STRAIGHT = {
+    true: () => true,
+    false: (win, cfg) => detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold), // core/visualizer/beat-window.js
 };
 
 const VORTEX_SCENE_STEP_BY_STYLE = {
@@ -106,86 +99,68 @@ const workflowVizVortex = {
 
     // ===================== Frame =====================
 
-    /** Hướng rẽ ống trước (theo beat/pitch), rồi cập nhật vị trí/màu/camera + render. */
+    /** Rẽ ống trước (theo beat/pitch), rồi bay + uốn + camera + render. */
     _draw(frame) {
-        this._syncTunnelStraightness(frame.cfg);
+        this._syncRedirect(frame.cfg);
         this._steerTunnel(frame);
         this._renderTunnel(frame);
     },
 
-    /** Đồng bộ biên độ uốn ống với toggle Redirect — chỉ ghi khi trạng thái thẳng/cong của đích CHƯA khớp toggle (đổi toggle,
-     * hoặc lần đầu sau khi bật lại), không ghi mỗi frame. Chưa dựng scene -> bỏ qua. */
-    _syncTunnelStraightness(cfg) {
-        if (!appState.get('tInitialized')) return;
-        const target = appState.get('tPathTarget');
-        const wantCurved = cfg.redirectEnabled !== false;
-        const isCurved = target.ampX !== 0 || target.ampY !== 0;
-        if (wantCurved === isCurved) return;
-        const amp = VORTEX_AMPLITUDE_BY_REDIRECT[wantCurved];
-        appState.set('tPathTarget', { ...target, ampX: amp.ampX, ampY: amp.ampY }, { skipCheck: true });
-        console.log(`writer: "workflowVizVortex._syncTunnelStraightness", page: "tPathTarget", content: "ampX=${amp.ampX}, ampY=${amp.ampY} (redirect ${wantCurved ? 'bật' : 'tắt'})"`);
+    /** Đồng bộ đích độ uốn với toggle Redirect. Chưa dựng scene -> bỏ qua. */
+    _syncRedirect(cfg) {
+        const s = appState.get(['tInitialized', 'tBendTarget', 'tBendDir']);
+        if (!s.tInitialized) return;
+        VORTEX_BEND_SYNC_BY_REDIRECT[cfg.redirectEnabled !== false](s);
     },
 
-    /** Hướng rẽ ống theo nhạc: đủ điều kiện "nhạc vừa biến động" (detectMusicTransition()) -> chọn hướng theo
-     * nốt MIDI tức thời, ghi target mới vào tPathTarget. Debounce tối thiểu 2 beat giữa 2 lần rẽ; toggle
-     * Redirect tắt thì không bao giờ rẽ; lượt rẽ trước chưa hội tụ thì bỏ qua (tránh giằng co giữa các hướng). */
+    /** Redirect tắt: đích thẳng (chỉ ghi lúc vừa tắt, không ghi mỗi frame). */
+    _straightenTunnel(s) {
+        if (s.tBendDir === -1 && s.tBendTarget.x === 0 && s.tBendTarget.y === 0) return;
+        appState.set('tBendTarget', computeVortexBendTarget(-1), { skipCheck: true }); // core/webgl/three-vortex.js
+        appState.set('tBendDir', -1, { skipCheck: true });
+        console.log('writer: "workflowVizVortex._straightenTunnel", page: "tBendTarget/tBendDir", content: "redirect tắt -> ống thẳng"');
+    },
+
+    /** Rẽ ống theo nhạc: beat mới, cách lượt trước >= 2 beat, lượt trước gần xong, (đang giữ hướng thì cần nhạc chuyển
+     * đoạn) -> hướng mới theo nốt MIDI tức thời (không trùng/ngược hướng đang giữ). Redirect tắt -> không rẽ. */
     _steerTunnel(frame) {
         const win = this._beatWin;
-        workflowVizBeatWindow.accumulateLatest(win, frame.audio.fluxHistory()); // service/audio-analysis.js (01/10/2026)
+        workflowVizBeatWindow.accumulateLatest(win, frame.audio.fluxHistory()); // service/audio-analysis.js
         if (!workflowVizBeatWindow.consumeNewBeat(win, frame.audio.lastBeatTime())) return;
         workflowVizBeatWindow.closeInterval(win);
         countBeatSinceTrigger(win); // core/visualizer/beat-window.js
         if (!frame.isPlaying) return;
         const cfg = frame.cfg;
-        if (!cfg.redirectEnabled) return; // toggle tắt -> không bao giờ rẽ
+        if (cfg.redirectEnabled === false) return;
         if (win.beatsSinceTrigger < 2) return;
 
-        const { tPathParams, tPathTarget } = appState.get(['tPathParams', 'tPathTarget']);
-        const settle = this._phaseDeltas(tPathParams, tPathTarget);
-        if (!isVortexTurnSettled(settle.x, settle.y, VORTEX_TURN_SETTLE_RAD)) return; // core (three-vortex.js)
-        if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
-        resetBeatTriggerCount(win); // core
+        const s = appState.get(['tInitialized', 'tBend', 'tBendTarget', 'tBendDir']);
+        if (!s.tInitialized) return;
+        if (!isVortexBendSettled(s.tBend, s.tBendTarget)) return; // core/webgl/three-vortex.js
+        if (!VORTEX_TURN_GATE_BY_STRAIGHT[s.tBendDir < 0](win, cfg)) return;
+        resetBeatTriggerCount(win); // core/visualizer/beat-window.js
 
-        const direction = pickVortexDirectionFromNote(frame.audio.pitchMidi()); // core (three-vortex.js)
-        appState.set('tPathTarget', this._wrapTargetPhases(computeVortexCurveTarget(tPathTarget, direction)), { skipCheck: true }); // core
+        const dir = pickVortexDirectionIndex(frame.audio.pitchMidi(), s.tBendDir); // core/webgl/three-vortex.js
+        appState.set('tBendTarget', computeVortexBendTarget(dir), { skipCheck: true });
+        appState.set('tBendDir', dir, { skipCheck: true });
+        console.log(`writer: "workflowVizVortex._steerTunnel", page: "tBendTarget/tBendDir", content: "rẽ hướng ${dir}"`);
     },
 
     _renderTunnel(frame) {
-        if (!appState.get('tInitialized')) return;
+        const s = appState.get(['tInitialized', 'tCurrentWarpZ', 'tBend', 'tBendTarget', 'tCamera', 'tRenderer', 'tScene']);
+        if (!s.tInitialized) return;
         const cfg = frame.cfg;
-        const tWarpSpeed = computeVortexWarpSpeed(cfg.warpSpeedBase, cfg.warpSpeedEnergyMult, frame.audio.smoothedEnergy()); // core
-        const tCurrentWarpZ = this._rebaseWarpZ(appState.get('tCurrentWarpZ') - tWarpSpeed);
+        const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
+        const tWarpSpeed = computeVortexWarpSpeed(cfg.warpSpeedBase, cfg.warpSpeedEnergyMult, smoothedEnergy); // core
+        const tCurrentWarpZ = this._rebaseWarpZ(computeVortexNextWarpZ(s.tCurrentWarpZ, tWarpSpeed)); // core/webgl/three-vortex.js
+        const bend = stepVortexBend(s.tBend, s.tBendTarget); // core/webgl/three-vortex.js
         appState.set('tCurrentWarpZ', tCurrentWarpZ, { skipCheck: true });
+        appState.set('tBend', bend, { skipCheck: true });
 
-        const { tPathParams, tPathTarget } = appState.get(['tPathParams', 'tPathTarget']);
-        const delta = this._phaseDeltas(tPathParams, tPathTarget);
-        const raw = computeNextVortexPath(tPathParams, tPathTarget, tWarpSpeed, delta.x, delta.y); // core/webgl/three-vortex.js
-        const path = { params: this._wrapTargetPhases(raw.params), target: this._wrapTargetPhases(raw.target) };
-        appState.set('tPathParams', path.params, { skipCheck: true });
-        appState.set('tPathTarget', path.target, { skipCheck: true });
-
-        const motion = { tWarpSpeed, tCurrentWarpZ, pathParams: path.params };
-        const step = VORTEX_SCENE_STEP_BY_STYLE[cfg.vortexStyle];
-        this._stepScene(step, frame, motion);
-
-        const camPos = getVortexCenterAt(tCurrentWarpZ, path.params, tCurrentWarpZ); // core/webgl/three-vortex.js
-        const tCamera = appState.get('tCamera');
-        placeVortexCamera(tCamera, camPos, tCurrentWarpZ); // core
-        const lookAheadZ = tCurrentWarpZ - VORTEX_LOOK_AHEAD;
-        const lookPos = getVortexCenterAt(lookAheadZ, path.params, tCurrentWarpZ); // core/webgl/three-vortex.js
-        tCamera.lookAt(lookPos.x, lookPos.y, lookAheadZ);
-
-        appState.get('tRenderer').render(appState.get('tScene'), tCamera);
-    },
-
-    /** Độ lệch pha ngắn nhất params -> target (2 trục) — Phase 5: core toán tách nhỏ, Workflow ghép. */
-    _phaseDeltas(params, target) {
-        return { x: shortestAngleDelta(params.phaseX, target.phaseX), y: shortestAngleDelta(params.phaseY, target.phaseY) }; // core/webgl/three-vortex.js
-    },
-
-    /** Quấn 2 pha của 1 bộ tham số đường ống về [0, 2π) (core trả pha chưa quấn). */
-    _wrapTargetPhases(p) {
-        return { ...p, phaseX: wrapVortexAngle(p.phaseX), phaseY: wrapVortexAngle(p.phaseY) }; // core/webgl/three-vortex.js
+        const path = computeVortexPathOffset(bend, s.tCamera, smoothedEnergy); // core/webgl/three-vortex.js
+        this._stepScene(VORTEX_SCENE_STEP_BY_STYLE[cfg.vortexStyle], frame, { tWarpSpeed, tCurrentWarpZ, path });
+        aimVortexCamera(s.tCamera, tCurrentWarpZ, computeVortexLookTarget(path, tCurrentWarpZ)); // core
+        s.tRenderer.render(s.tScene, s.tCamera);
     },
 
     /** Style lạ (config hỏng) -> không cập nhật mesh nào, camera/render vẫn chạy (đúng hành vi cũ). */
@@ -209,7 +184,7 @@ const workflowVizVortex = {
         const tRings = appState.get('tRings');
         tRings.forEach((ring, idx) => {
             placeVortexRingZ(ring, wrapVortexObjectZ(ring.position.z, motion.tWarpSpeed * VORTEX_RINGS_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (rings.js + common.js)
-            const center = getVortexCenterAt(ring.position.z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
+            const center = getVortexCenterAt(ring.position.z, motion.path, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
             const val = spectrum[idx % spectrum.length] || 0;
             const color = workflowVisualizerRender.colorAt(idx, tRings.length, val); // event/workflow/visualizer-render.js
             const colorToApply = workflowVisualizerRender.modeColor(cfg, idx, color.fill, 'solid');
@@ -228,7 +203,7 @@ const workflowVizVortex = {
         for (let r = 0; r < barsRingCount; r++) {
             placeVortexBarRingZ(tBarRingZs, r, wrapVortexObjectZ(tBarRingZs[r], motion.tWarpSpeed * VORTEX_BARS_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (bars.js + common.js)
             const z = tBarRingZs[r];
-            const center = getVortexCenterAt(z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
+            const center = getVortexCenterAt(z, motion.path, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
             const val = spectrum[r % 40] || 0;
             const color = workflowVisualizerRender.colorAt(r, barsRingCount, val); // event/workflow/visualizer-render.js
             const threeColor = new THREE.Color(workflowVisualizerRender.modeColor(cfg, r, color.fill, 'solid'));
@@ -250,7 +225,7 @@ const workflowVizVortex = {
         const tWaveMeshes = appState.get('tWaveMeshes');
         tWaveMeshes.forEach((wave, idx) => {
             placeVortexWaveZ(wave, wrapVortexObjectZ(wave.position.z, motion.tWarpSpeed * VORTEX_WAVE_Z_SPEED, motion.tCurrentWarpZ, TUNNEL_DEPTH)); // core (wave.js + common.js)
-            const center = getVortexCenterAt(wave.position.z, motion.pathParams, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
+            const center = getVortexCenterAt(wave.position.z, motion.path, motion.tCurrentWarpZ); // core/webgl/three-vortex.js
             const val = spectrum[idx % spectrum.length] || 0;
             const color = workflowVisualizerRender.colorAt(idx, tWaveMeshes.length, val); // event/workflow/visualizer-render.js
             const colorToApply = workflowVisualizerRender.modeColor(cfg, idx, color.fill, 'solid');

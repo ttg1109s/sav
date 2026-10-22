@@ -33,6 +33,14 @@ const CIRCUIT_SIGNAL_BY_RESULT = {
     arrive: (signal) => onCircuitSignalArrival(signal), // core/visualizer/groups/connector/circuit.js — chip đích sáng bừng
 };
 
+/** Cinematic shift: chế độ đã chọn (core pickCinematicCameraMode()) -> tween camera. `s` = cnCamera/cnControls/cnChips/
+ * cnActiveSignalsCircuit. */
+const CN_CINEMATIC_SHIFT_BY_MODE = {
+    ORBIT_SWEEP: (s) => startCinematicOrbitSweep(s.cnCamera, s.cnControls), // core/webgl/three-connector.js
+    CLOSE_NODE: (s) => startCinematicCloseNode(s.cnCamera, s.cnControls, s.cnChips),
+    TRACK_SIGNAL: (s) => startCinematicTrackSignal(s.cnControls, s.cnActiveSignalsCircuit),
+};
+
 /** Chế độ camera (cfg.cameraMode) -> vào chế độ + bước mỗi frame. Giá trị lạ -> orbit. */
 const CONNECTOR_CAMERA_MODES = {
     orbit: {
@@ -253,7 +261,8 @@ const workflowVizConnector = {
         if (!detectMusicTransition(win.history, 2, cfg.sectionWindowBeats, cfg.fluxThreshold)) return; // core/visualizer/beat-window.js
         resetBeatTriggerCount(win); // core
         const s = appState.get(['cnCamera', 'cnControls', 'cnChips', 'cnActiveSignalsCircuit']);
-        const mode = triggerCinematicCameraShift(s.cnCamera, s.cnControls, s.cnChips, s.cnActiveSignalsCircuit); // core/webgl
+        const mode = pickCinematicCameraMode(); // core/webgl/three-connector.js
+        CN_CINEMATIC_SHIFT_BY_MODE[mode](s);
         appState.set('cnActiveCamMode', mode, { skipCheck: true });
     },
 

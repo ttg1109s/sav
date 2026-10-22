@@ -33,6 +33,18 @@ const RUBIK_VERTEX_BY_LAYER_TURN = {
     false: (vertPos) => vertPos,
 };
 
+/** Viền răng bánh: bánh thoát (răng cưa nghiêng) / bánh thường. */
+const CLOCK_GEAR_OUTLINE_BY_RATCHET = {
+    true: (g) => buildClockGearOutlineRatchet(g.z, g.r, g.m), // core/visualizer/groups/shape/clock.js
+    false: (g) => buildClockGearOutlineSpur(g.z, g.r, g.m),
+};
+/** Phần trong bánh (core resolveClockGearInterior(), cache cùng outline). */
+const CLOCK_GEAR_INTERIOR_BY_KIND = {
+    spokes: (ctx, g, radii, angle, color, level, dpr) => paintClockGearSpokes(ctx, g, radii, angle, color, level, dpr), // core
+    spiral: (ctx, g, radii, angle, color, level, dpr) => paintClockGearSpiral(ctx, g, radii, angle, color, level, dpr),
+    none: () => {},
+};
+
 /** Bóng mờ dây con lắc (toggle clockPendulumTrail) — 6 bóng lùi pha dần, tắt thì không có. */
 const CLOCK_GHOST_SWINGS_BY_TRAIL = {
     true: (swingAt, phase) => [1, 2, 3, 4, 5, 6].map((g) => swingAt(phase - g * CLOCK_PENDULUM_GHOST_LAG)),
@@ -51,7 +63,7 @@ const workflowVizShape = {
     spectrumSize() { return SHAPE_FFT_SIZE; },
 
     /** Trạng thái style clock (KHÔNG thuộc STATE). `tickGlow` = mức 60 vạch phút vừa được kim giây quét. */
-    _clock: { drive: null, lastTime: 0, geomKey: '', layout: null, outlines: null, pitch: null, pendulum: null, tickGlow: new Float32Array(60) },
+    _clock: { drive: null, lastTime: 0, geomKey: '', layout: null, outlines: null, radii: null, interiors: null, pitch: null, pendulum: null, tickGlow: new Float32Array(60) },
 
     /** Ảnh nền mặt số: `sourceId` = nguồn đang dùng ('lib:<key>' | 'cover:<url>' | ''), `image` = ảnh đã
      * tải xong (null khi chưa có/đang tải), `objectUrl` = URL tự tạo từ blob thư viện (phải revoke khi đổi nguồn). */
@@ -131,7 +143,7 @@ const workflowVizShape = {
         const clock = this._clock;
         const W = canvas.width, H = canvas.height;
         const dialR = (Math.min(W, H) / 2) * (cfg.clockSizeRatio || 0.8) / 1.18;
-        this._ensureClockGeometry(dialR);
+        this._ensureClockGeometry(dialR, dpr);
         const now = performance.now();
         const dt = computeFrameDeltaMs(now, clock.lastTime); // core/visualizer/frame-clock.js
         clock.lastTime = now;
@@ -169,7 +181,10 @@ const workflowVizShape = {
         ctx.save();
         clock.layout.gears.forEach((g, i) => {
             const color = workflowVisualizerRender.colorAt(i, gearCount + 1, levels[i]); // event/workflow/visualizer-render.js
-            paintClockGear(ctx, g, clock.outlines[i], gearAngles[i], color.fill, color.glow, glowPx, levels[i] / 255, dpr); // core
+            const level = levels[i] / 255;
+            paintClockGearBody(ctx, g, clock.outlines[i], gearAngles[i], color.fill, color.glow, glowPx, level, dpr); // core
+            CLOCK_GEAR_INTERIOR_BY_KIND[clock.interiors[i]](ctx, g, clock.radii[i], gearAngles[i], color.fill, level, dpr);
+            paintClockGearHub(ctx, g, clock.radii[i], gearAngles[i], color.fill); // core
         });
         const balLevel = levels[gearCount] / 255;
         const swing = Math.sin(clock.drive.balancePhase) * (0.5 + (isPlaying ? smoothedEnergy : 0) * 1.6) + jitter.gear * 3;
@@ -195,13 +210,15 @@ const workflowVizShape = {
     },
 
     /** Bánh răng dựng lại khi bán kính mặt số đổi (đổi kích thước canvas / clockSizeRatio). */
-    _ensureClockGeometry(dialR) {
+    _ensureClockGeometry(dialR, dpr) {
         const clock = this._clock;
-        const geomKey = dialR.toFixed(1);
+        const geomKey = `${dialR.toFixed(1)}|${dpr}`;
         if (geomKey === clock.geomKey) return;
         clock.geomKey = geomKey;
         clock.layout = computeClockGearLayout(dialR); // core
-        clock.outlines = clock.layout.gears.map((g) => buildClockGearOutline(g.z, g.r, g.m, g.ratchet)); // core
+        clock.outlines = clock.layout.gears.map((g) => CLOCK_GEAR_OUTLINE_BY_RATCHET[Boolean(g.ratchet)](g));
+        clock.radii = clock.layout.gears.map((g) => computeClockGearRadii(g, dpr)); // core
+        clock.interiors = clock.layout.gears.map((g, i) => resolveClockGearInterior(g, clock.radii[i])); // core
     },
 
     /** Mốc giây khởi đầu của kim "Past & Future": frame đầu tiên lấy giờ thật, sau đó core tự tích phân (0). */

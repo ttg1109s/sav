@@ -55,18 +55,47 @@ const BAR_DOT_COLORS_BY_GRADIENT = {
     false: (dotCount, smoothed, shared) => new Array(dotCount).fill(shared),
 };
 
+/** Dot đang phồng: 2 nhánh (mode 'height') hay tròn (core resolveDotAxisPaintKind()). */
+const BAR_DOT_PAINT_BY_KIND = {
+    branches: (p, r, halfLen, c, blurPx) => paintDotAxisDotBranches(p.ctx, p.d, p.it.x, p.it.y, r, halfLen, p.bend, p.bendDeg, c.fill, c.glow, blurPx, p.it.alpha), // core
+    round: (p, r, halfLen, c, blurPx) => paintDotAxisDotRound(p.ctx, p.it.x, p.it.y, r, c.fill, c.glow, blurPx, p.it.alpha), // core
+};
+
 /** Dot: vẽ 1 dot — đang phồng (vượt DOT_IMPACT_MIN) hay ở trạng thái nghỉ. */
 const BAR_DOT_PAINT_BY_IMPACT = {
     true: (p) => {
         const r = (p.mode === 'radius' ? p.baseRadius + p.boost * (p.maxRadius - p.baseRadius) * p.swell : p.baseRadius) * p.it.scale;
         const halfLen = p.mode === 'height' ? p.boost * p.maxHalf * p.it.scale : 0;
         const c = BAR_DOT_IMPACT_COLOR_BY_TWO_COLOR[p.isTwoColor](p.cfg, p.boost, p.colors[p.it.i]);
-        paintDotAxisDot(p.ctx, p.d, p.it.x, p.it.y, p.mode, r, halfLen, p.bend, p.bendDeg, c.fill, c.glow, DOT_GLOW_BLUR_PX * p.boost * p.dpr * p.blurMult, p.it.alpha); // core
+        BAR_DOT_PAINT_BY_KIND[resolveDotAxisPaintKind(p.mode, halfLen)](p, r, halfLen, c, DOT_GLOW_BLUR_PX * p.boost * p.dpr * p.blurMult); // core
     },
     false: (p) => {
         const c = p.colors[p.it.i];
-        paintDotAxisDot(p.ctx, p.d, p.it.x, p.it.y, 'radius', p.baseRadius * p.it.scale, 0, 'none', 0, c.fill, c.glow, 0, p.it.alpha); // core
+        paintDotAxisDotRound(p.ctx, p.it.x, p.it.y, p.baseRadius * p.it.scale, c.fill, c.glow, 0, p.it.alpha); // core
     },
+};
+
+/** Dot DNA: bật = nhân đôi + xoắn, tắt = phá liên kết lần lượt từng cặp. */
+const BAR_DOT_DNA_STEP_BY_ON = {
+    true: (dot, dt) => stepDotDnaSpawnPairs(dot.dnaLevels, dot.dnaBonds, dt), // core
+    false: (dot, dt) => stepDotDnaBreakPairs(dot.dnaLevels, dot.dnaBonds, dt, dot.dnaBreakClock),
+};
+
+/** Polyline thô của hình trục dot (core/visualizer/groups/bar/dot.js). */
+const BAR_DOT_AXIS_RAW_BY_SHAPE = {
+    line: (f) => buildDotAxisRawLine(f),
+    sinDown: (f) => buildDotAxisRawSinArc(f, false),
+    sinUp: (f) => buildDotAxisRawSinArc(f, true),
+    sinWave: (f) => buildDotAxisRawSinWave(f),
+    squareWave: (f) => buildDotAxisRawSquareWave(f),
+    circle: (f) => buildDotAxisRawCircle(f),
+    square: (f) => buildDotAxisRawSquare(f),
+    triangle: (f) => buildDotAxisRawTriangle(f),
+};
+/** Rải dot: hình kín (quấn vòng) / hình mở (kẹp 2 đầu). */
+const BAR_DOT_AXIS_SAMPLING_BY_CLOSED = {
+    true: (total, dotCount) => planDotAxisSamplingClosed(total, dotCount), // core
+    false: (total, dotCount) => planDotAxisSamplingOpen(total, dotCount),
 };
 
 const workflowVizBar = {
@@ -201,8 +230,9 @@ const workflowVizBar = {
         bursts.forEach((burst) => {
             const reach = computeBlackHoleRayReach(burst.angle + rayIndex * Math.PI, halfW, halfH, 60 * dpr); // core
             const look = computeBlackHoleBurstLook(burst, dpr); // core
-            paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, look, createBlackHoleRayGradient(ctx, reach, palette), haloRgb, dpr); // core
-            paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, palette, haloRgb); // core
+            const rayGradient = createBlackHoleRayGradient(ctx, reach, palette); // core — dùng chung dải nhiệt + tia chớp
+            paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, look, rayGradient, haloRgb, dpr); // core
+            paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, rayGradient, palette, haloRgb); // core
         });
     },
 
@@ -315,7 +345,7 @@ const workflowVizBar = {
         dot.lastBase = dots;
 
         dot.dnaBreakClock = dnaOn ? 0 : dot.dnaBreakClock + dt;
-        const dnaMax = stepDotDnaPairs(dot.dnaLevels, dot.dnaBonds, dt, dnaOn, dot.dnaBreakClock); // core
+        const dnaMax = BAR_DOT_DNA_STEP_BY_ON[dnaOn](dot, dt);
         this._advanceDnaRotation(frame, dnaMax, dt);
 
         dot.energyPeak = computeDotEnergyPeak(dot.energyPeak, frame.audio.smoothedEnergy(), dt); // core
@@ -363,7 +393,7 @@ const workflowVizBar = {
             }
         }
         ctx.shadowBlur = 0;
-        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; // paintDotAxisDot() mode 'height' đặt round — trả về mặc định canvas
+        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; // paintDotAxisDotBranches() đặt round — trả về mặc định canvas
     },
 
     /** Đổi số dot -> cấp phát lại mọi mảng theo dot + bỏ cụm/blend dở dang. */
@@ -417,7 +447,11 @@ const workflowVizBar = {
         const dot = this._dot;
         if (geomKey === dot.geomKey) return;
         dot.geomKey = geomKey;
-        dot.geom = buildDotAxisGeometry(shape, canvas.width, canvas.height, dotCount); // core
+        const axis = resolveDotAxisShape(shape); // core/visualizer/groups/bar/dot.js
+        const raw = BAR_DOT_AXIS_RAW_BY_SHAPE[axis.shape](computeDotAxisFrame(canvas.width, canvas.height));
+        const path = measureDotAxisPath(raw);
+        const plan = BAR_DOT_AXIS_SAMPLING_BY_CLOSED[axis.closed](path.total, dotCount);
+        dot.geom = assembleDotAxisGeometry(axis, sampleDotAxisPoints(raw, path.cum, plan.ss), sampleDotAxisPoints(raw, path.cum, plan.sas), sampleDotAxisPoints(raw, path.cum, plan.sbs), plan.us, plan.spacing);
     },
 
     /** Vừa đổi giữa rắn bò <-> hình tĩnh -> bắt đầu chuyển mượt từ vị trí cuối của kiểu cũ. */
