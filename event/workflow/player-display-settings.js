@@ -289,7 +289,7 @@ const workflowPlayerDisplaySettings = {
      * `isReactBeatPresetActive()`). Đọc TƯƠI mỗi lần gọi (KHÔNG cache) — Runner (event/
      * workflow/motion-beat-react-runner.js) tự gọi lại hàm này MỖI FRAME, nên tự động bắt kịp NGAY
      * nếu người dùng đổi preset khác giữa chừng HOẶC sửa nội dung preset đang gắn (Motion Edit thay
-     * preset bằng object MỚI mỗi lần lưu, xem event/workflow/motion-presets.js::_mutateEditing() —
+     * preset bằng object MỚI mỗi lần lưu, xem event/workflow/motion-presets.js::_patchEditing() —
      * tra lại theo id ở ĐÂY mỗi lần là điều BẮT BUỘC để không stale, không cần logic "restart" riêng).
      * SỬA (gộp trùng lặp với `workflowVisualBgPhotoMotion._getBeatReactPreset()`, event/workflow/
      * visual-bg-photo-motion.js — 2 bản check `reactBeatAudio` từng lệch nhau: bản NÀY trước đây chỉ check

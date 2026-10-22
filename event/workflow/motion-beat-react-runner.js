@@ -17,7 +17,7 @@
  * ĐỂ vẫn LIVE đúng khi sửa NỘI DUNG 1 preset đang chạy (không chỉ lúc đổi hẳn preset khác) — module
  * này giữ 1 REGISTRY nhỏ (mọi runner đã tạo, list ngắn — hiện tại nhiều nhất vài instance, KHÔNG
  * phải hàng nghìn) + hàm `notifyMotionBeatReactPresetsChanged()` — Motion Edit
- * (event/workflow/motion-presets.js::_mutateEditing(), DUY NHẤT 1 chỗ, chạy sau MỌI lần lưu field
+ * (event/workflow/motion-presets.js::_patchEditing(), DUY NHẤT 1 chỗ, chạy sau MỌI lần lưu field
  * bất kỳ) gọi hàm này SAU MỖI lần lưu — broadcast "có gì đó vừa đổi" tới TẤT CẢ runner đang tồn tại,
  * mỗi runner tự `sync()` lại (rẻ — bằng đúng 1 lần `.find()` mỗi runner, KHÔNG phải mỗi frame) và tự
  * biết mình có LIÊN QUAN hay không (`getPresetFn()` của riêng nó tự quyết). Motion (Edit) hoàn toàn
@@ -80,7 +80,7 @@ const MOTION_BEATREACT_MAX_FRAME_GAP_MS = 100;
 
 const _motionBeatReactRunnerRegistry = [];
 
-/** Gọi từ NƠI LƯU EDIT preset (event/workflow/motion-presets.js::_mutateEditing(), DUY NHẤT 1 chỗ,
+/** Gọi từ NƠI LƯU EDIT preset (event/workflow/motion-presets.js::_patchEditing(), DUY NHẤT 1 chỗ,
  * chạy sau MỌI lần lưu field bất kỳ của MỌI preset) — báo TẤT CẢ runner đang tồn tại tự `sync()`
  * lại. Runner nào KHÔNG liên quan (preset của nó không phải preset vừa sửa, hoặc nó chưa từng chạy
  * gì) thì `sync()` tự no-op (so `shouldRun` cũ/mới, không đổi thì không làm gì) — CHI PHÍ chỉ bằng

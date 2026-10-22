@@ -1,25 +1,20 @@
 /**
- * event/workflow/motion-presets.js — Workflow của router "motionPresets" — hệ "Cấu hình Motion" độc lập, điều hướng
- * qua `workflowAppSettings.navigateTo()`/`_render()` (màn hình trong Settings), KHÔNG phải Generic Drawer
- * List<->Edit riêng như EQ.
+ * event/workflow/motion-presets.js — Workflow router "motionPresets" (Cấu hình Motion): các màn trong Settings điều hướng qua
+ * `workflowAppSettings.navigateTo()`/`_render*()`. Chỉ chuẩn bị (đọc state/DB, tra phần tử) + điều phối — biến đổi preset ở
+ * core thuần core/motion-presets.js, ghi DOM ở core/motion-presets-ui.js.
  *
- * Danh sách preset SỐNG ở `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`, xem loadPresetsOnBoot() —
- * rỗng là HỢP LỆ, KHÔNG seed gì cả). Nơi tiêu thụ (VBG Photo, Player Video/Photo, bất kỳ ai sau này) gọi
- * `openPicker()` — vào THẲNG danh sách ở chế độ CHỌN (tap dòng = chọn, "Apply" ở header = xác nhận -> `onApply(id)`
- * của nơi tiêu thụ tự ghi field riêng của nó -> tự back()), xem nhóm "Chế độ CHỌN" cuối file.
+ * Danh sách preset sống ở `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`, rỗng là hợp lệ). Nơi tiêu thụ (VBG
+ * Photo, Player Video/Photo) gọi `openPicker()` — danh sách ở chế độ CHỌN, "Apply" gọi `onApply(id)` của nơi tiêu thụ rồi
+ * back(). Sửa preset đang hiển thị: chỉ BROADCAST (`notifyMotionPointMoveEnabledChanged()`,
+ * `notifyMotionBeatReactPresetsChanged()`), Runner tự lọc — Motion không biết nơi tiêu thụ nào.
  *
- * Sửa preset áp SỐNG ngay lúc đang hiển thị mà Motion KHÔNG biết nơi tiêu thụ nào: chỉ BROADCAST
- * (`notifyMotionPointMoveEnabledChanged()`, `notifyMotionBeatReactPresetsChanged()`), Runner tự lọc (nguyên tắc tua vít).
- *
- * NẠP SAU: core/motion-presets.js, core/motion-engine.js, core/point-move-timing-ui.js, core/time-picker-modal.js,
- * components/motion-settings-drawer.js, service/db.js (getMeta/setMeta/delMeta).
- * GỌI LÚC CHẠY (liên tuyến domain): workflowAppSettings, workflowPagination (nơi 'motionPresets', dùng CHUNG cho màn
- * Chọn), workflowVisualBg (đọc/ghi `motionPresetId`), event/workflow/motion-point-move-runner.js,
- * event/workflow/motion-beat-react-runner.js.
+ * NẠP SAU: core/motion-presets.js, core/motion-presets-ui.js, core/motion-engine.js, core/point-move-timing-ui.js,
+ * core/time-picker-modal.js, core/modal-choice-ui.js, components/motion-settings-drawer.js, service/db.js.
+ * GỌI LÚC CHẠY: workflowAppSettings, workflowPagination, workflowVisualBg (gỡ `motionPresetId` khi xoá preset),
+ * event/workflow/motion-point-move-runner.js, event/workflow/motion-beat-react-runner.js.
  */
 
-// ---- Bảng tra UI tương tác của các màn Motion trong Settings ----
-// Id ô nhập số / slider của 1 field Point Move theo `which` ('single' | 'min' | 'max').
+/** Id ô nhập số / slider của 1 field Point Move theo `which` ('single' | 'min' | 'max'). */
 const POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH = {
     single: (fieldKey) => `ptmove-${fieldKey}-single-input`,
     min: (fieldKey) => `ptmove-${fieldKey}-rangemin-input`,
@@ -30,68 +25,131 @@ const POINT_MOVE_SLIDER_ID_BY_WHICH = {
     min: (fieldKey) => `setting-ptmove-${fieldKey}-rangemin`,
     max: (fieldKey) => `setting-ptmove-${fieldKey}-rangemax`,
 };
-// Ghi giá trị ô nhập số (đã kẹp) vào preset theo `which`.
+/** Ghi giá trị ô nhập số (đã kẹp) vào preset theo `which`. */
 const POINT_MOVE_NUMBER_COMMIT_BY_WHICH = {
     single: (fieldKey, value) => workflowMotionPresets.changePointMoveFieldSingle(fieldKey, value),
     min: (fieldKey, value) => workflowMotionPresets.changePointMoveFieldRange(fieldKey, 'min', value),
     max: (fieldKey, value) => workflowMotionPresets.changePointMoveFieldRange(fieldKey, 'max', value),
 };
-// Ô nhập số hiển thị giá trị field theo mode.
-const POINT_MOVE_FIELD_INPUTS_SYNC_BY_IS_SINGLE = {
-    true: (fieldKey, field) => workflowMotionPresets._setInputValueById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.single(fieldKey), field.single),
-    false: (fieldKey, field) => {
-        workflowMotionPresets._setInputValueById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.min(fieldKey), field.rangeMin);
-        workflowMotionPresets._setInputValueById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.max(fieldKey), field.rangeMax);
+/** Ô nhập số hiển thị giá trị field theo mode. */
+const POINT_MOVE_FIELD_INPUTS_SYNC_BY_MODE = {
+    single: (fieldKey, field) => setMotionInputValues([workflowMotionPresets._drawerElById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.single(fieldKey))], field.single), // core/motion-presets-ui.js
+    randomRange: (fieldKey, field) => {
+        setMotionInputValues([workflowMotionPresets._drawerElById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.min(fieldKey))], field.rangeMin);
+        setMotionInputValues([workflowMotionPresets._drawerElById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.max(fieldKey))], field.rangeMax);
     },
 };
-// Hàng Point Move đang kéo: nổi lên (z-index/shadow) + khoá bôi đen chữ; thả ra thì trả về.
-const POINT_MOVE_ROW_STYLE_BY_LIFTED = {
-    true: { position: 'relative', zIndex: '30', boxShadow: '0 10px 24px rgba(0,0,0,0.25)', userSelect: 'none' },
-    false: { position: '', zIndex: '', boxShadow: '', userSelect: '', transform: '' },
+
+/** Field React Beat: cách kiểm giá trị (core/motion-presets.js) + có đồng bộ lại ô số/slider Max sau khi lưu không. */
+const BEAT_REACT_FIELD_RULE_BY_KEY = {
+    enabled: { isValid: (effectKey, value) => isBeatReactToggleValue(effectKey, value), syncsMaxInputs: false },
+    reverse: { isValid: (effectKey, value) => isBeatReactToggleValue(effectKey, value), syncsMaxInputs: false },
+    randomMax: { isValid: (effectKey, value) => isBeatReactToggleValue(effectKey, value), syncsMaxInputs: false },
+    maxPct: { isValid: (effectKey, value) => isBeatReactMaxPctValue(effectKey, value), syncsMaxInputs: true },
+    maxDeg: { isValid: (effectKey, value) => isBeatReactMaxDegValue(effectKey, value), syncsMaxInputs: true },
+    direction: { isValid: (effectKey, value) => isBeatReactDirectionValue(effectKey, value), syncsMaxInputs: false },
 };
-// Đích thả đang hover: đổi bộ theme key của chính hàng (nền "đang chọn" / nền card).
-const POINT_MOVE_ROW_THEME_KEYS_BY_DROP_TARGET = { true: 'rowActiveBg cardBorder', false: 'cardBg cardBorder' };
-// Zoom màn Timing — "mức giãn thêm" trục thời gian (0 = không giãn), chỉ view, không persist.
-const POINT_MOVE_TIMING_ZOOM_STEPS_PCT = [0, 25, 50, 75, 100];
-const POINT_MOVE_TIMING_ZOOM_MAX_EXTRA_SCALE_X = 1; // 100% -> scaleX 2
+/** Ghi field React Beat: cấp nhóm (`effectKey` null — `enabled`) hay của 1 hiệu ứng con. */
+const BEAT_REACT_WRITE_BY_HAS_EFFECT = {
+    true: (rb, effectKey, fieldKey, value) => setBeatReactEffectField(rb, effectKey, fieldKey, value), // core/motion-presets.js
+    false: (rb, effectKey, fieldKey, value) => setBeatReactTopField(rb, fieldKey, value),
+};
+
+/** Phần tử màn Edit preset (components/motion-settings-drawer.js). */
+const MOTION_EDIT_SELECTORS = {
+    ratioRow: '#motion-transition-ratio-row',
+    directionRow: '#motion-transition-direction-row',
+    zoomDirectionRow: '#motion-transition-zoom-direction-row',
+    spinDirectionRow: '#motion-transition-spin-direction-row',
+    wipeDirectionRow: '#motion-transition-wipe-direction-row',
+    curtainDirectionRow: '#motion-transition-curtain-direction-row',
+    variantRow: '#motion-edge-flip-variant-row',
+    staticOldRow: '#motion-edge-flip-static-old-row',
+    durationBtn: '#setting-motion-transition-duration',
+    ratioSlider: '#setting-motion-transition-ratio',
+    orderRow: '#motion-pointmove-order-row',
+};
 
 const workflowMotionPresets = {
     _pointMoveDrag: null, // phiên kéo-sắp-xếp danh sách Point Move: {id, rowEl, startY, rows, blocked, hoverRowEl} — null = không kéo
-    _timingZoomIdx: 0,    // bậc zoom màn Timing (POINT_MOVE_TIMING_ZOOM_STEPS_PCT)
+    _timingZoomIdx: 0,    // bậc zoom màn Timing (POINT_MOVE_TIMING_ZOOM_STEPS_PCT, core/motion-presets.js)
     _editingId: null,   // preset đang sửa (màn Edit) — null nếu không ở màn Edit
     _picker: null, // phiên Chọn đang mở: {title, draftId, onApply, pageIndex} — null nếu không ở màn Chọn, xem openPicker()
     _editingPointMoveId: null, // point move đang sửa (màn Point Move Edit) — null nếu không ở màn đó
     _dragPreviewPointMoveId: null, // point move ĐANG kéo trên thanh Timing — null nếu không kéo
     _dragPreviewTimingX: 0,
 
-    /** Gọi từ event/workflow/app-boot.js — đọc `meta.motionPresets`, sanitize.
-     * Danh sách preset RỖNG là hợp lệ — KHÔNG seed gì (khác EQ).
-     * MIGRATE — bản cũ (trước khi Motion tách khỏi Visual Background) lưu CẢ cấu hình Transition/
-     * Ken Burns NGAY TRONG `meta.visualBgConfig.motion` — đọc thẳng RAW meta đó để dựng preset ĐẦU
-     * TIÊN + gán `motionPresetId`. CHỈ chạy 1 LẦN DUY NHẤT (guard: `visualBgRaw.motionPresetId` CHƯA
-     * từng có). Dọn thêm key meta `motionApply` còn sót của bản cũ (`delMeta`, vô hại nếu không tồn tại). */
+    /** Gọi từ event/workflow/app-boot.js — đọc + làm sạch `meta.motionPresets`; di trú cấu hình Motion cũ trong
+     * `meta.visualBgConfig.motion` thành preset (1 lần); dọn key `motionApply` còn sót của bản cũ. */
     async loadPresetsOnBoot() {
-        const raw = await getMeta('motionPresets'); // service/db.js
-        let presets = Array.isArray(raw) ? raw.map((p) => sanitizeMotionPreset(p)) : []; // core/motion-presets.js
-
-        const visualBgRaw = await getMeta('visualBgConfig'); // service/db.js — RAW
-        if (visualBgRaw && typeof visualBgRaw === 'object' && visualBgRaw.motion && typeof visualBgRaw.motion === 'object' && !('motionPresetId' in visualBgRaw)) {
-            const migrated = sanitizeMotionPreset({ ...visualBgRaw.motion, name: t('motionPresetsDrawer.migratedName'), transitionEnabled: true }); // core/motion-presets.js — bản cũ luôn "bật" Transition (chưa có khái niệm tắt)
-            presets = [...presets, migrated];
-            visualBgRaw.motionPresetId = migrated.id;
-            delete visualBgRaw.motion; // dọn field cũ — schema hiện tại không còn định nghĩa
-            await setMeta('visualBgConfig', visualBgRaw); // service/db.js — GHI THẲNG (VBG chưa nạp domain lúc này)
-            console.log(`writer: "workflowMotionPresets.loadPresetsOnBoot", page: "motionPresets", content: "migrated legacy motion -> preset ${migrated.id}, gán motionPresetId"`);
-        }
-
+        const [raw, visualBgRaw] = await Promise.all([getMeta('motionPresets'), getMeta('visualBgConfig')]); // service/db.js
+        const presets = await this._migrateLegacyVisualBgMotion(this._sanitizePresetList(raw), visualBgRaw);
         appState.set('motionPresets', presets);
         await setMeta('motionPresets', presets); // service/db.js
-        await delMeta('motionApply'); // service/db.js — dọn key còn sót của bản cũ
+        await delMeta('motionApply');
         console.log(`writer: "workflowMotionPresets.loadPresetsOnBoot", page: "motionPresets", content: "${presets.length} preset"`);
     },
 
-    async _persist() {
-        await setMeta('motionPresets', appState.get('motionPresets')); // service/db.js
+    /** @param {*} raw - `meta.motionPresets` @returns {object[]} */
+    _sanitizePresetList(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.map((p) => sanitizeMotionPreset(p, this._newBlankPreset(MOTION_PRESET_FALLBACK_NAME))); // core/motion-presets.js
+    },
+
+    /** Bản cũ (trước khi Motion tách khỏi Visual Background) — dựng preset từ `visualBgRaw.motion`, gắn `motionPresetId`,
+     * bỏ field cũ. Ghi thẳng `meta.visualBgConfig` (domain VBG chưa nạp lúc này). @returns {Promise<object[]>} */
+    async _migrateLegacyVisualBgMotion(presets, visualBgRaw) {
+        if (!shouldMigrateLegacyVisualBgMotion(visualBgRaw)) return presets; // core/motion-presets.js
+        const migrated = sanitizeMotionPreset(buildLegacyMotionPresetRaw(visualBgRaw.motion, t('motionPresetsDrawer.migratedName')), this._newBlankPreset(MOTION_PRESET_FALLBACK_NAME));
+        await setMeta('visualBgConfig', buildMigratedVisualBgMeta(visualBgRaw, migrated.id)); // service/db.js
+        console.log(`writer: "workflowMotionPresets.loadPresetsOnBoot", page: "motionPresets", content: "migrated legacy motion -> preset ${migrated.id}, gán motionPresetId"`);
+        return appendMotionPreset(presets, migrated);
+    },
+
+    /** Point move trắng với id mới. */
+    _newBlankPointMove() {
+        return buildBlankPointMove(generatePointMoveId(), buildBlankPointMoveField('%'), buildBlankPointMoveField(null)); // core/motion-presets.js
+    },
+
+    /** Preset trắng với id mới. @param {string} name */
+    _newBlankPreset(name) {
+        return buildBlankMotionPreset(generateMotionPresetId(), name, this._newBlankPointMove()); // core/motion-presets.js
+    },
+
+    /** Ghi danh sách preset vào state + DB. @param {object[]} presets */
+    async _savePresets(presets) {
+        appState.set('motionPresets', presets);
+        await setMeta('motionPresets', presets); // service/db.js
+    },
+
+    /** Ghi đè vài field của preset đang sửa, lưu, rồi broadcast tới mọi runner React Beat (runner tự lọc preset của mình).
+     * @param {object} patch @param {object[]} [presets] - danh sách nơi gọi đã đọc @returns {Promise<object[]>} danh sách MỚI */
+    async _patchEditing(patch, presets = appState.get('motionPresets')) {
+        const next = replaceMotionPresetFields(presets, this._editingId, patch); // core/motion-presets.js
+        await this._savePresets(next);
+        notifyMotionBeatReactPresetsChanged(); // event/workflow/motion-beat-react-runner.js
+        return next;
+    },
+
+    /** Preset đang sửa (null nếu đã bị xoá) kèm danh sách (nơi gọi đã đọc, hoặc đọc mới). @returns {{presets: object[], preset: object|null}} */
+    _editingContext(presets = appState.get('motionPresets')) {
+        return { presets, preset: findMotionPresetById(presets, this._editingId) }; // core/motion-presets.js
+    },
+
+    /** + point move đang sửa (null nếu preset/point move đã bị xoá). */
+    _editingPointMoveContext(presets) {
+        const context = this._editingContext(presets);
+        return { ...context, pointMove: context.preset ? findPointMoveById(context.preset.pointMoves, this._editingPointMoveId) : null }; // core/motion-presets.js
+    },
+
+    /** Lấy phần tử trong body Drawer theo bảng selector. @returns {Object<string, HTMLElement|null>} */
+    _queryDrawerEls(selectors) {
+        return Object.fromEntries(Object.entries(selectors).map(([name, selector]) => [name, genericDrawerBody.querySelector(selector)])); // core/dom-refs.js
+    },
+
+    /** @param {string} id @returns {HTMLElement|null} */
+    _drawerElById(id) {
+        return genericDrawerBody.querySelector(`#${id}`); // core/dom-refs.js
     },
 
     // ===================== Quản lý cấu hình (danh sách) =====================
@@ -99,508 +157,372 @@ const workflowMotionPresets = {
     /** Tạo preset trắng, mở NGAY màn Edit của nó. */
     async addPreset() {
         const presets = appState.get('motionPresets');
-        const preset = buildBlankMotionPreset(tFormat('motionPresetsDrawer.defaultName', { n: presets.length + 1 })); // core/motion-presets.js
-        appState.set('motionPresets', [...presets, preset]);
-        await this._persist();
+        const preset = this._newBlankPreset(tFormat('motionPresetsDrawer.defaultName', { n: computeNextMotionPresetOrdinal(presets) })); // core/motion-presets.js
+        await this._savePresets(appendMotionPreset(presets, preset));
         this._editingId = preset.id;
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
     },
 
-    /** Ứng tap 1 dòng preset trong danh sách — mở màn Edit.
-     * @param {string} id */
-    async tileClick(id) {
+    /** Tap 1 dòng preset — mở màn Edit. @param {string} id */
+    tileClick(id) {
         this._editingId = id;
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionEdit()); // liên tuyến domain
     },
 
-    /** Ứng nút xoá nhanh trên 1 dòng — xoá thẳng, KHÔNG mở Edit trước.
-     * @param {string} id */
+    /** Nút xoá nhanh trên 1 dòng — xoá thẳng, vẽ lại danh sách tại chỗ. @param {string} id */
     async quickDelete(id) {
         await this._deletePresetById(id);
-        workflowAppSettings._renderMotionList(); // liên tuyến domain — vẽ lại TẠI CHỖ
+        workflowAppSettings._renderMotionList(); // liên tuyến domain
     },
 
     // ===================== Sửa 1 preset (màn Edit) =====================
 
-    /** Đồng bộ UI màn Edit theo preset đang sửa — gọi sau MỌI field change (Rule 5d). */
+    /** Đồng bộ UI màn Edit theo preset đang sửa (ẩn/hiện dòng theo kiểu Transition, thời lượng, tỉ lệ). */
     _syncEditUI() {
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const { isGenericDrawerOpen, motionPresets } = appState.get(['isGenericDrawerOpen', 'motionPresets']);
+        if (!isGenericDrawerOpen) return;
+        const preset = findMotionPresetById(motionPresets, this._editingId); // core/motion-presets.js
         if (!preset) return;
-        const q = (sel) => genericDrawerBody.querySelector(sel); // core/dom-refs.js
-        const ratioRow = q('#motion-transition-ratio-row');
-        if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(preset.transitionType)); // core/motion-engine.js
-        const directionRow = q('#motion-transition-direction-row');
-        if (directionRow) directionRow.classList.toggle('hidden', !transitionSupportsDirection(preset.transitionType));
-        const zoomDirectionRow = q('#motion-transition-zoom-direction-row');
-        if (zoomDirectionRow) zoomDirectionRow.classList.toggle('hidden', !transitionSupportsZoomDirection(preset.transitionType));
-        const spinDirectionRow = q('#motion-transition-spin-direction-row');
-        if (spinDirectionRow) spinDirectionRow.classList.toggle('hidden', !transitionSupportsSpinDirection(preset.transitionType));
-        const wipeDirectionRow = q('#motion-transition-wipe-direction-row');
-        if (wipeDirectionRow) wipeDirectionRow.classList.toggle('hidden', !transitionSupportsWipeDirection(preset.transitionType));
-        const curtainDirectionRow = q('#motion-transition-curtain-direction-row');
-        if (curtainDirectionRow) curtainDirectionRow.classList.toggle('hidden', !transitionSupportsCurtainDirection(preset.transitionType));
-        // 2 dòng phụ CHỈ hiện khi transitionType là 'flipEdge'; dòng checkbox "ảnh trước đứng yên"
-        // hiện HẸP HƠN NỮA — CHỈ khi ĐỒNG THỜI edgeFlipVariant==='close'.
-        const isEdgeFlip = transitionIsEdgeFlip(preset.transitionType); // core/motion-engine.js
-        const variantRow = q('#motion-edge-flip-variant-row');
-        if (variantRow) variantRow.classList.toggle('hidden', !isEdgeFlip);
-        const staticOldRow = q('#motion-edge-flip-static-old-row');
-        if (staticOldRow) staticOldRow.classList.toggle('hidden', !(isEdgeFlip && preset.edgeFlipVariant === 'close'));
-        const durationBtn = q('#setting-motion-transition-duration');
-        if (durationBtn) durationBtn.textContent = `${(preset.transitionDurationMs / 1000).toFixed(1)}s`;
-        const ratioSlider = q('#setting-motion-transition-ratio');
-        if (ratioSlider) ratioSlider.value = preset.transitionInOutRatio;
-        this._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio);
-        // Point Move — dòng "Thứ tự chọn" CHỈ hiện khi runMode==='one' ("Return baseline" + "Timing" nằm ở
-        // màn danh sách point move, workflowAppSettings._renderPointMoveList()).
-        const orderRow = q('#motion-pointmove-order-row');
-        if (orderRow) orderRow.classList.toggle('hidden', preset.pointMoveRunMode !== 'one');
-    },
-
-    _updateTransitionRatioLabel(transitionDurationMs, ratioPercent) {
-        const labelEl = genericDrawerBody ? genericDrawerBody.querySelector('#motion-transition-ratio-label') : null; // core/dom-refs.js
-        if (!labelEl) return;
-        const { inMs, outMs } = computeMotionEngineTransitionInOutMs(transitionDurationMs, ratioPercent); // core/motion-engine.js
-        labelEl.textContent = tFormat('motionSettingsDrawer.transitionRatio.previewFormat', { in: (inMs / 1000).toFixed(1), out: (outMs / 1000).toFixed(1) });
-    },
-
-    /** Ghi đè 1 (vài) field của preset ĐANG SỬA (`_editingId`), persist, rồi GỌI
-     * `notifyMotionBeatReactPresetsChanged()` (event/workflow/motion-beat-react-runner.js) bất kể field nào — broadcast
-     * tới MỌI runner React Beat đang tồn tại (VBG lẫn Player...), mỗi runner tự biết có liên quan tới mình hay không.
-     * @param {(preset: object) => void} mutatorFn */
-    async _mutateEditing(mutatorFn) {
-        const presets = appState.get('motionPresets').map((p) => {
-            if (p.id !== this._editingId) return p;
-            const copy = { ...p };
-            mutatorFn(copy);
-            return copy;
+        const type = preset.transitionType;
+        syncMotionEditUi(this._queryDrawerEls(MOTION_EDIT_SELECTORS), preset, { // core/motion-presets-ui.js
+            ratio: transitionSupportsInOutRatio(type), // core/motion-engine.js
+            direction: transitionSupportsDirection(type),
+            zoomDirection: transitionSupportsZoomDirection(type),
+            spinDirection: transitionSupportsSpinDirection(type),
+            wipeDirection: transitionSupportsWipeDirection(type),
+            curtainDirection: transitionSupportsCurtainDirection(type),
+            edgeFlip: transitionIsEdgeFlip(type),
         });
-        appState.set('motionPresets', presets);
-        await this._persist();
-        if (typeof notifyMotionBeatReactPresetsChanged !== 'undefined') notifyMotionBeatReactPresetsChanged(); // event/workflow/motion-beat-react-runner.js — liên tuyến domain
+        this._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio);
+    },
+
+    /** Nhãn "In x s · Out y s" (cả lúc mở màn Edit — event/workflow/app-settings.js). */
+    _updateTransitionRatioLabel(transitionDurationMs, ratioPercent) {
+        setMotionTransitionRatioLabel(genericDrawerBody.querySelector('#motion-transition-ratio-label'), computeMotionEngineTransitionInOutMs(transitionDurationMs, ratioPercent)); // core/motion-presets-ui.js + core/motion-engine.js
     },
 
     async changeName(name) {
-        const trimmed = name.trim();
-        if (!trimmed) return; // guard: tên rỗng -> bỏ qua, giữ tên cũ
-        await this._mutateEditing((p) => { p.name = trimmed; });
+        const rename = resolveMotionPresetRename(name); // core/motion-presets.js
+        if (rename.isBlank) return; // guard: tên rỗng -> giữ tên cũ
+        await this._patchEditing({ name: rename.name });
     },
 
     async changeTransitionEnabled(checked) {
-        await this._mutateEditing((p) => { p.transitionEnabled = checked; });
+        await this._patchEditing({ transitionEnabled: checked });
     },
 
     async changeTransitionType(value) {
         if (!MOTION_ENGINE_TRANSITION_TYPES.includes(value)) return; // core/motion-engine.js
-        await this._mutateEditing((p) => { p.transitionType = value; });
+        await this._patchEditing({ transitionType: value });
         this._syncEditUI();
     },
 
     async changeTransitionDirection(value) {
         if (!MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.transitionDirection = value; });
+        await this._patchEditing({ transitionDirection: value });
     },
 
     async changeTransitionZoomDirection(value) {
-        if (!MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.transitionZoomDirection = value; });
+        if (!MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM.includes(value)) return;
+        await this._patchEditing({ transitionZoomDirection: value });
     },
 
     async changeTransitionSpinDirection(value) {
-        if (!MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.transitionSpinDirection = value; });
+        if (!MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(value)) return;
+        await this._patchEditing({ transitionSpinDirection: value });
     },
 
     async changeTransitionWipeDirection(value) {
-        if (!MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.transitionWipeDirection = value; });
+        if (!MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM.includes(value)) return;
+        await this._patchEditing({ transitionWipeDirection: value });
     },
 
     async changeTransitionCurtainDirection(value) {
-        if (!MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.transitionCurtainDirection = value; });
+        if (!MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM.includes(value)) return;
+        await this._patchEditing({ transitionCurtainDirection: value });
     },
 
     async changeEdgeFlipVariant(value) {
-        if (!MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(value)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.edgeFlipVariant = value; });
-        this._syncEditUI(); // "close"/"open" đổi -> hàng checkbox edgeFlipStaticOld có thể cần ẩn/hiện lại
+        if (!MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(value)) return;
+        await this._patchEditing({ edgeFlipVariant: value });
+        this._syncEditUI(); // dòng "ảnh trước đứng yên" ẩn/hiện theo variant
     },
 
     async changeEdgeFlipStaticOld(checked) {
-        await this._mutateEditing((p) => { p.edgeFlipStaticOld = checked; });
+        await this._patchEditing({ edgeFlipStaticOld: checked });
     },
 
-    /** Ứng nút mở modal chọn "Thời gian chuyển cảnh" — picker CHỈ còn trần cứng
-     * `MOTION_ENGINE_TRANSITION_MAX_TIME_MS` (60s)/`MOTION_ENGINE_TRANSITION_MIN_TIME_MS` (300ms).
-     * Kẹp THẬT (< thời lượng hiển thị thật) chỉ xảy ra ở RUNTIME qua
-     * `capMotionEngineTransitionDurationMs()` (core/motion-engine.js). */
+    /** Mở time picker "Thời gian chuyển cảnh" — trần 300ms – 60s; kẹp theo thời lượng hiển thị thật chỉ ở runtime
+     * (`capMotionEngineTransitionDurationMs()`, core/motion-engine.js). */
     openTransitionDurationPicker() {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const { isGenericDrawerOpen, motionPresets } = appState.get(['isGenericDrawerOpen', 'motionPresets']);
+        if (!isGenericDrawerOpen) return;
+        const preset = findMotionPresetById(motionPresets, this._editingId); // core/motion-presets.js
         if (!preset) return;
-        const maxMs = MOTION_ENGINE_TRANSITION_MAX_TIME_MS; // core/motion-engine.js
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('motionSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',
-            valueMs: Math.min(preset.transitionDurationMs, maxMs),
+            valueMs: clampMotionTransitionDurationMs(preset.transitionDurationMs), // core/motion-presets.js
             minMs: MOTION_ENGINE_TRANSITION_MIN_TIME_MS, // core/motion-engine.js
-            maxMs,
-            onConfirm: async (resultMs) => {
-                const v = Math.max(MOTION_ENGINE_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
-                await this._mutateEditing((p) => { p.transitionDurationMs = v; });
-                if (genericDrawerPanel.classList.contains('hidden')) return;
-                const btn = genericDrawerBody.querySelector('#setting-motion-transition-duration');
-                if (btn) btn.textContent = `${(v / 1000).toFixed(1)}s`;
-                const ratioSlider = genericDrawerBody.querySelector('#setting-motion-transition-ratio');
-                this._updateTransitionRatioLabel(v, ratioSlider ? Number(ratioSlider.value) : 50);
-            },
+            maxMs: MOTION_ENGINE_TRANSITION_MAX_TIME_MS,
+            onConfirm: (resultMs) => this._commitTransitionDuration(resultMs),
         });
     },
 
+    async _commitTransitionDuration(resultMs) {
+        const durationMs = clampMotionTransitionDurationMs(resultMs); // core/motion-presets.js
+        const next = await this._patchEditing({ transitionDurationMs: durationMs });
+        if (!appState.get('isGenericDrawerOpen')) return;
+        setMotionTransitionDurationText(genericDrawerBody.querySelector('#setting-motion-transition-duration'), durationMs); // core/motion-presets-ui.js
+        const preset = findMotionPresetById(next, this._editingId);
+        if (preset) this._updateTransitionRatioLabel(durationMs, preset.transitionInOutRatio);
+    },
+
     previewTransitionRatio(ratioPercent) {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const { isGenericDrawerOpen, motionPresets } = appState.get(['isGenericDrawerOpen', 'motionPresets']);
+        if (!isGenericDrawerOpen) return;
+        const preset = findMotionPresetById(motionPresets, this._editingId); // core/motion-presets.js
         if (preset) this._updateTransitionRatioLabel(preset.transitionDurationMs, ratioPercent);
     },
 
     async changeTransitionRatio(ratioPercent) {
-        const v = Math.max(0, Math.min(100, ratioPercent));
-        await this._mutateEditing((p) => { p.transitionInOutRatio = v; });
-        this._updateTransitionRatioLabel(findMotionPresetById(appState.get('motionPresets'), this._editingId).transitionDurationMs, v); // core/motion-presets.js
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        const ratio = clampMotionTransitionRatio(ratioPercent); // core/motion-presets.js
+        await this._patchEditing({ transitionInOutRatio: ratio }, presets);
+        this._updateTransitionRatioLabel(preset.transitionDurationMs, ratio);
     },
 
     async changeTransitionEasing(easing) {
         if (!MOTION_ENGINE_TRANSITION_EASINGS.includes(easing)) return; // core/motion-engine.js
-        await this._mutateEditing((p) => { p.transitionEasing = easing; });
+        await this._patchEditing({ transitionEasing: easing });
     },
 
-    // ===================== Point Move (thay Ken Burns) =====================
+    // ===================== Point Move =====================
 
-    /** Công tắc TỔNG (CÙNG khuôn `transitionEnabled`/`reactBeatAudio.enabled`) — Point Move có được
-     * ÁP DỤNG lúc phát hay không, ĐỘC LẬP với việc list/run mode/timing đã cấu hình gì (LUÔN hiển
-     * thị/chỉnh được bất kể bật/tắt — xem event/workflow/visual-bg-photo-motion.js::_activatePointMove()).
-     * Off/on giữa lúc nội dung đang hiện phải áp NGAY: chỉ BROADCAST — Runner nào đang chạy đúng preset này tự áp
-     * (mọi nơi tiêu thụ, nguyên tắc tua vít). */
+    /** Công tắc tổng Point Move — áp ngay lúc nội dung đang hiện: broadcast, Runner chạy đúng preset này tự áp. */
     async changePointMoveEnabled(checked) {
-        await this._mutateEditing((p) => { p.pointMoveEnabled = checked; });
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js — bản MỚI NHẤT vừa lưu
+        const next = await this._patchEditing({ pointMoveEnabled: checked });
+        const preset = findMotionPresetById(next, this._editingId); // core/motion-presets.js
         if (preset) notifyMotionPointMoveEnabledChanged(preset, checked); // event/workflow/motion-point-move-runner.js
     },
 
-    /** Ứng dòng "Point move" trong màn Edit — mở danh sách point move. */
+    /** Dòng "Point move" trong màn Edit — mở danh sách point move. */
     openPointMoveList() {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderPointMoveList()); // liên tuyến domain
     },
 
     async changePointMoveRunMode(mode) {
         if (!MOTION_POINT_MOVE_RUN_MODES.includes(mode)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.pointMoveRunMode = mode; });
+        await this._patchEditing({ pointMoveRunMode: mode });
         this._syncEditUI();
     },
 
     async changePointMoveOneOrder(order) {
         if (!MOTION_POINT_MOVE_ONE_ORDERS.includes(order)) return; // core/motion-presets.js
-        await this._mutateEditing((p) => { p.pointMoveOneOrder = order; });
+        await this._patchEditing({ pointMoveOneOrder: order });
     },
 
-    /** Checkbox "Return baseline" (màn danh sách point move) — CHỈ có ý nghĩa khi `pointMoveRunMode==='all'`.
-     * Bật -> chèn mốc ảo x=100=baseline vào đuôi MỌI vòng (xem
-     * docstring đầu core/motion-presets.js) — nudge point move đang đứng đúng mốc x=100 bị khoá
-     * (+0.2%, CÙNG quy ước addPointMove()). Không checkbox nào khác phụ thuộc -> không cần `_syncEditUI()`.
-     * @param {boolean} checked */
+    /** Checkbox "Return baseline" (màn danh sách point move, chỉ có ý nghĩa với run mode 'all'). @param {boolean} checked */
     async changePointMoveEndForceBaseline(checked) {
-        await this._mutateEditing((p) => {
-            p.pointMoveEndForceBaseline = checked;
-            if (checked) p.pointMoves = p.pointMoves.map((pm) => (pm.timingX === 100 ? { ...pm, timingX: 99.9 } : pm));
-        });
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing(buildPointMoveEndForceBaselinePatch(preset.pointMoves, checked), presets); // core/motion-presets.js
     },
 
-    /** Biên [minX,maxX] kéo/nhập `timingX` HIỆN TẠI của preset đang sửa — `maxX` hẹp lại (99.9) khi
-     * `pointMoveEndForceBaseline` đang bật (mốc x=100 đó do baseline chiếm, xem docstring hàm trên)
-     * — `minX` LUÔN 0. DÙNG CHUNG cho thanh Timing (`_renderTimingCurve()`) LẪN modal nhập số
-     * (`_commitPointMoveTimingModal()`) — tránh lệch biên giữa 2 nơi.
-     * @param {object} preset @returns {{minX:number, maxX:number}} */
-    _pointMoveTimingBounds(preset) {
-        return {
-            minX: 0,
-            maxX: preset.pointMoveEndForceBaseline ? 99.9 : 100,
-        };
-    },
-
-    /** Ứng checkbox 1 dòng trong danh sách point move — VỊ TRÍ ĐẦU (index 0) khoá `checked:true`,
-     * UI đã disable checkbox đó nên message này thực tế KHÔNG bao giờ gửi cho id ở vị trí 0 (phòng
-     * hờ vẫn guard lại ở đây — không tin payload mù).
-     * @param {string} id @param {boolean} checked */
+    /** Checkbox 1 dòng point move (Point 0 luôn tick — core bỏ qua). @param {string} id @param {boolean} checked */
     async togglePointMoveChecked(id, checked) {
-        await this._mutateEditing((p) => {
-            const idx = p.pointMoves.findIndex((pm) => pm.id === id);
-            if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng vị trí đầu -> bỏ qua, giữ nguyên khoá
-            p.pointMoves[idx] = { ...p.pointMoves[idx], checked };
-        });
-        workflowAppSettings._renderPointMoveList(); // liên tuyến domain — vẽ lại TẠI CHỖ
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing({ pointMoves: setPointMoveChecked(preset.pointMoves, id, checked) }, presets); // core/motion-presets.js
+        workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
-    /** `timingX` cho point move MỚI nối vào cuối: +0.2% so với mốc thời gian MUỘN NHẤT đang có (KHÔNG lấy theo phần
-     * tử cuối mảng — thứ tự mảng không đảm bảo khớp thứ tự thời gian sau khi kéo node / nhập số / đổi chỗ). Kẹp biên động + tránh trùng mốc (`resolvePointMoveTimingX()`, core/motion-presets.js). Mốc muộn nhất
-     * đã chạm biên phải thì không thể "sau" nữa — lùi sát dưới biên (giới hạn tự nhiên của trục 0-100%).
-     * @param {object} preset @returns {number} */
-    _nextAppendedTimingX(preset) {
-        const { minX, maxX } = this._pointMoveTimingBounds(preset);
-        const timingXs = preset.pointMoves.map((pm) => pm.timingX);
-        const latest = timingXs.length > 0 ? Math.max(...timingXs) : 0;
-        return resolvePointMoveTimingX(latest + 0.2, timingXs, minX, maxX); // core/motion-presets.js
+    /** `timingX` cho point move mới nối cuối (+0.2% sau mốc muộn nhất, kẹp biên + tránh trùng). @param {object} preset */
+    _appendedTimingX(preset) {
+        return resolvePointMoveTimingX(preset.pointMoves, null, computeAppendedPointMoveTimingSeed(preset.pointMoves), resolvePointMoveTimingBounds(preset)); // core/motion-presets.js
     },
 
-    /** Thêm 1 point move trắng vào CUỐI danh sách — `timingX` theo `_nextAppendedTimingX()` (tránh chồng khít
-     * lên nhau mỗi lần thêm), vẽ lại TẠI CHỖ. */
+    /** Thêm 1 point move trắng vào cuối danh sách. */
     async addPointMove() {
-        await this._mutateEditing((p) => {
-            const blank = buildBlankPointMove(); // core/motion-presets.js
-            blank.timingX = this._nextAppendedTimingX(p);
-            p.pointMoves = [...p.pointMoves, blank];
-        });
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing({ pointMoves: appendPointMove(preset.pointMoves, this._newBlankPointMove(), this._appendedTimingX(preset)) }, presets); // core/motion-presets.js
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
-    /** Nhân bản 1 point move — bản sao GIỮ NGUYÊN mọi thông số (deep-copy 6 field con, tránh 2 point
-     * move cùng trỏ chung 1 object field gây sửa 1 bên ảnh hưởng bên kia), `id` MỚI, LUÔN `checked:
-     * true` mặc định, `timingX` tự tịnh tiến +0.2% (CÙNG quy tắc `addPointMove()` — tránh chồng khít
-     * lên bản gốc), chèn vào CUỐI danh sách. Vẽ lại TẠI CHỖ.
-     * @param {string} id */
+    /** Nhân bản 1 point move (giữ mọi thông số, id mới, luôn tick), nối cuối. @param {string} id */
     async duplicatePointMove(id) {
-        await this._mutateEditing((p) => {
-            const original = p.pointMoves.find((pm) => pm.id === id);
-            if (!original) return;
-            const clone = {
-                ...original,
-                id: generatePointMoveId(), // core/motion-presets.js
-                checked: true,
-                timingX: this._nextAppendedTimingX(p), // CÙNG quy tắc addPointMove()
-                linearX: { ...original.linearX }, linearY: { ...original.linearY },
-                rotate: { ...original.rotate }, zoom: { ...original.zoom },
-                flipX: { ...original.flipX }, flipY: { ...original.flipY },
-            };
-            p.pointMoves = [...p.pointMoves, clone];
-        });
+        const { presets, preset } = this._editingContext();
+        const original = preset ? findPointMoveById(preset.pointMoves, id) : null; // core/motion-presets.js
+        if (!original) return;
+        const copy = buildPointMoveCopy(original, generatePointMoveId());
+        await this._patchEditing({ pointMoves: appendPointMove(preset.pointMoves, copy, this._appendedTimingX(preset)) }, presets);
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
-    /** Ứng kéo-thả đổi vị trí TRONG màn Danh sách — HOÁN ĐỔI TOÀN BỘ 2 phần tử mảng (order N VÀ mọi
-     * field khác, bao gồm `timingX`) trong 1 thao tác. Point 0 = start point CỐ ĐỊNH (`timingX` khoá cứng = 0,
-     * core/motion-presets.js) -> CHẶN nếu 1 trong 2 index là 0 (UI không có tay cầm kéo ở hàng đó; guard phòng hờ).
-     * @param {string} idA @param {string} idB */
+    /** Kéo-thả trong màn Danh sách — hoán đổi toàn bộ 2 point move (Point 0 cố định — core bỏ qua). @param {string} idA @param {string} idB */
     async swapPointMoveOrder(idA, idB) {
         if (idA === idB) return;
-        await this._mutateEditing((p) => {
-            const idxA = p.pointMoves.findIndex((pm) => pm.id === idA);
-            const idxB = p.pointMoves.findIndex((pm) => pm.id === idB);
-            if (idxA === -1 || idxB === -1 || idxA === 0 || idxB === 0) return;
-            const newList = [...p.pointMoves];
-            [newList[idxA], newList[idxB]] = [newList[idxB], newList[idxA]];
-            p.pointMoves = sanitizeMotionPointMoves(newList); // core/motion-presets.js
-        });
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing({ pointMoves: swapPointMoves(preset.pointMoves, idA, idB) }, presets); // core/motion-presets.js
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
-    /** Xoá 1 point move — LUÔN giữ ít nhất 1 phần tử (guard, UI đã disable nút xoá khi chỉ còn 1,
-     * phòng hờ vẫn chặn lại ở đây). Point 0 (start point) KHÔNG BAO GIỜ xoá được (UI disable nút xoá, guard phòng hờ).
-     * @param {string} id */
+    /** Xoá 1 point move — luôn còn ít nhất 1, Point 0 không xoá được (core bỏ qua). @param {string} id */
     async deletePointMove(id) {
-        await this._mutateEditing((p) => {
-            if (p.pointMoves.length <= 1) return; // guard: không xoá xuống dưới 1
-            const idx = p.pointMoves.findIndex((pm) => pm.id === id);
-            if (idx === 0) return; // guard: Point 0 (start point) không xoá được
-            const filtered = p.pointMoves.filter((pm) => pm.id !== id);
-            p.pointMoves = sanitizeMotionPointMoves(filtered); // core/motion-presets.js — ép lại khoá checked+timingX vị trí đầu ngay (không đợi lượt sanitize kế tiếp)
-        });
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing({ pointMoves: removePointMove(preset.pointMoves, id) }, presets); // core/motion-presets.js
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
-    /** Ứng icon sửa 1 dòng — mở màn Point Move Edit.
-     * @param {string} id */
+    /** Icon sửa 1 dòng — mở màn Point Move Edit. @param {string} id */
     openPointMoveEdit(id) {
         this._editingPointMoveId = id;
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderPointMoveEdit()); // liên tuyến domain
     },
 
-    /** Ghi đè 1 (vài) field của point move ĐANG SỬA (`_editingPointMoveId`, thuộc preset `_editingId`).
-     * @param {(pointMove: object) => void} mutatorFn */
-    async _mutateEditingPointMove(mutatorFn) {
-        await this._mutateEditing((p) => {
-            const idx = p.pointMoves.findIndex((pm) => pm.id === this._editingPointMoveId);
-            if (idx === -1) return;
-            const copy = { ...p.pointMoves[idx] };
-            mutatorFn(copy);
-            p.pointMoves = p.pointMoves.map((pm, i) => (i === idx ? copy : pm));
-        });
+    /** Ghi đè vài khoá của 1 field của point move đang sửa. @param {string} fieldKey @param {object} fieldPatch */
+    async _patchEditingPointMoveField(fieldKey, fieldPatch) {
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing({ pointMoves: replacePointMoveField(preset.pointMoves, this._editingPointMoveId, fieldKey, fieldPatch) }, presets); // core/motion-presets.js
     },
 
-    /** Đổi đơn vị Linear X/Y (%/px) — RESET single/rangeMin/rangeMax về 0 (2 đơn vị không cùng
-     * thang đo, giữ nguyên con số trước đó sẽ vô nghĩa/gây hiểu lầm — vd 150% giữ nguyên số nhưng đổi
-     * sang 150px là 1 giá trị HOÀN TOÀN khác ý người dùng đang có).
+    /** Đổi đơn vị Linear X/Y (%/px) — reset về field trắng (2 đơn vị khác thang đo, giữ số cũ sẽ sai ý).
      * @param {'linearX'|'linearY'} fieldKey @param {string} unit - '%'|'px'. */
     async changePointMoveUnit(fieldKey, unit) {
         if (!MOTION_POINT_MOVE_LINEAR_UNITS.includes(unit)) return; // core/motion-presets.js
-        await this._mutateEditingPointMove((pm) => { pm[fieldKey] = { mode: 'single', unit, single: 0, rangeMin: 0, rangeMax: 0 }; });
-        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ (biên số học đổi theo unit mới)
+        await this._patchEditingPointMoveField(fieldKey, buildBlankPointMoveField(unit));
+        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — biên slider đổi theo đơn vị
     },
 
-    /** Đổi chế độ 1 field (single/randomRange).
-     * @param {string} fieldKey - 'linearX'|'linearY'|'rotate'|'zoom'|'flipX'|'flipY'.
-     * @param {string} mode - 'single'|'randomRange'. */
+    /** Đổi chế độ 1 field (single/randomRange). */
     async changePointMoveFieldMode(fieldKey, mode) {
         if (!MOTION_POINT_MOVE_FIELD_MODES.includes(mode)) return; // core/motion-presets.js
-        await this._mutateEditingPointMove((pm) => { pm[fieldKey] = { ...pm[fieldKey], mode }; });
+        await this._patchEditingPointMoveField(fieldKey, { mode });
         this._syncPointMoveEditUI(fieldKey);
     },
 
-    /** Ứng slider "single" (mode==='single') — LIVE preview lúc kéo (`input`), KHÔNG persist mỗi
-     * pixel (cùng convention `previewTransitionRatio()`/`transitionRatio.preview`) — chỉ cập nhật `.value` của ô
-     * input số, persist THẬT diễn ra ở `changePointMoveFieldSingle()` lúc
-     * thả tay (`change`). */
+    /** Slider "single" đang kéo (`input`) — chỉ cập nhật ô số, lưu lúc thả tay (`changePointMoveFieldSingle()`). */
     previewPointMoveFieldSingle(fieldKey, value) {
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        const inputEl = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input`);
-        if (inputEl) inputEl.value = value;
+        if (!appState.get('isGenericDrawerOpen')) return;
+        setMotionInputValues([this._drawerElById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH.single(fieldKey))], value); // core/motion-presets-ui.js
     },
 
-    /** Ứng slider "single" (mode==='single') — persist THẬT lúc thả tay (`change`). */
+    /** Slider "single" thả tay (`change`) — lưu. */
     async changePointMoveFieldSingle(fieldKey, value) {
         if (typeof value !== 'number') return;
-        await this._mutateEditingPointMove((pm) => { pm[fieldKey] = { ...pm[fieldKey], single: value }; });
+        await this._patchEditingPointMoveField(fieldKey, { single: value });
         this._updatePointMoveFieldLabel(fieldKey);
     },
 
-    /** Ứng 1 trong 2 tay kéo dual-range (mode==='randomRange') — `which` phân biệt tay TRÁI/PHẢI.
-     * TỰ kẹp min<=max (tay trái vượt tay phải -> đẩy tay phải theo, và ngược lại) — tránh khoảng
-     * random rỗng/đảo ngược.
+    /** 1 trong 2 tay kéo dual-range (randomRange) — tay kia bị đẩy theo khi vượt qua.
      * @param {string} fieldKey @param {'min'|'max'} which @param {number} value */
     async changePointMoveFieldRange(fieldKey, which, value) {
         if (typeof value !== 'number') return;
-        await this._mutateEditingPointMove((pm) => {
-            const field = { ...pm[fieldKey] };
-            if (which === 'min') { field.rangeMin = value; if (field.rangeMax < value) field.rangeMax = value; }
-            else { field.rangeMax = value; if (field.rangeMin > value) field.rangeMin = value; }
-            pm[fieldKey] = field;
-        });
-        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ (2 tay kéo có thể cùng đổi vị trí)
+        const { presets, preset, pointMove } = this._editingPointMoveContext();
+        if (!pointMove) return;
+        const fieldPatch = buildPointMoveFieldRangePatch(pointMove[fieldKey], which, value); // core/motion-presets.js
+        await this._patchEditing({ pointMoves: replacePointMoveField(preset.pointMoves, pointMove.id, fieldKey, fieldPatch) }, presets);
+        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — 2 tay kéo có thể cùng đổi vị trí
     },
 
-    /** Đồng bộ UI 1 field sau khi đổi mode (single<->randomRange) — ẨN/HIỆN đúng cụm slider LẪN cụm
-     * ô input số tương ứng, KHÔNG full re-render (giữ nguyên vị trí cuộn màn
-     * hình). */
+    /** Sau khi đổi mode: hiện đúng cụm slider + ô số (không vẽ lại cả màn — giữ vị trí cuộn). */
     _syncPointMoveEditUI(fieldKey) {
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
-        const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null;
+        const { isGenericDrawerOpen, motionPresets } = appState.get(['isGenericDrawerOpen', 'motionPresets']);
+        if (!isGenericDrawerOpen) return;
+        const { pointMove } = this._editingPointMoveContext(motionPresets);
         if (!pointMove) return;
-        const field = pointMove[fieldKey];
-        const isSingle = field.mode === 'single';
-        const singleWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-wrap`);
-        const rangeWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-wrap`);
-        if (singleWrap) singleWrap.style.display = isSingle ? '' : 'none';
-        if (rangeWrap) rangeWrap.style.display = isSingle ? 'none' : '';
-        // Ô input nằm TRONG wrapper (cùng nút "±", components/motion-settings-drawer.js) — toggle hidden ở WRAPPER.
-        const singleInputWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-single-input-wrap`);
-        const rangeInputWrap = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-input-wrap`);
-        if (singleInputWrap) singleInputWrap.classList.toggle('hidden', !isSingle);
-        if (rangeInputWrap) rangeInputWrap.classList.toggle('hidden', isSingle);
+        showPointMoveFieldMode(this._queryDrawerEls({ // core/motion-presets-ui.js
+            singleWrap: `#ptmove-${fieldKey}-single-wrap`,
+            rangeWrap: `#ptmove-${fieldKey}-range-wrap`,
+            singleInputWrap: `#ptmove-${fieldKey}-single-input-wrap`,
+            rangeInputWrap: `#ptmove-${fieldKey}-range-input-wrap`,
+        }), pointMove[fieldKey].mode);
         this._updatePointMoveFieldLabel(fieldKey);
     },
 
-    /** Đổ giá trị field (theo state) lên ô nhập số + dải tô màu dual-range. */
+    /** Đổ giá trị field lên ô nhập số + dải tô màu dual-range (cả lúc mở màn — event/workflow/app-settings.js). */
     _updatePointMoveFieldLabel(fieldKey) {
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
-        const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null;
+        const { isGenericDrawerOpen, motionPresets } = appState.get(['isGenericDrawerOpen', 'motionPresets']);
+        if (!isGenericDrawerOpen) return;
+        const { pointMove } = this._editingPointMoveContext(motionPresets);
         if (!pointMove) return;
         const field = pointMove[fieldKey];
-        POINT_MOVE_FIELD_INPUTS_SYNC_BY_IS_SINGLE[field.mode === 'single'](fieldKey, field);
+        POINT_MOVE_FIELD_INPUTS_SYNC_BY_MODE[field.mode](fieldKey, field);
         this._paintPointMoveRangeFill(fieldKey);
     },
 
-    /** Dải tô màu giữa 2 tay kéo dual-range, theo vị trí hiện tại của 2 slider. */
+    /** Dải tô màu giữa 2 tay kéo dual-range theo vị trí hiện tại của 2 slider. */
     _paintPointMoveRangeFill(fieldKey) {
-        const fillEl = genericDrawerBody.querySelector(`#ptmove-${fieldKey}-range-fill`);
-        const minInput = genericDrawerBody.querySelector(`#${POINT_MOVE_SLIDER_ID_BY_WHICH.min(fieldKey)}`);
-        const maxInput = genericDrawerBody.querySelector(`#${POINT_MOVE_SLIDER_ID_BY_WHICH.max(fieldKey)}`);
+        const fillEl = this._drawerElById(`ptmove-${fieldKey}-range-fill`);
+        const minInput = this._drawerElById(POINT_MOVE_SLIDER_ID_BY_WHICH.min(fieldKey));
+        const maxInput = this._drawerElById(POINT_MOVE_SLIDER_ID_BY_WHICH.max(fieldKey));
         if (!fillEl || !minInput || !maxInput) return;
-        const fill = computePointMoveRangeFill(Number(minInput.min), Number(minInput.max), Number(minInput.value), Number(maxInput.value)); // core/motion-presets.js
-        fillEl.style.left = fill.left;
-        fillEl.style.width = fill.width;
+        paintPointMoveRangeFill(fillEl, computePointMoveRangeFill(minInput, maxInput)); // core/motion-presets-ui.js + core/motion-presets.js
     },
 
-    _setInputValueById(id, value) {
-        const el = genericDrawerBody.querySelector(`#${id}`);
-        if (!el) return;
-        el.value = value;
-    },
-
-    /** 'motionPresets.pointMove.fieldRange.preview' — đang kéo 1 tay dual-range: tô lại dải + 2 ô số theo slider (chưa persist). */
+    /** 'motionPresets.pointMove.fieldRange.preview' — đang kéo 1 tay dual-range: tô lại dải + 2 ô số theo slider (chưa lưu). */
     previewPointMoveFieldRange(fieldKey) {
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
+        if (!appState.get('isGenericDrawerOpen')) return;
         this._paintPointMoveRangeFill(fieldKey);
         this._copySliderValueToInput(fieldKey, 'min');
         this._copySliderValueToInput(fieldKey, 'max');
     },
 
     _copySliderValueToInput(fieldKey, which) {
-        const sliderEl = genericDrawerBody.querySelector(`#${POINT_MOVE_SLIDER_ID_BY_WHICH[which](fieldKey)}`);
-        if (!sliderEl) return;
-        this._setInputValueById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH[which](fieldKey), sliderEl.value);
+        copyMotionInputValue(this._drawerElById(POINT_MOVE_SLIDER_ID_BY_WHICH[which](fieldKey)), this._drawerElById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH[which](fieldKey))); // core/motion-presets-ui.js
     },
 
-    /** 'motionPresets.pointMove.numberInput.change' — gõ tay xong (blur/Enter): kẹp theo biên ô, đồng bộ slider, persist.
+    /** 'motionPresets.pointMove.numberInput.change' — gõ tay xong (blur/Enter): kẹp theo biên ô, đồng bộ slider, lưu.
      * @param {string} fieldKey @param {'single'|'min'|'max'} which @param {string|number} raw */
     async commitPointMoveNumberInput(fieldKey, which, raw) {
         const commit = POINT_MOVE_NUMBER_COMMIT_BY_WHICH[which];
         if (!commit) return;
-        const inputEl = genericDrawerBody.querySelector(`#${POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH[which](fieldKey)}`);
+        const inputEl = this._drawerElById(POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH[which](fieldKey));
         if (!inputEl) return;
-        const value = clampMotionNumberInput(raw, Number(inputEl.min), Number(inputEl.max)); // core/motion-presets.js
-        inputEl.value = value;
-        this._setInputValueById(POINT_MOVE_SLIDER_ID_BY_WHICH[which](fieldKey), value);
+        const value = clampMotionNumberInput(raw, inputEl); // core/motion-presets.js
+        setMotionInputValues([inputEl, this._drawerElById(POINT_MOVE_SLIDER_ID_BY_WHICH[which](fieldKey))], value); // core/motion-presets-ui.js
         this._paintPointMoveRangeFill(fieldKey);
         await commit(fieldKey, value);
     },
 
-    /** 'motionPresets.pointMove.signToggle.click' — nút "±" (bàn phím decimal iOS không có phím trừ): đảo dấu rồi đi
-     * đúng luồng ô nhập số. @param {string} fieldKey @param {'single'|'min'|'max'} which */
+    /** 'motionPresets.pointMove.signToggle.click' — nút "±": đảo dấu rồi đi đúng luồng ô nhập số.
+     * @param {string} fieldKey @param {'single'|'min'|'max'} which */
     async togglePointMoveInputSign(fieldKey, which) {
         const idFn = POINT_MOVE_NUMBER_INPUT_ID_BY_WHICH[which];
         if (!idFn) return;
-        const inputEl = genericDrawerBody.querySelector(`#${idFn(fieldKey)}`);
+        const inputEl = this._drawerElById(idFn(fieldKey));
         if (!inputEl) return;
-        await this.commitPointMoveNumberInput(fieldKey, which, -(Number(inputEl.value) || 0));
+        await this.commitPointMoveNumberInput(fieldKey, which, negateMotionInputValue(inputEl)); // core/motion-presets.js
     },
 
     // ===================== Point Move — kéo-thả sắp xếp danh sách =====================
     // pointerdown trên tay cầm -> setPointerCapture: pointermove/pointerup về đúng tay cầm đó (delegate
     // event/listener/motion-presets.js), không gắn listener lên `document`.
 
-    /** 'motionPresets.pointMove.drag.start' — nhấc hàng lên, ghi phiên kéo. Point 0 (start point) không bao giờ là đích.
+    /** 'motionPresets.pointMove.drag.start' — nhấc hàng lên, ghi phiên kéo. Point 0 không bao giờ là đích.
      * @param {{id:string, clientY:number, handleEl:HTMLElement, pointerId:number}} payload */
     startPointMoveDrag({ id, clientY, handleEl, pointerId }) {
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const { preset } = this._editingContext();
         if (!preset) return;
         const rows = Array.from(genericDrawerBody.querySelectorAll('[data-ptmove-row]'));
-        const rowEl = rows.find((row) => row.dataset.ptmoveRow === id);
+        const plan = planPointMoveDrag(rows.map((row) => row.dataset.ptmoveRow), id, preset.pointMoves); // core/motion-presets.js
+        const rowEl = rows[plan.dragIndex];
         if (!rowEl) return;
-        const point0Id = preset.pointMoves[0] ? preset.pointMoves[0].id : null;
-        handleEl.setPointerCapture(pointerId);
-        this._pointMoveDrag = { id, rowEl, startY: clientY, rows, blocked: rows.map((row) => row === rowEl || row.dataset.ptmoveRow === point0Id), hoverRowEl: null };
-        Object.assign(rowEl.style, POINT_MOVE_ROW_STYLE_BY_LIFTED.true);
-        document.body.style.userSelect = 'none';
+        this._pointMoveDrag = { id, rowEl, startY: clientY, rows, blocked: plan.blocked, hoverRowEl: null };
+        liftPointMoveDragRow(rowEl, handleEl, pointerId); // core/motion-presets-ui.js
     },
 
     /** 'motionPresets.pointMove.drag.move' — hàng bám theo con trỏ, tô sáng đích thả. @param {number} clientY */
     movePointMoveDrag(clientY) {
         const drag = this._pointMoveDrag;
         if (!drag) return; // guard: rê chuột qua tay cầm mà không kéo
-        drag.rowEl.style.transform = `translateY(${clientY - drag.startY}px) scale(1.02)`;
-        const index = findPointMoveDropRowIndex(drag.rows.map((row) => row.getBoundingClientRect()), clientY, drag.blocked); // core/motion-presets.js
+        setPointMoveDragRowTransform(drag.rowEl, computePointMoveDragTransform(drag.startY, clientY)); // core/motion-presets-ui.js + core/motion-presets.js
+        const index = findPointMoveDropRowIndex(drag.rows.map((row) => row.getBoundingClientRect()), clientY, drag.blocked);
         this._setDropTarget(drag, drag.rows[index] || null);
     },
 
@@ -609,8 +531,7 @@ const workflowMotionPresets = {
         const drag = this._pointMoveDrag;
         if (!drag) return;
         this._pointMoveDrag = null;
-        Object.assign(drag.rowEl.style, POINT_MOVE_ROW_STYLE_BY_LIFTED.false);
-        document.body.style.userSelect = '';
+        dropPointMoveDragRow(drag.rowEl); // core/motion-presets-ui.js
         const targetId = drag.hoverRowEl ? drag.hoverRowEl.dataset.ptmoveRow : null;
         this._setDropTarget(drag, null);
         await this._swapIfDropped(drag.id, targetId);
@@ -623,9 +544,10 @@ const workflowMotionPresets = {
         drag.hoverRowEl = rowEl;
     },
 
+    /** Đổi bộ theme key của hàng (đích thả / bình thường) rồi áp theme hiện tại. */
     _paintDropTarget(rowEl, isTarget) {
         if (!rowEl) return;
-        rowEl.dataset.uitk = POINT_MOVE_ROW_THEME_KEYS_BY_DROP_TARGET[isTarget];
+        setPointMoveDropTargetThemeKeys(rowEl, isTarget); // core/motion-presets-ui.js
         applyUiThemeToDom(rowEl, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js
     },
 
@@ -636,109 +558,78 @@ const workflowMotionPresets = {
 
     // ===================== Point Move — Timing (chỉ dùng khi pointMoveRunMode==='all') =====================
 
-    /** Ứng nút "Timing" trong màn Edit — mở màn thanh Timing. */
+    /** Nút "Timing" — mở màn thanh Timing. */
     openPointMoveTiming() {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderPointMoveTiming()); // liên tuyến domain
     },
 
-    /** Tính danh sách node (CHỈ point move đã tick, sort theo `timingX`) — DÙNG CHUNG cho
-     * `_renderTimingCurve()` (dựng lại TOÀN BỘ SVG) LẪN `_patchTimingPreview()` (chỉ vá lại phần tử
-     * ĐANG có, xem 2 hàm dưới). `overrideId` khác null -> point move ĐÓ dùng `overrideTimingX` thay
-     * vì giá trị đã lưu (preview LIVE, chưa persist).
-     * @param {object} preset @param {string|null} overrideId @param {number} [overrideTimingX]
-     * @returns {object[]} */
-    _computeTimingPoints(preset, overrideId, overrideTimingX) {
-        return preset.pointMoves
-            .filter((p, i) => i !== 0 && p.checked) // Point 0 (start point, timingX khoá cứng = 0) không hiện trên đồ thị
-            .map((p) => (p.id === overrideId ? { ...p, timingX: overrideTimingX } : p))
-            .map((p) => ({ id: p.id, timingX: p.timingX, locked: false, n: preset.pointMoves.findIndex((pm) => pm.id === p.id) })) // `n` = ĐÚNG index trong MẢNG GỐC (khớp tên "Point move N" ở màn Danh sách), không phải vị trí sau khi lọc/sort ở đây
-            .sort((a, b) => a.timingX - b.timingX);
-    },
-
-    /** Dựng lại TOÀN BỘ SVG (xoá sạch + `buildPointMoveTimingCurveEl()` mới) — CHỈ gọi lúc mở màn
-     * lần đầu hoặc SAU KHI đã persist xong 1 lượt sửa (commit) — KHÔNG gọi liên tục lúc đang kéo
-     * (xem `_patchTimingPreview()`, tách riêng đúng vì lý do đó: xoá/dựng lại SVG giữa chừng lúc
-     * đang kéo sẽ làm `draggingEl`/toạ độ core-ui đang giữ bị "treo" — phần tử đang giữ đã bị gỡ khỏi DOM,
-     * `getBoundingClientRect()` trả về rỗng, toạ độ tính tiếp sẽ sai/NaN).
-     * @param {HTMLElement} containerEl - `#ptmove-timing-container`. */
+    /** Dựng lại TOÀN BỘ SVG — chỉ lúc mở màn hoặc sau khi đã lưu 1 lượt sửa; lúc đang kéo dùng `_patchTimingPreview()` (gỡ SVG
+     * giữa chừng làm phần tử core-ui đang giữ rời DOM, toạ độ thành NaN). @param {HTMLElement} containerEl - `#ptmove-timing-container` */
     _renderTimingCurve(containerEl) {
         if (!containerEl) return;
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const { preset } = this._editingContext();
         if (!preset) return;
-        const points = this._computeTimingPoints(preset, this._dragPreviewPointMoveId, this._dragPreviewTimingX);
-        const { minX, maxX } = this._pointMoveTimingBounds(preset);
-        containerEl.innerHTML = '';
-        containerEl.appendChild(buildPointMoveTimingCurveEl(points, minX, maxX)); // core/point-move-timing-ui.js
+        const nodes = computePointMoveTimingNodes(preset, this._dragPreviewPointMoveId, this._dragPreviewTimingX); // core/motion-presets.js
+        const { minX, maxX } = resolvePointMoveTimingBounds(preset);
+        mountPointMoveTimingCurve(containerEl, buildPointMoveTimingCurveEl(nodes, minX, maxX)); // core/motion-presets-ui.js + core/point-move-timing-ui.js
     },
 
-    /** Vá LIVE vị trí 1 node NGAY TRONG SVG đang có (KHÔNG xoá/dựng lại — xem lý do ở
-     * `_renderTimingCurve()`).
-     * @param {string} id @param {number} timingX */
+    /** Vá vị trí 1 node ngay trong SVG đang có (đang kéo). @param {string} id @param {number} timingX */
     _patchTimingPreview(id, timingX) {
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
+        if (!appState.get('isGenericDrawerOpen')) return;
         const container = genericDrawerBody.querySelector('#ptmove-timing-container'); // core/dom-refs.js
         const svgEl = container ? container.querySelector('.ptmove-timing-svg') : null;
         const nodeEl = svgEl ? svgEl.querySelector(`circle[data-point-move-id="${id}"]`) : null;
         if (!nodeEl) return;
-        const usableW = POINT_MOVE_TIMING_SVG_W - POINT_MOVE_TIMING_PAD_X * 2; // core/point-move-timing-ui.js (consts)
-        nodeEl.setAttribute('cx', POINT_MOVE_TIMING_PAD_X + (timingX / 100) * usableW);
+        setPointMoveTimingNodeCx(nodeEl, computePointMoveTimingNodeCx(timingX)); // core/motion-presets-ui.js + core/motion-presets.js
     },
 
-    /** Preview LIVE khi đang kéo 1 node (mỗi `pointermove`, KHÔNG persist) — vá tại chỗ.
-     * @param {string} id @param {number} timingX */
+    /** Preview khi đang kéo 1 node (mỗi `pointermove`, chưa lưu). @param {string} id @param {number} timingX */
     previewPointMoveTimingDrag(id, timingX) {
         this._dragPreviewPointMoveId = id;
         this._dragPreviewTimingX = timingX;
         this._patchTimingPreview(id, timingX);
     },
 
-    /** `pointerup` sau khi ĐÃ kéo đủ xa (core-ui tự phân biệt tap/kéo) — CHỐT giá trị đang preview
-     * vào preset thật (persist), dựng lại TOÀN MÀN cho chắc ăn đồng bộ tuyệt đối sau khi ghi.
-     * `resolvePointMoveTimingX()` tự làm tròn 2
-     * chữ số thập phân + đẩy nhẹ nếu trùng 1 point move khác trước khi ghi. */
+    /** `pointerup` sau khi đã kéo đủ xa (core-ui tự phân biệt tap/kéo) — chốt giá trị đang preview, dựng lại màn. */
     async commitPointMoveTimingDrag() {
         const id = this._dragPreviewPointMoveId;
         if (!id) return;
-        const timingX = this._dragPreviewTimingX;
         this._dragPreviewPointMoveId = null;
-        await this._mutateEditing((p) => {
-            const idx = p.pointMoves.findIndex((pm) => pm.id === id);
-            if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 (start point, timingX khoá cứng) — phòng hờ, không tin payload mù
-            const { minX, maxX } = this._pointMoveTimingBounds(p);
-            const others = p.pointMoves.filter((pm) => pm.id !== id).map((pm) => pm.timingX);
-            const resolved = resolvePointMoveTimingX(timingX, others, minX, maxX); // core/motion-presets.js
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: resolved };
-        });
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain — dựng lại TOÀN màn (an toàn, commit chỉ xảy ra 1 lần lúc thả tay, không phải mỗi pixel)
+        await this._commitPointMoveTimingX(id, this._dragPreviewTimingX);
     },
 
-    /** onMount màn Timing — zoom luôn bắt đầu từ 0 (view mới dựng). */
+    /** Chốt `timingX` (làm tròn, kẹp biên, tránh trùng mốc — Point 0 bỏ qua), lưu, dựng lại màn Timing nếu Drawer còn mở. */
+    async _commitPointMoveTimingX(id, rawX) {
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        const timingX = resolvePointMoveTimingX(preset.pointMoves, id, rawX, resolvePointMoveTimingBounds(preset)); // core/motion-presets.js
+        await this._patchEditing({ pointMoves: setPointMoveTimingX(preset.pointMoves, id, timingX) }, presets);
+        if (!appState.get('isGenericDrawerOpen')) return;
+        workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain — dựng lại toàn màn (chỉ 1 lần lúc thả tay)
+    },
+
+    /** onMount màn Timing — zoom luôn bắt đầu từ 0. */
     resetPointMoveTimingZoom() {
         this._timingZoomIdx = 0;
     },
 
     /** 'motionPresets.pointMove.timingZoom.click' — +1/-1 bậc giãn trục thời gian (chỉ view). @param {number} delta */
     stepPointMoveTimingZoom(delta) {
-        this._timingZoomIdx = Math.max(0, Math.min(POINT_MOVE_TIMING_ZOOM_STEPS_PCT.length - 1, this._timingZoomIdx + delta));
-        const extraPct = POINT_MOVE_TIMING_ZOOM_STEPS_PCT[this._timingZoomIdx];
-        const zoomableEl = genericDrawerBody.querySelector('#ptmove-timing-container');
-        const labelEl = genericDrawerBody.querySelector('#ptmove-timing-zoom-label');
-        if (zoomableEl) zoomableEl.style.transform = computePointMoveTimingZoomTransform(extraPct, POINT_MOVE_TIMING_ZOOM_MAX_EXTRA_SCALE_X); // core/motion-presets.js
-        if (labelEl) labelEl.textContent = `${extraPct}%`;
+        const view = computePointMoveTimingZoomView(this._timingZoomIdx, delta); // core/motion-presets.js
+        this._timingZoomIdx = view.zoomIdx;
+        applyPointMoveTimingZoomUi(genericDrawerBody.querySelector('#ptmove-timing-container'), genericDrawerBody.querySelector('#ptmove-timing-zoom-label'), view); // core/motion-presets-ui.js
     },
 
-    /** Ứng TAP (không kéo) 1 node trên thanh — mở modal nhập số CHÍNH XÁC thay vì kéo tay.
-     * @param {string} id */
+    /** TAP (không kéo) 1 node — modal nhập số chính xác. @param {string} id */
     openPointMoveTimingNodeModal(id) {
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
+        const { preset } = this._editingContext();
         if (!preset) return;
-        const idx = preset.pointMoves.findIndex((p) => p.id === id);
-        if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 (không còn là node trên đồ thị nữa) — phòng hờ
-        const pm = preset.pointMoves[idx];
-        const { minX, maxX } = this._pointMoveTimingBounds(preset); // biên ĐỘNG
-        // Giữ THAM CHIẾU ô số ngay sau khi mở, đọc `.value` trong onClick — modalChoice() gỡ overlay khỏi DOM TRƯỚC khi
-        // gọi onClick nhưng phần tử đã tách vẫn đọc được.
+        const idx = findPointMoveIndexById(preset.pointMoves, id); // core/motion-presets.js
+        if (idx <= 0) return; // guard: không có / Point 0 (không phải node trên đồ thị)
+        const { minX, maxX } = resolvePointMoveTimingBounds(preset);
+        // Giữ tham chiếu ô số ngay sau khi mở, đọc `.value` trong onClick (modalChoice() gỡ overlay trước khi gọi onClick,
+        // phần tử đã tách vẫn đọc được).
         modalChoice( // core/modal-choice-ui.js
             tFormat('motionSettingsDrawer.pointMove.itemName', { n: idx }),
             [{
@@ -746,187 +637,116 @@ const workflowMotionPresets = {
                 className: 'flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors', themeKeys: 'btnPrimaryBg btnPrimaryHoverBg textOnAccent',
                 onClick: () => this._commitPointMoveTimingModal(id, Number(xInput.value)),
             }],
-            { bodyHtml: renderPointMoveTimingModalBody(minX, maxX, pm.timingX) }, // components/motion-settings-drawer.js
+            { bodyHtml: renderPointMoveTimingModalBody(minX, maxX, preset.pointMoves[idx].timingX) }, // components/motion-settings-drawer.js
         );
         const xInput = document.getElementById('ptmove-modal-x-input');
     },
 
-    /** Ứng nút "Lưu" trong modal (`openPointMoveTimingNodeModal()`) — commit số ĐÃ gõ, tự kẹp biên
-     * (phòng số ngoài min/max input, dù browser thường tự chặn — vẫn không tin mù).
-     * `resolvePointMoveTimingX()` tự làm tròn 2
-     * chữ số thập phân + đẩy nhẹ nếu trùng 1 point move khác trước khi ghi.
+    /** Nút "Lưu" của modal — số không hợp lệ bỏ qua; kẹp biên + tránh trùng ở `_commitPointMoveTimingX()`.
      * @param {string} id @param {number} timingX */
     async _commitPointMoveTimingModal(id, timingX) {
         if (typeof timingX !== 'number' || Number.isNaN(timingX)) return;
-        await this._mutateEditing((p) => {
-            const idx = p.pointMoves.findIndex((pm) => pm.id === id);
-            if (idx <= 0) return; // guard: không tìm thấy HOẶC đúng Point 0 — phòng hờ, không tin payload mù
-            const { minX, maxX } = this._pointMoveTimingBounds(p);
-            const clampedX = Math.max(minX, Math.min(maxX, timingX));
-            const others = p.pointMoves.filter((pm) => pm.id !== id).map((pm) => pm.timingX);
-            const resolved = resolvePointMoveTimingX(clampedX, others, minX, maxX); // core/motion-presets.js
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: resolved };
-        });
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain
+        await this._commitPointMoveTimingX(id, timingX);
     },
 
     // ===================== React Beat Audio =====================
 
-    /** Ứng MỌI thay đổi field trong nhóm "React Beat Audio" — GENERIC 1 hàm DUY NHẤT cho cả field
-     * top-level (`enabled`, `effectKey=null`) LẪN 4 cụm con zoom/panX/panY/rotate (`effectKey` tương
-     * ứng). Áp sống: `_mutateEditing()` tự broadcast `notifyMotionBeatReactPresetsChanged()` sau MỌI field.
-     * `randomMax` — boolean, CÙNG khuôn `enabled`/`reverse`.
-     * @param {'zoom'|'panX'|'panY'|'rotate'|null} effectKey - null = field top-level.
-     * @param {string} fieldKey - 'enabled' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse' | 'randomMax'.
-     * @param {boolean|number|string} value
-     */
+    /** Mọi field nhóm "React Beat Audio" — `effectKey` null = field cấp nhóm (`enabled`), còn lại zoom/panX/panY/rotate.
+     * Giá trị sai / field lạ bỏ qua. `maxPct`/`maxDeg`: đồng bộ lại ô số + slider về giá trị vừa lưu.
+     * @param {'zoom'|'panX'|'panY'|'rotate'|null} effectKey
+     * @param {string} fieldKey - 'enabled' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse' | 'randomMax'
+     * @param {boolean|number|string} value */
     async changeBeatReactField(effectKey, fieldKey, value) {
-        if (fieldKey === 'enabled' || fieldKey === 'reverse' || fieldKey === 'randomMax') {
-            if (typeof value !== 'boolean') return;
-        } else if (fieldKey === 'maxPct') {
-            const [min, max] = (effectKey === 'panX' || effectKey === 'panY') ? [100, 150] : [100, 200]; // zoom
-            if (typeof value !== 'number' || value < min || value > max) return;
-        } else if (fieldKey === 'maxDeg') {
-            if (typeof value !== 'number' || value < 0 || value > 360) return;
-        } else if (fieldKey === 'direction') {
-            const validDirections = effectKey === 'panY' ? MOTION_BEAT_REACT_DIRECTIONS_Y : MOTION_BEAT_REACT_DIRECTIONS; // core/motion-presets.js
-            if (!validDirections.includes(value)) return;
-        } else {
-            return; // fieldKey lạ -> bỏ qua, không ghi mù
-        }
-        await this._mutateEditing((p) => {
-            const target = effectKey ? p.reactBeatAudio[effectKey] : p.reactBeatAudio;
-            target[fieldKey] = value;
-        });
-        if (genericDrawerPanel.classList.contains('hidden') || !effectKey) return;
-        if (fieldKey === 'maxPct' || fieldKey === 'maxDeg') {
-            // Ô số sync 2 chiều với slider — đồng bộ cả 2 VỀ giá trị vừa persist (phòng trường hợp value đến từ chính input đó,
-            // gõ tay đã đúng rồi thì set lại vô hại; đến từ slider thì input cần cập nhật theo).
-            const inputEl = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-max-input`);
-            if (inputEl) inputEl.value = value;
-            const sliderEl = genericDrawerBody.querySelector(`#setting-motion-beatreact-${effectKey}-max`);
-            if (sliderEl) sliderEl.value = value;
-        }
+        const rule = BEAT_REACT_FIELD_RULE_BY_KEY[fieldKey];
+        if (!rule || !rule.isValid(effectKey, value)) return; // guard: không ghi mù
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        const hasEffect = Boolean(effectKey);
+        await this._patchEditing({ reactBeatAudio: BEAT_REACT_WRITE_BY_HAS_EFFECT[hasEffect](preset.reactBeatAudio, effectKey, fieldKey, value) }, presets);
+        if (!rule.syncsMaxInputs || !hasEffect || !appState.get('isGenericDrawerOpen')) return;
+        setMotionInputValues(this._beatReactMaxInputEls(effectKey), value); // core/motion-presets-ui.js
     },
 
-    /** 'motionPresets.beatReact.maxSlider.input' — đang kéo slider Max: chỉ cập nhật ô số (persist lúc thả tay). */
+    /** Ô số + slider Max của 1 hiệu ứng React Beat. @returns {Array<HTMLInputElement|null>} */
+    _beatReactMaxInputEls(effectKey) {
+        return [this._drawerElById(`motion-beatreact-${effectKey}-max-input`), this._drawerElById(`setting-motion-beatreact-${effectKey}-max`)];
+    },
+
+    /** 'motionPresets.beatReact.maxSlider.input' — đang kéo slider Max: chỉ cập nhật ô số (lưu lúc thả tay). */
     previewBeatReactMax(effectKey, value) {
-        this._setInputValueById(`motion-beatreact-${effectKey}-max-input`, value);
+        setMotionInputValues([this._drawerElById(`motion-beatreact-${effectKey}-max-input`)], value); // core/motion-presets-ui.js
     },
 
-    /** 'motionPresets.beatReact.maxInput.change' — gõ tay ô Max: kẹp theo biên ô, rồi đi luồng changeBeatReactField()
-     * (tự đồng bộ lại slider). */
+    /** 'motionPresets.beatReact.maxInput.change' — gõ tay ô Max: kẹp theo biên ô, đồng bộ slider, rồi lưu. */
     async commitBeatReactMaxInput(effectKey, fieldKey, raw) {
-        const inputEl = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-max-input`);
+        const [inputEl, sliderEl] = this._beatReactMaxInputEls(effectKey);
         if (!inputEl) return;
-        const value = clampMotionNumberInput(raw, Number(inputEl.min), Number(inputEl.max)); // core/motion-presets.js
-        inputEl.value = value;
-        this._setInputValueById(`setting-motion-beatreact-${effectKey}-max`, value);
+        const value = clampMotionNumberInput(raw, inputEl); // core/motion-presets.js
+        setMotionInputValues([inputEl, sliderEl], value); // core/motion-presets-ui.js
         await this.changeBeatReactField(effectKey, fieldKey, value);
     },
 
     // ===================== Random giá trị slider theo nhóm =====================
 
-    /** 'motionPresets.beatReact.random.click' — nút xúc xắc nhóm React Beat: mỗi lần bấm sinh lại Max của cả 4 slider
-     * (zoom/panX/panY/rotate — core/motion-presets.js::buildRandomBeatReactMaxValues()); bật/tắt, hướng, Reverse,
-     * Random Max giữ nguyên. Ghi qua `_mutateEditing()` (persist + broadcast live cho runner đang chạy), đồng bộ
-     * slider + ô số tại chỗ (không vẽ lại cả màn, giữ vị trí cuộn). */
+    /** 'motionPresets.beatReact.random.click' — sinh lại Max của cả 4 slider React Beat (bật/tắt, hướng, Reverse, Random Max
+     * giữ nguyên), lưu + broadcast, đồng bộ slider + ô số tại chỗ (giữ vị trí cuộn). */
     async randomizeBeatReactValues() {
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
         const values = buildRandomBeatReactMaxValues(); // core/motion-presets.js
-        await this._mutateEditing((p) => {
-            const rb = { ...p.reactBeatAudio };
-            values.forEach(({ effectKey, fieldKey, value }) => { rb[effectKey] = { ...rb[effectKey], [fieldKey]: value }; });
-            p.reactBeatAudio = rb;
-        });
-        console.log(`writer: "workflowMotionPresets.randomizeBeatReactValues", page: "motionPresets", content: "${this._editingId} — ${values.map((v) => `${v.effectKey}=${v.value}`).join(', ')}"`);
-        if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
-        values.forEach(({ effectKey, value }) => {
-            this._setInputValueById(`motion-beatreact-${effectKey}-max-input`, value);
-            this._setInputValueById(`setting-motion-beatreact-${effectKey}-max`, value);
-        });
+        const applied = applyBeatReactMaxValues(preset.reactBeatAudio, values);
+        await this._patchEditing({ reactBeatAudio: applied.reactBeatAudio }, presets);
+        console.log(`writer: "workflowMotionPresets.randomizeBeatReactValues", page: "motionPresets", content: "${this._editingId} — ${applied.summary}"`);
+        if (!appState.get('isGenericDrawerOpen')) return;
+        values.forEach(({ effectKey, value }) => setMotionInputValues(this._beatReactMaxInputEls(effectKey), value)); // core/motion-presets-ui.js
     },
 
-    /** 'motionPresets.pointMove.random.click' — nút xúc xắc màn Point Move Edit: mỗi lần bấm sinh lại giá trị cả 6
-     * slider của point move đang sửa (core/motion-presets.js::buildRandomPointMoveFieldValues() — giữ mode/đơn vị),
-     * rồi vẽ lại TẠI CHỖ (dual-range cần dựng lại vị trí 2 tay kéo, cùng cách `changePointMoveFieldRange()`). */
+    /** 'motionPresets.pointMove.random.click' — sinh lại giá trị 6 slider của point move đang sửa (giữ mode/đơn vị), vẽ lại
+     * tại chỗ (dual-range cần dựng lại vị trí 2 tay kéo). */
     async randomizePointMoveValues() {
-        const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
-        const pointMove = preset ? findPointMoveById(preset.pointMoves, this._editingPointMoveId) : null; // core/motion-presets.js
+        const { presets, preset, pointMove } = this._editingPointMoveContext();
         if (!pointMove) return; // guard: point move vừa bị xoá
         const fields = buildRandomPointMoveFieldValues(pointMove); // core/motion-presets.js
-        await this._mutateEditingPointMove((pm) => { Object.assign(pm, fields); });
+        await this._patchEditing({ pointMoves: replacePointMoveFields(preset.pointMoves, pointMove.id, fields) }, presets);
         console.log(`writer: "workflowMotionPresets.randomizePointMoveValues", page: "motionPresets", content: "${this._editingId}/${this._editingPointMoveId} — 6 field random"`);
-        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ
+        workflowAppSettings._renderPointMoveEdit(); // liên tuyến domain
     },
 
     // ===================== Quản lý preset =====================
 
-    /** Header "Reset" — về ĐÚNG mặc định `buildBlankMotionPreset()` (GIỮ id/name, chỉ reset các
-     * field cấu hình). Vẽ lại TẠI CHỖ. */
+    /** Header "Reset" — mọi field cấu hình về mặc định (giữ id/name), vẽ lại tại chỗ. */
     async resetEditing() {
-        const presets = appState.get('motionPresets');
-        const current = findMotionPresetById(presets, this._editingId); // core/motion-presets.js
-        if (!current) return;
-        const blank = buildBlankMotionPreset(current.name); // core/motion-presets.js — id mới sinh ra ở đây KHÔNG dùng, chỉ lấy field cấu hình
-        await this._mutateEditing((p) => {
-            p.transitionEnabled = blank.transitionEnabled;
-            p.transitionType = blank.transitionType;
-            p.transitionDurationMs = blank.transitionDurationMs;
-            p.transitionInOutRatio = blank.transitionInOutRatio;
-            p.transitionEasing = blank.transitionEasing;
-            p.transitionDirection = blank.transitionDirection;
-            p.transitionZoomDirection = blank.transitionZoomDirection;
-            p.transitionSpinDirection = blank.transitionSpinDirection;
-            p.transitionWipeDirection = blank.transitionWipeDirection;
-            p.transitionCurtainDirection = blank.transitionCurtainDirection;
-            p.edgeFlipVariant = blank.edgeFlipVariant;
-            p.edgeFlipStaticOld = blank.edgeFlipStaticOld;
-            p.pointMoves = blank.pointMoves;
-            p.pointMoveEnabled = blank.pointMoveEnabled;
-            p.pointMoveRunMode = blank.pointMoveRunMode;
-            p.pointMoveOneOrder = blank.pointMoveOneOrder;
-            p.reactBeatAudio = blank.reactBeatAudio;
-        });
-        workflowAppSettings._renderMotionEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ, đúng field mới
+        const { presets, preset } = this._editingContext();
+        if (!preset) return;
+        await this._patchEditing(buildMotionPresetResetFields(this._newBlankPreset(preset.name)), presets); // core/motion-presets.js
+        workflowAppSettings._renderMotionEdit(); // liên tuyến domain
     },
 
-    /** Header "Xoá" — xoá hẳn preset đang sửa, quay về danh sách Quản lý. */
+    /** Header "Xoá" — xoá preset đang sửa, quay về danh sách. */
     async deleteEditing() {
         await this._deletePresetById(this._editingId);
         this._editingId = null;
-        workflowAppSettings.back(); // liên tuyến domain — quay về đúng màn Danh sách vừa đến từ đó
+        workflowAppSettings.back(); // liên tuyến domain
     },
 
-    /** Dùng CHUNG cho `quickDelete()` (danh sách) VÀ `deleteEditing()` (header Edit) — xoá khỏi
-     * `appState.motionPresets`, gỡ tham chiếu bên Photo VBG NẾU đang gắn đúng preset này (field
-     * `*PresetId` của Player KHÔNG cần gỡ — runtime tự coi id không còn tồn tại là "chưa gắn", xem
-     * event/workflow/player-display-settings.js).
-     * @param {string} id */
+    /** Xoá khỏi danh sách; gỡ `motionPresetId` của VBG Photo nếu đang gắn đúng preset này (`*PresetId` của Player không cần
+     * gỡ — runtime coi id không còn tồn tại là "chưa gắn", event/workflow/player-display-settings.js). @param {string} id */
     async _deletePresetById(id) {
-        const presets = appState.get('motionPresets').filter((p) => p.id !== id);
-        appState.set('motionPresets', presets);
-        await this._persist();
-        if (typeof workflowVisualBg !== 'undefined' && appConfigVisualBg.getAll().motionPresetId === id) { // liên tuyến domain
-            appConfigVisualBg.mutateAll((c) => { c.motionPresetId = null; });
-            await workflowVisualBg._persist(); // liên tuyến domain
-        }
+        await this._savePresets(removeMotionPresetById(appState.get('motionPresets'), id)); // core/motion-presets.js
+        if (appConfigVisualBg.getAll().motionPresetId !== id) return;
+        appConfigVisualBg.mutateAll((c) => { c.motionPresetId = null; });
+        await workflowVisualBg._persist(); // liên tuyến domain
     },
 
-    // ===================== Chế độ CHỌN (picker) — nơi tiêu thụ mở THẲNG danh sách Motion =====================
-    // Nơi tiêu thụ (VBG Photo,
-    // Player Video/Photo — và bất kỳ ai sau này) gọi `openPicker()` -> vào THẲNG danh sách Motion (DÙNG
-    // CHUNG hạ tầng pagination nơi 'motionPresets' với màn Quản lý), tap 1 dòng = CHỌN (nháp, CHƯA ghi gì),
-    // nút "Apply" ở header = xác nhận -> gọi `onApply(id)` (nơi tiêu thụ tự ghi field RIÊNG của nó) rồi tự
-    // back() về màn trước. Back/Close mà chưa bấm Apply = huỷ, không ghi gì.
-    // `onApply` là tham số MỜ (opaque) do Workflow nơi tiêu thụ truyền vào — CÙNG khuôn `onConfirm` của
-    // openTimePickerModal() — Motion KHÔNG biết nơi tiêu thụ là ai, không gọi tên Workflow nào của họ.
+    // ===================== Chế độ CHỌN (picker) =====================
+    // Nơi tiêu thụ gọi `openPicker()` -> danh sách Motion (dùng chung pagination nơi 'motionPresets' với màn Quản lý), tap 1
+    // dòng = chọn nháp, "Apply" = gọi `onApply(id)` (tham số mờ do nơi tiêu thụ truyền, cùng khuôn `onConfirm` của
+    // openTimePickerModal()) rồi back(). Back/Close khi chưa Apply = huỷ.
 
-    /** Mở màn Chọn — đi TỚI (navigateTo), mở đúng trang có preset đang gắn. `currentId` trỏ tới preset
-     * đã bị xoá -> coi như "None".
+    /** Mở màn Chọn ở đúng trang có preset đang gắn (`currentId` trỏ preset đã xoá -> "None").
      * @param {{title:string, currentId:(string|null), onApply:(id:(string|null)) => (void|Promise<void>)}} config */
     openPicker(config) {
-        if (!config || typeof config.onApply !== 'function') return; // guard: thiếu đích nhận kết quả -> không mở
+        if (!config || typeof config.onApply !== 'function') return; // guard: thiếu đích nhận kết quả
         const presets = appState.get('motionPresets');
         const current = findMotionPresetById(presets, config.currentId); // core/motion-presets.js
         const draftId = current ? current.id : null;
@@ -934,13 +754,12 @@ const workflowMotionPresets = {
             title: config.title,
             draftId,
             onApply: config.onApply,
-            pageIndex: workflowPagination.pageIndexOfItem('motionPresets', presets.findIndex((p) => p.id === draftId)), // event/workflow/pagination.js — -1 (None) -> trang 0
+            pageIndex: workflowPagination.pageIndexOfItem('motionPresets', findMotionPresetIndexById(presets, draftId)), // event/workflow/pagination.js — -1 (None) -> trang 0
         };
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderMotionPicker()); // liên tuyến domain
     },
 
-    /** Dữ liệu vẽ màn Chọn — gọi bởi `workflowAppSettings._renderMotionPicker()` (mỗi lần vẽ). Tự kẹp
-     * `pageIndex` (vd số item/trang vừa đổi). null = không có phiên Chọn nào đang mở.
+    /** Dữ liệu vẽ màn Chọn (mỗi lần vẽ, `workflowAppSettings._renderMotionPicker()`), tự kẹp `pageIndex`. null = không có phiên Chọn.
      * @returns {{title:string, draftId:(string|null), view:object}|null} */
     getPickerRenderData() {
         if (!this._picker) return null;
@@ -949,27 +768,23 @@ const workflowMotionPresets = {
         return { title: this._picker.title, draftId: this._picker.draftId, view };
     },
 
-    /** Ứng tap 1 dòng — CHỈ đổi nháp + vẽ lại TẠI CHỖ (giữ vị trí cuộn), KHÔNG ghi gì. '' = dòng "None".
-     * @param {string} id */
+    /** Tap 1 dòng — chỉ đổi nháp + vẽ lại tại chỗ. '' = dòng "None". @param {string} id */
     selectPickerDraft(id) {
         if (!this._picker) return;
-        if (id && !findMotionPresetById(appState.get('motionPresets'), id)) return; // guard: id lạ -> bỏ qua, không tin payload mù
+        if (id && !findMotionPresetById(appState.get('motionPresets'), id)) return; // guard: id lạ
         this._picker.draftId = id || null;
         workflowAppSettings._renderMotionPicker(); // liên tuyến domain
     },
 
-    /** Ứng thanh phân trang màn Chọn — vẽ lại tại chỗ, cuộn về đầu (cùng khuôn setMotionListPage()).
-     * Nháp đang chọn GIỮ NGUYÊN qua các trang.
-     * @param {number} pageIndex */
+    /** Thanh phân trang màn Chọn — vẽ lại, cuộn về đầu; nháp giữ nguyên qua các trang. @param {number} pageIndex */
     setPickerPage(pageIndex) {
         if (!this._picker) return;
         this._picker.pageIndex = pageIndex;
         workflowAppSettings._renderMotionPicker(); // liên tuyến domain
-        genericDrawerBody.scrollTop = 0; // core/dom-refs.js
+        resetMotionDrawerScroll(genericDrawerBody); // core/motion-presets-ui.js
     },
 
-    /** Ứng nút "Apply" ở header — kết thúc phiên TRƯỚC (tránh bấm đúp ghi 2 lần), đợi nơi tiêu thụ ghi
-     * xong lựa chọn, rồi back() về màn nơi tiêu thụ (màn đó tự vẽ lại theo giá trị mới). */
+    /** "Apply" — kết thúc phiên TRƯỚC (bấm đúp không ghi 2 lần), đợi nơi tiêu thụ ghi xong, rồi back(). */
     async applyPicker() {
         const picker = this._picker;
         if (!picker) return;
