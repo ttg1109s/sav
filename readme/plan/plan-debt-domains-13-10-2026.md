@@ -1,7 +1,7 @@
 # Plan v14 — hàng đợi dọn nợ theo miền (lập 13/10/2026)
 
 Nguồn số liệu: [core-legacy-audit.md](../core-legacy-audit.md). Lúc lập plan (sau đợt Folder): **1152 FAIL / 139 file**; hiện tại
-(sau đợt 22a): **347 FAIL / 47 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
+(sau đợt 23a): **304 FAIL / 34 file** (từ 14/10/2026 `requestAnimationFrame` thô tính FAIL, không còn mục chờ chốt). Cột "Còn lại sau đợt" tính từ số hiện tại. Plan này chỉ sắp **thứ tự và cách gom**; không đổi rule nào
 ([core-function-conventions.md](../core-function-conventions.md), [event-bus-flow.md](../event-bus-flow.md),
 [task-manager-conventions.md](../task-manager-conventions.md)).
 
@@ -94,18 +94,20 @@ core; Timer = timer thô; L-* = Listener; rAF = `requestAnimationFrame` thô (FA
 | 19a ✓ /19b ✓ | 4 | Player / điều khiển phát | 19a ✓: `core/player-controls.js`, `event/listener/video-player.js` · 19b ✓: `event/workflow/{player,player-controls,media-in-use}.js` | 62 (+1 từ 18a) — 19a xong 31, 19b xong 29 | 503 | R3a 13 · WF-§7 12 · R2 9 · WF-get 9 · L-đọcState 5 |
 | 20a ✓ /20b ✓ | 4 | Video Player | 20a ✓: `core/video-player.js`, `event/workflow/{video-motion-surface,video-frame-capture,video-thumb-extract}.js` · 20b ✓: `event/workflow/video-player.js` | 52 (+4 rAF) — 20a xong 21, 20b xong 29; +2 ghi mới rVFC — dọn 21/10 (adapter) | 451 | WF-DOM 16 · WF-media 10 · WF-§7 7 |
 | 21a ✓ /21b ✓ | 4 | Visual Background | 21a ✓: `core/visual-bg-common.js`, `event/workflow/visual-bg-common.js`, `event/listener/visual-bg.js` · 21b ✓: `event/workflow/visual-bg-{video,photo,photo-motion}.js` | 67 (+5 ghi mới cho 21b) — 21a xong 42, 21b xong 30 | 392 | WF-DOM 24 · WF-§7 20 · WF-tính 7 |
-| 22a ✓ /22b | 4 | Motion | 22a ✓: `core/motion-presets.js`, `event/workflow/motion-presets.js` · 22b: 3 runner `event/workflow/motion-*-runner.js` | 56 — 22a xong 45 | 336 | WF-DOM 22 · R3a 21 · WF-tính 11 |
-| 23a/23b | 5 | Visualizer render (hot path) | 23a core: `core/visualizer/{draw/window-frame,effect-paint}.js`, `core/rubik-math.js`, core group (`clock`, `dot`, `black-hole`, `bar/common`, `rain/street`, `fireworks`), `core/webgl/three-connector.js` · 23b: `event/workflow/visualizer/*.js`, `visualizer-render.js`, `audio-analysis.js`, `audio-engine.js`, `perf-hud.js` | 77 | 251 | WF-tính 30 · R2 11 · R1 11 · WF-canvas 8 |
+| 22a ✓ /22b ✓ | 4 | Motion | 22a ✓: `core/motion-presets.js`, `event/workflow/motion-presets.js` · 22b ✓: 3 runner `event/workflow/motion-*-runner.js` | 56 — 22a xong 45, 22b xong 11 | 336 | WF-DOM 22 · R3a 21 · WF-tính 11 |
+| 23a ✓ /23b | 5 | Visualizer render (hot path) | 23a ✓ core: `core/visualizer/{draw/window-frame,effect-paint}.js`, `core/rubik-math.js`, core group (`clock`, `dot`, `black-hole`, `bar/common`, `rain/street`, `fireworks`), `core/webgl/three-connector.js` · 23b: `event/workflow/visualizer/*.js`, `visualizer-render.js`, `audio-analysis.js`, `audio-engine.js`, `perf-hud.js` | 77 | 251 | WF-tính 30 · R2 11 · R1 11 · WF-canvas 8 |
 | 24a/b/c | 5 | Trang Subtitle Editor | `core/subtitle/{subtitles-ui,subtitles}.js`, `event/listener/subtitle-editor.js`, `event/workflow/subtitle-editor.js` | 127 (+1 rAF) | 124 | WF-get 44 · WF-DOM 32 · WF-tính 16 · R3a 13 · R5a 10 |
 | 25a/25b | 5 | Trang Video Editor | `core/video-editor/{webcodecs-engine,filmstrip}.js`, `event/workflow/video-preview.js` | 71 | 53 | WF-get 21 · WF-DOM 14 · WF-tính 12 · WF-§7 10 |
 | 26a/26b | Cuối | Hạ tầng UI dùng chung | 26a: `core/dropdown-menu.js`, `core/loading-shield-util.js`, `event/workflow/generic-drawer-helpers.js`, `core/modal-choice-ui.js`, `event/workflow/number-countup.js` · 26b: `core/slider-input-modal.js`, `core/time-picker-modal.js`, `core/point-move-timing-ui.js` | 53 (+3 rAF) | 0 | R5a 17 · R3a 13 · R5c 3 · Timer 2 |
 
 Còn 565 FAIL (đã trừ đợt 5, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18a, 18b, 18c; +10 dòng rAF thành FAIL 14/10 — 1 dọn cùng đợt 8, 9 dòng tính vào đợt 18/20/24/26; đợt 9 −2 dòng `_renderTheme` / đợt 16 −3 dòng `loadConfig` dọn cùng đợt 8; đợt 18a −4 / 19a −2 dòng thuộc hàm chết xoá ở đợt 7; đợt 21a +1 dòng phát hiện ở đợt 1; đợt 16 −2 dòng `loadConfig` gỡ cùng đợt 2 và 3; đợt 23a +2 dòng `getActiveEffectConfig` dời từ đợt 3; đợt 26 +1 dòng `number-countup.js` mode `'interval'` phát hiện ở đợt 14; đợt 19a +1 dòng `handlePlaybackError` dời từ 18a). Dòng `requestAnimationFrame` thô (cột FAIL ghi "+N rAF") dọn theo miền chứa nó bằng `taskManager.onceFrame()`.
 
-20/10/2026 (ngoài đợt — Cut MP3 · Bottom Player · bảng 7 màu): −17 dòng → **548 FAIL**; phần màu effect của 23a đã làm (xoá `getActiveEffectConfig()`, `effect-paint.js` sạch) — xem sổ, mục Tổng quan. Cùng ngày rà lại mục 5 theo phán quyết "khác thuật toán = khác tiến trình" + ghi lamejs: +21 → 569. Đợt 19a: −31 → 538; đợt 19b: −29 → 509; đợt 20a: −21 +1 → 489; đợt 20b: −29 +1 → 461; adapter rVFC: −2 → **459 FAIL**; đợt 21a: −42 +5 → **422 FAIL**; đợt 21b: −30 → **392 FAIL**; đợt 22a: −45 → **347 FAIL**.
+20/10/2026 (ngoài đợt — Cut MP3 · Bottom Player · bảng 7 màu): −17 dòng → **548 FAIL**; phần màu effect của 23a đã làm (xoá `getActiveEffectConfig()`, `effect-paint.js` sạch) — xem sổ, mục Tổng quan. Cùng ngày rà lại mục 5 theo phán quyết "khác thuật toán = khác tiến trình" + ghi lamejs: +21 → 569. Đợt 19a: −31 → 538; đợt 19b: −29 → 509; đợt 20a: −21 +1 → 489; đợt 20b: −29 +1 → 461; adapter rVFC: −2 → **459 FAIL**; đợt 21a: −42 +5 → **422 FAIL**; đợt 21b: −30 → **392 FAIL**; đợt 22a: −45 → **347 FAIL**; đợt 22b: −11 → **336 FAIL**; đợt 23a: −32 → **304 FAIL**.
 
 ### Ghi chú theo đợt
 
+- **23a ✓** — Xong 22/10/2026: 9 file core visualizer sạch nợ (28 dòng) + 4 dòng Workflow của hàm bị viết lại (`_drawStreet`, Vortex). Kèm sửa Vortex rẽ hướng (mô hình độ uốn giữ hướng, 8 hướng thật) và nâng cấp ánh sáng Rain street. Còn lại cho 23b: Workflow `event/workflow/visualizer/*.js` + host. Chi tiết: sổ, mục 1.
+- **22b ✓** — Xong 22/10/2026: mọi phép tính của 3 runner (kể cả `_tick` React Beat — hot path, chỉ map + guard) ở core MỚI `core/motion-runner.js`; 6 hàm chỉ runner dùng dời khỏi `core/motion-engine.js`. API runner (`create*Runner`, `notify*`) không đổi — nơi tiêu thụ không sửa. Chi tiết: sổ, mục 1.
 - **22a ✓** — Xong 22/10/2026: core Motion thuần trả bản MỚI (id/blank do Workflow truyền vào, `sanitizeMotionPreset(raw, blank)` 1 core), DOM ở core -ui MỚI `core/motion-presets-ui.js`, Workflow chỉ `_patchEditing(patch)` + map. 22b (3 runner) dùng API mới: `findMotionPresetById`/`isReactBeatPresetActive`/`MOTION_ENGINE_NO_OP_PRESET` không đổi. Chi tiết: sổ, mục 1.
 
 - **18b ✓** — Xong 20/10/2026: 3 Workflow Playlist chỉ còn chuẩn bị + điều phối — node dựng từ HTML hoàn chỉnh của components + core -ui MỚI `core/playlist/node-ui.js`; kế hoạch diff, view node, cuộn, Search, Filter folder ở core thuần. Kèm sửa `sortKeysByMode()` (Rule 1, sổ chưa ghi) thành xếp hạng + `workflowPlaylistOrder.sortKeys()`. Bug sửa kèm: tên có ký tự HTML chèn thô vào node. Chi tiết: sổ, mục 1.
@@ -225,6 +227,8 @@ Bug sửa kèm: badge tên folder không đổi sau khi đổi tên folder đang
 | 21a ✓ — Visual Background chung (+ 1 bug groupMulti) | Xong 21/10/2026 (`sav-14-debt-wave21a-patch.zip`, áp SAU patch adapter rVFC), chờ test máy — 459 → 422 (+5 dòng mới ghi vào đợt 21b) |
 | 21b ✓ — VBG Video/Photo + Image surface (+ bug thời lượng Point Move) | Xong 21/10/2026 (`sav-14-debt-wave21b-patch.zip`, áp SAU patch đợt 21a), chờ test máy — 422 → 392 |
 | 22a ✓ — Motion presets (+ bug Reset không tắt Return baseline) | Xong 22/10/2026 (`sav-14-debt-wave22a-patch.zip`, áp SAU patch nhận diện thiết bị 21/10), chờ test máy — 392 → 347 |
-| Còn lại 22–26 | Chưa làm |
+| 22b ✓ — 3 runner Motion | Xong 22/10/2026 (`sav-14-debt-wave22b-patch.zip`, áp SAU patch đợt 22a), chờ test máy — 347 → 336 |
+| 23a ✓ — core visualizer (+ Vortex rẽ hướng, Rain street ánh sáng) | Xong 22/10/2026 (`sav-14-debt-wave23a-patch.zip`, áp SAU patch đợt 22b), chờ test máy — 336 → 304 |
+| Còn lại 23b–26 | Chưa làm |
 
 ← [Quay lại README](../../README.md)
