@@ -1,30 +1,26 @@
 /**
  * core/visualizer/groups/vortex/common.js — phần dùng chung của 3 style group "vortex" (`rings.js`, `bars.js`,
- * `wave.js`): tốc độ bay `computeVortexWarpSpeed()`, camera `placeVortexCamera()`, dời gốc/cuộn z
- * (`shiftVortexSceneZ()`, `wrapVortexObjectZ()`). `tWarpSpeed` là biến module-level ngoài STATE
- * (core/webgl/three-vortex.js); object Three.js nhận qua tham số. Workflow `_tickVortexRender()`
- * (event/workflow/visualizer/vortex.js) đọc state, chọn style rồi gọi từng hàm.
+ * `wave.js`): tốc độ bay `computeVortexWarpSpeed()`, camera `aimVortexCamera()`, dời gốc/cuộn z
+ * (`shiftVortexSceneZ()`, `wrapVortexObjectZ()`). `tWarpSpeed` là biến module ngoài STATE
+ * (core/webgl/three-vortex.js); object Three.js nhận qua tham số. Điều phối: event/workflow/visualizer/vortex.js.
  *
  * NẠP TRƯỚC: `rings.js`, `bars.js`, `wave.js`.
  */
 
-/** Tốc độ bay mượt theo nhạc — `tWarpSpeed` là biến module-level PERSISTENT (khai báo ở
- * `core/webgl/three-vortex.js`, tự ghi chú "KHÔNG thuộc STATE") — đọc/ghi trực tiếp KHÔNG vi phạm
- * Rule 2. @returns {number} tWarpSpeed mới. */
+/** Tốc độ bay mượt theo nhạc (ghi biến module `tWarpSpeed`, không thuộc STATE). @returns {number} tWarpSpeed mới. */
 function computeVortexWarpSpeed(warpSpeedBase, warpSpeedEnergyMult, smoothedEnergy) {
     const targetWarpSpeed = warpSpeedBase + smoothedEnergy * warpSpeedEnergyMult;
     tWarpSpeed += (targetWarpSpeed - tWarpSpeed) * 0.025;
     return tWarpSpeed;
 }
+
 // =================================== Camera (dùng chung) ===================================
 
-/** Đặt camera ĐÚNG tâm ống tại z camera — THAY `dampVortexCameraPosition()` + `applyVortexCameraClamp()`
- * cũ (25/09/2026, Giang báo "va đập"): damping 0.045 không đuổi kịp tâm khi ống rẽ -> camera bị lưới
- * kẹp cứng VORTEX_CAMERA_SAFE_RADIUS chặn lại đột ngột -> khựng/giật. Hình ống giờ đã mượt sẵn
- * (computeNextVortexPath(), core/webgl/three-vortex.js) nên bám thẳng tâm, cảm giác rẽ đến từ lookAt
- * phía trước. `camPos` = getVortexCenterAt(camZ, ...) đã resolve sẵn. Mutate trực tiếp `tCamera`. */
-function placeVortexCamera(tCamera, camPos, camZ) {
-    tCamera.position.set(camPos.x, camPos.y, camZ);
+/** Camera luôn ở tâm ống (độ lệch tại camera = 0, getVortexCenterAt()), nhìn tới `look` (computeVortexLookTarget()).
+ * Mutate trực tiếp `tCamera`. */
+function aimVortexCamera(tCamera, camZ, look) {
+    tCamera.position.set(0, 0, camZ);
+    tCamera.lookAt(look.x, look.y, look.z);
 }
 
 // ================================ Dời gốc toạ độ (dùng chung) ================================
