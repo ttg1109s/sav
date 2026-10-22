@@ -5,14 +5,15 @@
  * Giang bỏ 22/10/2026); giọt nào nằm trong vùng sáng tròn của đèn được vẽ lại sáng theo màu đèn, nhạt dần theo khoảng cách.
  *
  * Vật lý giọt (đơn vị px/frame ở 60 fps, × dpr; 1 m/s ≈ STREET_PX_PER_MPS px/frame):
- *   - Tốc độ rơi cuối v_t theo đường kính D (Uplinger 1981: v_t = 4.874·D·e^(−0.195·D), D mm, hợp lệ 0.1–7 mm).
- *   - Lực cản kéo vận tốc giọt về vận tốc gió với thời gian hồi τ = v_t / g (giọt to "lì", giọt phùn bám gió ngay).
+ *   - Tốc độ rơi cuối v_t = a·D^b·e^(c·D) theo đường kính D (mm): mưa — Uplinger 1981 (4.874·D·e^(−0.195·D), 0.1–7 mm);
+ *     tuyết — Locatelli & Hobbs 1974, bông kết tinh nhánh (0.8·D^0.16 ≈ 0.8–1.1 m/s).
+ *   - Lực cản kéo vận tốc hạt về vận tốc gió với thời gian hồi τ = v_t / g (giọt mưa to "lì", bông tuyết bám gió ngay).
  *   - Gió theo độ cao: luật lũy thừa u(z) = u_ref·(z/z_ref)^α, đô thị α ≈ 0.4 — trên cao gió mạnh, sát đất yếu dần nên
  *     giọt rơi chéo rồi dựng dần lên; cộng rối (trường sin trôi theo thời gian) -> quỹ đạo cong mềm.
  *   - Vệt giọt = cung parabol Bézier bậc 2: tiếp tuyến đầu = vận tốc hiện tại, tiếp tuyến đuôi = vận tốc trễ ~0.1 s (lưu
  *     ảnh), dài = tốc độ × thời gian phơi — giọt đang bị gió bẻ hướng thì vệt cong theo đúng quỹ đạo.
- * 2 kiểu mưa (customEffect.rain.streetRainStyle, Workflow chọn qua map): 'normal' (vệt thon, bắn tia nước) / 'drizzle'
- * (mưa phùn bụi: hạt li ti trôi theo gió, lấp lánh trong quầng đèn, sương mờ, không bắn tia).
+ * 2 kiểu (customEffect.rain.streetRainStyle, Workflow chọn qua map): 'normal' (mưa — vệt thon, bắn tia nước) / 'snow'
+ * (tuyết — bông tròn mềm lớn nhỏ khác nhau, đung đưa theo gió, lấp lánh trong quầng đèn, màn tuyết mờ, không bắn tia).
  * Âm thanh điều khiển: mật độ D_cuối = D_custom × (1 − Energy%/100) (sàn 10% — nhạc càng mạnh mưa càng thưa); mỗi đèn theo
  * 1 dải tần (STREET_LAMP_BANDS) — sáng theo mức dải, loé + gợn nước khi dải có nốt mới, rung theo vibrato; vùng sáng thở
  * theo năng lượng; snare (dải mid) bắn chùm tia nước; gió nghiêng theo hướng giai điệu, giật khi chuyển đoạn (tắt được —
@@ -65,14 +66,22 @@ const STREET_STREAK_LAG = 0.06;
 /** Mật độ tối thiểu khi nhạc rất mạnh. */
 const STREET_RAIN_MIN_DENSITY_RATIO = 0.1;
 const STREET_RAIN_COLOR = 'rgb(200, 215, 230)';
+const STREET_SNOW_COLOR = 'rgb(236, 242, 250)';
 
 /** Gió tắt (streetWindEnabled = false): mưa rơi thẳng, không giật. */
 const STREET_WIND_CALM = Object.freeze({ base: 0, gust: 0, value: 0 });
 
-/** Thông số từng kiểu mưa: số hạt = mật độ × countMult; đường kính (mm); rung khí phùn (m/s); thời gian phơi vệt (frame)
- * + độ dài vệt tối đa (px CSS — hạt phùn bị gió cuốn vẫn chỉ là chấm/gạch ngắn). */
-const STREET_RAIN_SPEC_NORMAL = Object.freeze({ countMult: 1, diameterMinMm: 1.0, diameterMaxMm: 3.0, flutterMps: 0, exposure: 2.4, maxStreakPx: 60 });
-const STREET_RAIN_SPEC_DRIZZLE = Object.freeze({ countMult: 3, diameterMinMm: 0.15, diameterMaxMm: 0.5, flutterMps: 0.5, exposure: 1.2, maxStreakPx: 7 });
+/** Thông số từng kiểu: số hạt = mật độ × countMult; đường kính (mm) rải lệch về cỡ nhỏ theo sizeSkew (D = min + Δ·r^skew);
+ * hệ số v_t = fallA·D^fallB·e^(fallC·D); đung đưa (m/s); thời gian phơi vệt (frame) + độ dài vệt tối đa (px CSS); bán kính bông
+ * tuyết (px CSS mỗi mm). */
+const STREET_RAIN_SPEC_NORMAL = Object.freeze({
+    countMult: 1, diameterMinMm: 1.0, diameterMaxMm: 3.0, sizeSkew: 1, fallA: 4.874, fallB: 1, fallC: -0.195,
+    flutterMps: 0, exposure: 2.4, maxStreakPx: 60, flakePxPerMm: 0,
+});
+const STREET_RAIN_SPEC_SNOW = Object.freeze({
+    countMult: 3, diameterMinMm: 1.0, diameterMaxMm: 8.0, sizeSkew: 2.5, fallA: 0.8, fallB: 0.16, fallC: 0,
+    flutterMps: 0.35, exposure: 0, maxStreakPx: 0, flakePxPerMm: 0.18,
+});
 
 /** Lớp theo độ sâu `z` (0 xa – 1 gần): nét mảnh/mờ ở xa, dày/rõ ở gần. */
 const STREET_RAIN_STREAK_LAYERS = [
@@ -80,10 +89,10 @@ const STREET_RAIN_STREAK_LAYERS = [
     { zMin: 0.34, zMax: 0.67, width: 1.1, alpha: 0.34 },
     { zMin: 0.67, zMax: 1.01, width: 1.5, alpha: 0.48 },
 ];
-const STREET_DRIZZLE_LAYERS = [
-    { zMin: 0, zMax: 0.34, width: 0.8, alpha: 0.16 },
-    { zMin: 0.34, zMax: 0.67, width: 1.1, alpha: 0.24 },
-    { zMin: 0.67, zMax: 1.01, width: 1.5, alpha: 0.32 },
+const STREET_SNOW_LAYERS = [
+    { zMin: 0, zMax: 0.34, alpha: 0.45 },
+    { zMin: 0.34, zMax: 0.67, alpha: 0.65 },
+    { zMin: 0.67, zMax: 1.01, alpha: 0.85 },
 ];
 /** Số tia nước tối đa cùng lúc. */
 const STREET_SPLASH_MAX = 120;
@@ -138,12 +147,12 @@ function computeStreetThunderAlpha(nowMs, startAtMs, maxOpacity) {
 
 // ----------------------------------- Mưa: dựng, mật độ, vật lý -----------------------------------
 
-/** Bể hạt mưa theo kiểu (`spec` = STREET_RAIN_SPEC_*): rải ngẫu nhiên, mỗi hạt 1 đường kính -> v_t (Uplinger), τ = v_t/g,
- * độ sâu `z`. tx/ty/cx/cy = hình vệt (đuôi/điểm điều khiển), advanceStreetRainDrops() tính mỗi frame. */
+/** Bể hạt theo kiểu (`spec` = STREET_RAIN_SPEC_*): rải ngẫu nhiên, mỗi hạt 1 đường kính -> v_t, τ = v_t/g, độ sâu `z`,
+ * bán kính bông `size` (tuyết). tx/ty/cx/cy = hình vệt (đuôi/điểm điều khiển), advanceStreetRainDrops() tính mỗi frame. */
 function buildStreetRainPool(density, canvasWidth, canvasHeight, dpr, spec) {
     return Array.from({ length: Math.round(density * spec.countMult) }, () => {
-        const diameterMm = spec.diameterMinMm + Math.random() * (spec.diameterMaxMm - spec.diameterMinMm);
-        const vtMps = 4.874 * diameterMm * Math.exp(-0.195 * diameterMm);
+        const diameterMm = spec.diameterMinMm + Math.pow(Math.random(), spec.sizeSkew) * (spec.diameterMaxMm - spec.diameterMinMm);
+        const vtMps = spec.fallA * Math.pow(diameterMm, spec.fallB) * Math.exp(spec.fallC * diameterMm);
         const vt = vtMps * STREET_PX_PER_MPS * dpr;
         const x = Math.random() * canvasWidth;
         const y = Math.random() * canvasHeight;
@@ -151,6 +160,7 @@ function buildStreetRainPool(density, canvasWidth, canvasHeight, dpr, spec) {
             x, y, vx: 0, vy: vt, lvx: 0, lvy: vt, z: Math.random(), vt,
             tau: Math.max(1, (vtMps / STREET_GRAVITY) * STREET_FPS),
             flutter: spec.flutterMps * STREET_PX_PER_MPS * dpr, exposure: spec.exposure, maxStreak: spec.maxStreakPx * dpr,
+            size: diameterMm * spec.flakePxPerMm * dpr,
             phase: Math.random() * Math.PI * 2, parked: false, tx: x, ty: y, cx: x, cy: y,
         };
     });
@@ -249,21 +259,30 @@ function paintStreetRainStreakLayer(ctx, drops, layer, dpr) {
     ctx.restore();
 }
 
-/** Mưa phùn, 1 lớp độ sâu: hạt li ti = gạch ngắn theo hướng trôi (vệt rất ngắn -> chấm tròn nhờ lineCap). */
-function paintStreetDrizzleLayer(ctx, drops, layer, dpr) {
-    const path = new Path2D();
+/** Tuyết, 1 lớp độ sâu: mỗi bông = chấm tròn (bán kính = cỡ bông × độ gần) + 2 viền mờ (×1.3, ×1.7) nhạt dần cho mép mềm. */
+function paintStreetSnowLayer(ctx, drops, layer, dpr) {
+    const outer = new Path2D();
+    const inner = new Path2D();
+    const cores = new Path2D();
     for (let i = 0; i < drops.length; i++) {
         const d = drops[i];
         if (d.parked || d.z < layer.zMin || d.z >= layer.zMax) continue;
-        path.moveTo(d.tx, d.ty);
-        path.lineTo(d.x, d.y);
+        const r = Math.max(0.6 * dpr, d.size * (0.45 + 0.75 * d.z));
+        outer.moveTo(d.x + r * 1.7, d.y);
+        outer.arc(d.x, d.y, r * 1.7, 0, Math.PI * 2);
+        inner.moveTo(d.x + r * 1.3, d.y);
+        inner.arc(d.x, d.y, r * 1.3, 0, Math.PI * 2);
+        cores.moveTo(d.x + r, d.y);
+        cores.arc(d.x, d.y, r, 0, Math.PI * 2);
     }
     ctx.save();
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = STREET_RAIN_COLOR;
+    ctx.fillStyle = STREET_SNOW_COLOR;
+    ctx.globalAlpha = layer.alpha * 0.08;
+    ctx.fill(outer);
+    ctx.globalAlpha = layer.alpha * 0.16;
+    ctx.fill(inner);
     ctx.globalAlpha = layer.alpha;
-    ctx.lineWidth = layer.width * dpr;
-    ctx.stroke(path);
+    ctx.fill(cores);
     ctx.restore();
 }
 
@@ -301,39 +320,39 @@ function paintStreetRainStreakLit(ctx, drops, light, lampFill, dpr) {
     ctx.restore();
 }
 
-/** Mưa phùn lọt vùng sáng: hạt sáng màu đèn + vài hạt loé lấp lánh (pha riêng từng hạt theo thời gian). */
-function paintStreetDrizzleLit(ctx, drops, light, lampFill, dpr, nowMs) {
+/** Tuyết lọt vùng sáng: tô lại bông cộng sáng màu đèn, nhạt dần theo khoảng cách + vài bông loé lấp lánh ở tâm (pha riêng
+ * từng bông theo thời gian). */
+function paintStreetSnowLit(ctx, drops, light, lampFill, dpr, nowMs) {
     const r2 = light.litR * light.litR;
-    const motes = new Path2D();
+    const flakes = new Path2D();
     const sparkles = new Path2D();
     for (let i = 0; i < drops.length; i++) {
         const d = drops[i];
         const dx = d.x - light.x, dy = d.y - light.bulbY;
         if (d.parked || d.y < light.capY || dx * dx + dy * dy > r2) continue;
-        motes.moveTo(d.tx, d.ty);
-        motes.lineTo(d.x, d.y);
-        if (Math.sin(d.phase * 7 + nowMs * 0.006) <= 0.85) continue;
-        sparkles.moveTo(d.x, d.y);
-        sparkles.lineTo(d.x, d.y);
+        const r = Math.max(0.6 * dpr, d.size * (0.45 + 0.75 * d.z));
+        flakes.moveTo(d.x + r * 1.3, d.y);
+        flakes.arc(d.x, d.y, r * 1.3, 0, Math.PI * 2);
+        if (Math.sin(d.phase * 7 + nowMs * 0.004) <= 0.85) continue;
+        sparkles.moveTo(d.x + r * 0.6, d.y);
+        sparkles.arc(d.x, d.y, r * 0.6, 0, Math.PI * 2);
     }
     const grad = ctx.createRadialGradient(light.x, light.bulbY, 0, light.x, light.bulbY, light.litR);
     grad.addColorStop(0, lampFill);
     grad.addColorStop(1, 'transparent');
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = grad;
-    ctx.lineCap = 'round';
+    ctx.fillStyle = grad;
     ctx.globalAlpha = Math.min(1, light.glow * (1 - light.depth * 0.4));
-    ctx.lineWidth = 1.8 * dpr;
-    ctx.stroke(motes);
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = 3 * dpr;
-    ctx.stroke(sparkles);
+    ctx.fill(flakes);
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.9;
+    ctx.fill(sparkles);
     ctx.restore();
 }
 
-/** Mưa phùn: quầng tán xạ tròn quanh đèn (ánh sáng toả trong hơi nước), đậm theo mật độ mưa. */
-function paintStreetDrizzleLampHaze(ctx, light, lampFill, densityRatio) {
+/** Tuyết: quầng tán xạ tròn quanh đèn (ánh sáng toả trong màn tuyết), đậm theo mật độ. */
+function paintStreetSnowLampHaze(ctx, light, lampFill, densityRatio) {
     const r = light.litR * 1.15;
     const grad = ctx.createRadialGradient(light.x, light.bulbY, 0, light.x, light.bulbY, r);
     grad.addColorStop(0, lampFill);
@@ -348,14 +367,14 @@ function paintStreetDrizzleLampHaze(ctx, light, lampFill, densityRatio) {
     ctx.restore();
 }
 
-/** Mưa phùn: màn sương mờ dày dần về phía mặt đất, đậm theo mật độ mưa. */
-function paintStreetDrizzleMist(ctx, canvasWidth, canvasHeight, groundY, densityRatio) {
-    const a = 0.12 * densityRatio;
+/** Tuyết: màn tuyết mờ dày dần về phía mặt đất (tầm nhìn giảm), đậm theo mật độ. */
+function paintStreetSnowMist(ctx, canvasWidth, canvasHeight, groundY, densityRatio) {
+    const a = 0.1 * densityRatio;
     const grad = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-    grad.addColorStop(0, 'rgba(170, 185, 205, 0)');
-    grad.addColorStop(Math.min(1, (groundY * 0.5) / canvasHeight), `rgba(170, 185, 205, ${a * 0.4})`);
-    grad.addColorStop(Math.min(1, groundY / canvasHeight), `rgba(170, 185, 205, ${a})`);
-    grad.addColorStop(1, `rgba(170, 185, 205, ${a * 0.5})`);
+    grad.addColorStop(0, 'rgba(195, 205, 222, 0)');
+    grad.addColorStop(Math.min(1, (groundY * 0.5) / canvasHeight), `rgba(195, 205, 222, ${a * 0.4})`);
+    grad.addColorStop(Math.min(1, groundY / canvasHeight), `rgba(195, 205, 222, ${a})`);
+    grad.addColorStop(1, `rgba(195, 205, 222, ${a * 0.5})`);
     ctx.save();
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
