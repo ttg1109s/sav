@@ -10,8 +10,9 @@
                 tRenderer: 'any',      // THREE.Renderer | undefined
                 tInitialized: 'boolean',
                 tCurrentWarpZ: 'number',
-                tPathParams: 'object',
-                tPathTarget: 'object',
+                tBend: 'object',       // {x, y} độ uốn ống hiện tại (core/webgl/three-vortex.js)
+                tBendTarget: 'object', // {x, y} đích độ uốn của lượt rẽ
+                tBendDir: 'number',    // index hướng đang giữ (VORTEX_DIRECTIONS), -1 = thẳng
                 tGroupRings: 'any',    // THREE.Group | undefined
                 tGroupBars: 'any',     // THREE.Group | undefined
                 tGroupWaves: 'any',    // THREE.Group | undefined
@@ -27,8 +28,9 @@
                     tRenderer: undefined,
                     tInitialized: false,
                     tCurrentWarpZ: 0,
-                    tPathParams: { freqX: 0.0012, freqY: 0.0009, ampX: 450, ampY: 300, phaseX: 0, phaseY: 0 },
-                    tPathTarget: { freqX: 0.0012, freqY: 0.0009, ampX: 450, ampY: 300, phaseX: 0, phaseY: 0 },
+                    tBend: { x: 0, y: 0 },
+                    tBendTarget: { x: 0, y: 0 },
+                    tBendDir: -1,
                     tGroupRings: undefined,
                     tGroupBars: undefined,
                     tGroupWaves: undefined,
@@ -39,7 +41,3 @@
                 };
             },
         });
-
-        // TUNNEL_DEPTH — KHÔNG khai lại ở đây, bản THẬT ở core/webgl/three-vortex.js (giá trị cố
-        // định, không đổi theo config). barsRingCount/barsPerRing/tunnelRingCount giờ đọc thẳng từ
-        // customEffect.vortex (core/custom-effect.js::resolveEffectConfig()), không còn hằng số module.
