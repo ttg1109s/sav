@@ -1,8 +1,9 @@
 /**
  * event/workflow/file-manager-storage.js — Workflow router "fileManagerStorage" (Generic Drawer "Quản lý lưu trữ", mở từ
  * tab Storage của bottom nav, gộp 3 domain Song/Video/Photo):
- *   - Thống kê dung lượng: đọc record 3 loại + tổng giây nghe + estimate quota, core thuần tổng hợp, `renderStorageStats()`
- *     vẽ, rồi đếm-lên các con số.
+ *   - Thống kê dung lượng: đọc record 3 loại + tổng giây nghe + `estimate()`/`persisted()`, core thuần tổng hợp (quota
+ *     Safari < 17 lấy mốc 1 GB theo `deviceInfo`), `renderStorageStats()` vẽ, rồi đếm-lên các con số.
+ *   - Lúc boot: `requestPersistOnBoot()` xin lưu trữ bền (`navigator.storage.persist()`).
  *   - "Chọn mục xoá": 3 toggle nguồn độc lập (Router giữ `{song, video, photo}`) + 2 toggle hành động; `executeStorageAction()`
  *     lặp qua từng nguồn đang bật, mỗi nguồn tra STORAGE_SOURCE_BY_TYPE. Chỉ xoá khi bước tải (nếu bật) thành công thật.
  *   - "Dọn file lỗi": modal chọn phạm vi quét -> quét (đọc record + thử giải mã ở đây, core phán định) -> xoá theo loại.
@@ -33,6 +34,20 @@ const STORAGE_STAT_SELECTORS = {
     countSongsEl: '#stat-storage-count-song',
     countVideosEl: '#stat-storage-count-video',
     countPhotosEl: '#stat-storage-count-photo',
+};
+
+/** Dòng chế độ lưu trữ + ghi chú Safari < 17 (components/file-manager-storage.js). */
+const STORAGE_ORIGIN_NOTE_SELECTORS = {
+    persistRowEl: '#stat-storage-persist-row',
+    persistTextEl: '#stat-storage-persist-text',
+    legacyQuotaNoteEl: '#stat-storage-legacy-quota-note',
+};
+
+/** Quota của origin theo nguồn (core/storage-manager.js::classifyOriginEstimateSource()). */
+const ORIGIN_ESTIMATE_BY_SOURCE = {
+    browser: (rawEstimate) => normalizeOriginEstimate(rawEstimate), // core/storage-manager.js
+    legacyWebKit: (rawEstimate, mediaBytes) => buildLegacyWebKitEstimate(mediaBytes),
+    none: () => null,
 };
 
 /** 5 toggle + nút Thực hiện của "Chọn mục xoá". */
@@ -198,40 +213,57 @@ const workflowFileManagerStorage = {
         return Object.fromEntries(Object.entries(selectors).map(([name, selector]) => [name, genericDrawerBody.querySelector(selector)]));
     },
 
+    /** `navigator.storage` (StorageManager) hoặc null nếu trình duyệt không có. */
+    _storageManager() {
+        return (typeof navigator !== 'undefined' && navigator.storage) || null;
+    },
+
     /**
-     * `navigator.storage.estimate()`: dung lượng đang dùng + tối đa của CẢ origin (IndexedDB + OPFS + Cache gộp — Safari không
-     * có `usageDetails`; iOS 17+, web app màn hình chính có quota ~60% dung lượng máy). Là ước tính. Không hỗ trợ/lỗi -> null.
-     * @returns {Promise<{usage: number, quota: number}|null>}
+     * Gọi 1 hàm ĐỌC của StorageManager (`estimate` | `persisted`). `estimate()`: usage + quota của CẢ origin (IndexedDB +
+     * OPFS + Cache gộp), là ước tính — Chrome ≈ 60% TỔNG dung lượng máy (không theo chỗ còn trống), Safari 17+ ≈ 60%/origin.
+     * Không có API/lỗi -> null.
      */
-    async _estimateOriginStorage() {
-        if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.estimate !== 'function') return null;
+    async _readStorageApi(storage, method) {
+        if (!storage || typeof storage[method] !== 'function') return null; // guard: trình duyệt không có API
         try {
-            const { usage, quota } = await navigator.storage.estimate();
-            if (!(quota > 0)) return null;
-            return { usage: usage || 0, quota };
+            return await storage[method]();
         } catch (err) {
-            console.warn('[file-manager-storage] navigator.storage.estimate() lỗi — bỏ qua phần quota:', err);
+            console.warn(`[file-manager-storage] navigator.storage.${method}() lỗi — bỏ qua:`, err);
             return null;
         }
     },
 
+    /** Lúc boot (event/workflow/app-boot.js, không await): chưa bền thì xin lưu trữ bền. Đã bền / không có API -> bỏ qua. */
+    async requestPersistOnBoot() {
+        const storage = this._storageManager();
+        const persisted = await this._readStorageApi(storage, 'persisted');
+        if (persisted !== false) return; // guard: đã bền (true) hoặc không hỗ trợ (null)
+        await requestPersistentStorage(storage); // core/storage-manager.js
+    },
+
     /** Vẽ lại thống kê dung lượng + ẩn kết quả quét — lúc mở panel / sau khi xoá. Panel đóng -> bỏ qua. */
     async refreshTab() {
-        if (!appState.get('isGenericDrawerOpen')) return;
-        const [songRecords, videoRecords, imageRecords, totalListenSeconds, originEstimate] = await Promise.all([
-            getAllSongRecords(), getAllVideoRecords(), getAllImageRecords(), getMeta('totalListenSeconds'), this._estimateOriginStorage(),
-        ]); // service/db.js
+        const { isGenericDrawerOpen, deviceInfo } = appState.get(['isGenericDrawerOpen', 'deviceInfo']);
+        if (!isGenericDrawerOpen) return;
+        const storage = this._storageManager();
+        const [songRecords, videoRecords, imageRecords, totalListenSeconds, rawEstimate, persisted] = await Promise.all([
+            getAllSongRecords(), getAllVideoRecords(), getAllImageRecords(), getMeta('totalListenSeconds'), // service/db.js
+            this._readStorageApi(storage, 'estimate'), this._readStorageApi(storage, 'persisted'),
+        ]);
         const songStats = summarizeSongLibrary(songRecords, totalListenSeconds || 0); // core/about-stats.js
         const videoStats = summarizeVideoLibrary(videoRecords); // core/file-manager/video.js
         const photoStats = summarizeImageLibrary(imageRecords); // core/file-manager/image.js
         const mediaBytes = sumStorageMediaBytes(songStats, videoStats, photoStats); // core/storage-manager.js
-        const originBreakdown = computeOriginStorageBreakdown(mediaBytes, originEstimate); // null nếu không có estimate
+        const estimateSource = classifyOriginEstimateSource(storage, rawEstimate, deviceInfo);
+        const originEstimate = ORIGIN_ESTIMATE_BY_SOURCE[estimateSource](rawEstimate, mediaBytes);
+        const originBreakdown = computeOriginStorageBreakdown(mediaBytes, originEstimate); // null nếu không có quota
         const free = pickStorageFreeFigures(originBreakdown);
         const statEls = this._queryDrawerEls(STORAGE_STAT_SELECTORS);
         renderStorageStats(songStats, videoStats, photoStats, statEls, originBreakdown, { // số cuối + độ rộng thanh (CSS tự animate)
             totalBytesText: STORAGE_STAT_FORMAT_BY_KIND.bytes(mediaBytes),
             freeText: STORAGE_STAT_FORMAT_BY_KIND.free(free.freeBytes, free.quota),
         });
+        renderStorageOriginNotes(this._queryDrawerEls(STORAGE_ORIGIN_NOTE_SELECTORS), resolveStorageOriginNotesView(persisted, estimateSource));
         this._startStorageCountup(buildStorageCountupTargets(statEls, songStats, videoStats, photoStats, originBreakdown), free.quota);
         this._hideScanResult(STORAGE_SCAN_RESULT_SELECTORS);
     },
