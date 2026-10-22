@@ -1,5 +1,5 @@
 /**
- * patch-settings-misc.js — patch default-language keys (tiếng Anh), phần settingsMisc + settingsDrawer + aboutDrawer + storageDrawer + settingsLanguage.
+ * patch-settings-misc.js — patch default-language keys (tiếng Anh), phần settingsMisc + storageDrawer + settingsLanguage.
  *
  * Đây KHÔNG phải file JSON: project chạy qua file://, không thể fetch() file tĩnh, nên các
  * "patch" default-language được viết thành .js gán vào 1 biến global, để core/../lang.js (nay đã
@@ -36,76 +36,35 @@ const LANG_PATCH_SETTINGS_MISC = {
     'settingsMisc.clearCache.label': 'Clear JS/CSS cache',
     'settingsMisc.clearCache.hint': 'Use this if the app still looks/behaves like an older version after an update. Does not affect saved music/playlist/settings.',
 
-    'settingsDrawer.title': 'System Settings',
-    // Batch D1 (Settings restructure, 06/07/2026) — nút Back giờ DÙNG CHUNG cho mọi panel con
-    // (core/settings-panel-stack.js), thay 9 key `*.backToSettings.title` rời rạc trước đây bằng
-    // ĐÚNG 1 key ở đây. `aboutDrawer.backToSettings.title` XOÁ (không còn nơi nào dùng).
-    // VIẾT LẠI (06/07/2026, slider thật — header nhét vào từng panel): `settingsDrawer.back.title`
-    // ĐÃ XOÁ — nút Back giờ dùng `aria-label="Back"` cố định (không dịch) thay vì `title` qua t(),
-    // vì core/settings-panel-stack.js (core UI thuần) không được biết gì về `lang/` — xem
-    // _buildPanelInnerHtml().
-
-    // [21/09/2026] Các key `aboutDrawer.*` + `settingsMisc.openAbout.label` ĐÃ XOÁ cùng About drawer (không còn nơi nào dùng).
-
-    'storageDrawer.backToAbout.title': 'Back to About',
     'storageDrawer.title': 'Storage Management',
     'storageDrawer.statsSectionTitle': 'Statistics',
-    'storageDrawer.statTotalSongs': 'Songs',
-    // SỬA (phản hồi Giang, mục 1 — "UI dung lượng như Settings mobile OS") — giờ là TỔNG dung
-    // lượng CẢ Song lẫn Video (thanh chia đoạn bên dưới) — không còn riêng "Storage used" cho mỗi
-    // loại (2 dòng số byte tách rời cũ ĐÃ GỘP vào 1 thanh + chú giải, xem renderStorageStats()).
-    'storageDrawer.statTotalBytes': 'Total storage',
-    // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — thống kê Video song song Song.
-    'storageDrawer.statTotalVideos': 'Videos',
-    // MỚI (phản hồi Giang, mục 1) — nhãn NGẮN cho chú giải dưới thanh chia đoạn dung lượng (khác
-    // statTotalSongs/statTotalVideos — 2 key đó giờ dùng làm nhãn dưới vòng tròn SỐ LƯỢNG, cần
-    // ngắn gọn nhưng không nhất thiết trùng chữ với chú giải dung lượng).
+    'storageDrawer.statTotalBytes': 'Total storage', // tổng Song + Video + Photo
+    // Chú giải thanh chia đoạn, dùng chung cho nhãn hàng của list số lượng.
     'storageDrawer.legendSongs': 'Music',
     'storageDrawer.legendVideos': 'Video',
-    // MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a/2b) — legendSongs/
-    // legendVideos ngay trên GIỜ DÙNG CHUNG cho CẢ chú giải thanh chia đoạn LẪN nhãn hàng trong
-    // list số lượng (list 3 hàng THAY 2 "vòng tròn" cũ, xem components/file-manager-storage.js) —
-    // 1 key MỚI này bổ sung cho ĐỦ 3 domain (Song/Video/Photo — XOÁ Document, loại bỏ Document
-    // Reader khỏi app).
     'storageDrawer.legendPhotos': 'Photos',
-    // MỚI (06/10/2026, Giang yêu cầu — navigator.storage.estimate() ngay thanh dung lượng) — đoạn
-    // "Khác" của thanh (usage của origin trừ media) + dòng "còn trống / tối đa" ngay dưới thanh.
-    'storageDrawer.legendOther': 'Other (app data, temp files)',
-    // SỬA (06/10/2026, Giang) — "app limit" -> "Limit"; + chú thích icon (i) ngay cạnh nhãn (statFreeBytesInfo).
-    'storageDrawer.statFreeBytes': 'Available / Limit',
-    // MỚI (06/10/2026, Giang) — đã đối chiếu MDN "Storage quotas and eviction criteria": quota là ước lượng THẬN TRỌNG
-    // của trình duyệt (tính theo TỔNG dung lượng máy, không theo chỗ còn trống; có thể làm lệch cố ý chống fingerprint),
-    // nên chỗ ghi được THẬT có thể ít hơn khi app khác chiếm đầy bộ nhớ; máy sắp hết chỗ thì hệ thống có thể xoá dữ liệu web.
+    'storageDrawer.legendOther': 'Other (app data, temp files)', // usage của origin trừ media
+    'storageDrawer.statFreeBytes': 'Available / Limit (estimated)',
+    // Theo MDN "Storage quotas and eviction criteria": quota tính theo TỔNG dung lượng máy, có thể lệch cố ý chống fingerprint.
     'storageDrawer.statFreeBytesInfo': 'An estimate reported by the browser/OS, not the real free space on your device. The limit is based on your device\'s total storage, so when other apps fill up the device, the space SAV can actually use may be smaller than shown. If the device runs very low on storage, the system may also clear website data.',
-    // MỚI (29/07/2026, mục 2c) — tiêu đề section "Chọn mục xoá" (THAY "Free up storage" — giờ
-    // gồm CẢ phần chọn nguồn LẪN 2 toggle hành động trong CÙNG 1 khối, không tách riêng nữa).
-    // SỬA (29/07/2026, yêu cầu Giang) — đổi tên hiển thị thành "Delete & Backup" (khớp đúng ý
-    // nghĩa 2 hành động chính của section: tải xuống SAO LƯU + xoá) — key TÊN giữ nguyên
-    // ("selectSourceSectionTitle"), CHỈ đổi chuỗi hiển thị.
-    'storageDrawer.selectSourceSectionTitle': 'Delete & Backup',
-    // MỚI (29/07/2026) — tiền tố tên file .zip khi tải Photo (Song/Video dùng
-    // fileManager.song.storageAction.zipNameSong/zipNameVideo có sẵn, lang/patch/patch-file-
-    // manager.js — GIỮ NGUYÊN, không đổi namespace cũ). XOÁ (loại bỏ Document Reader khỏi app) —
-    // 'storageDrawer.zipNameDocument'.
+    // Safari < 17 không có navigator.storage.estimate().
+    'storageDrawer.legacyQuotaNote': "This browser (Safari before 17) doesn't report a limit, so the default of about 1 GB per site is shown. Past that, Safari asks for permission to store more.",
+    // Chế độ lưu trữ theo navigator.storage.persisted() — app xin persist() lúc mở.
+    'storageDrawer.persistLabel': 'Storage mode',
+    'storageDrawer.persistOn': 'Persistent',
+    'storageDrawer.persistOff': 'Best-effort (may be cleared)',
+    'storageDrawer.persistInfo': "Persistent: the browser only deletes SAV's data when you do. Best-effort: the browser may clear it when the device runs low on storage, or (Safari) when the app hasn't been opened for a while. SAV requests persistent storage each time it starts; Chrome and Safari decide on their own (adding SAV to the Home Screen helps), Firefox asks you.",
+    'storageDrawer.selectSourceSectionTitle': 'Delete & Backup', // section "Chọn mục xoá"
+    // Tiền tố tên .zip khi tải Photo (Song/Video: fileManager.song.storageAction.zipName*, lang/patch/patch-file-manager.js).
     'storageDrawer.zipNamePhoto': 'photos',
-    'storageDrawer.freeSpaceSectionTitle': 'Free up storage',
-    // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'downloadThenClear.label/hint' và
-    // 'clearNoDownload.label/hint' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng key MỚI ở
-    // lang/patch/patch-file-manager.js (namespace fileManager.song.storageAction.*) — 3 field cấu
-    // hình độc lập (phạm vi/tải xuống/xoá) + 1 nút "Thực hiện".
     'storageDrawer.brokenSectionTitle': 'Corrupted data',
     'storageDrawer.scanBroken.label': 'Scan & clean broken files',
-    // SỬA (20/09/2026) — phần kiểm tra thumbnail video DỜI sang Setting > Troubleshooting > "Scan & fix video
-    // thumbnails" (Giang yêu cầu) — quét ở Storage chỉ còn file hỏng THẬT (không phát/decode được), nên hint bỏ ý "thiếu thumbnail".
+    // Chỉ file hỏng thật — sửa thumbnail video ở Settings > Troubleshooting.
     'storageDrawer.scanBroken.hint': "Finds files that can't be played or decoded, and asks before deleting",
-    // MỚI (29/07/2026, yêu cầu Giang — "mở modal choice có dropdown chọn loại scan") — nội dung
-    // modal + option "Tất cả" của dropdown, xem event/workflow/file-manager-storage.js::
-    // askScanBrokenScope(). XOÁ (cùng ngày) — key "blockedNoSource" (Block gate cũ chặn "chưa
-    // chọn nguồn nào") không còn cần thiết — dropdown LUÔN có 1 giá trị, không có khái niệm rỗng.
+    // Modal chọn phạm vi quét (event/workflow/file-manager-storage.js::askScanBrokenScope()).
     'storageDrawer.scanBroken.modalBody': 'Choose what to scan for broken/corrupted files:',
     'storageDrawer.scanBroken.scopeAll': 'Everything (Music, Video, Photos)',
-    // SỬA (20/09/2026) — nút này ở Storage giờ CHỈ xoá file hỏng thật (phần sửa thumb đã dời sang Troubleshooting),
-    // nên nhãn đổi lại "Delete these files" (key giữ nguyên tên `btnFixBroken` để không đổi id/wire).
+    // Tên key giữ `btnFixBroken` (id/wire cũ) — nút chỉ xoá file hỏng.
     'storageDrawer.btnFixBroken': 'Delete these files',
     'storageDrawer.btnDismissScan': 'Dismiss',
 
