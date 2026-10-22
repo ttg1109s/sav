@@ -74,17 +74,14 @@ function computeBarMirrorLevels(vizDataArray, binCount, sampleRate, analyserDbMi
         const fCenter = Math.sqrt(fLo * fHi);
         const i0 = Math.ceil(fLo / binHz);
         const i1 = Math.min(binCount - 1, Math.floor(fHi / binHz));
-        let byte = 0;
-        if (i1 >= i0) {
-            // Dải rộng >= 1 bin — lấy MAX (giữ đỉnh nốt, không bị pha loãng như trung bình).
-            for (let i = i0; i <= i1; i++) if (vizDataArray[i] > byte) byte = vizDataArray[i];
-        } else {
-            // Dải hẹp hơn 1 bin (vùng bass) — nội suy tuyến tính tại tần số giữa dải.
-            const x = fCenter / binHz;
-            const k = Math.min(binCount - 2, Math.floor(x));
-            const t = x - k;
-            byte = (vizDataArray[k] || 0) * (1 - t) + (vizDataArray[k + 1] || 0) * t;
-        }
+        // Dải rộng >= 1 bin: MAX các bin (giữ đỉnh nốt). Dải hẹp hơn 1 bin (bass): nội suy tại tần số giữa dải.
+        let maxByte = 0;
+        for (let i = i0; i <= i1; i++) if (vizDataArray[i] > maxByte) maxByte = vizDataArray[i];
+        const x = fCenter / binHz;
+        const k = Math.min(binCount - 2, Math.floor(x));
+        const t = x - k;
+        const interpByte = (vizDataArray[k] || 0) * (1 - t) + (vizDataArray[k + 1] || 0) * t;
+        const byte = i1 >= i0 ? maxByte : interpByte;
         if (byte <= 0) continue; // dưới minDecibels của analyser — im lặng thật
         let db = analyserDbMin + (byte / 255) * dbSpan;
         if (fCenter > BAR_MIRROR_TILT_PIVOT_HZ) db += tilt * Math.log2(fCenter / BAR_MIRROR_TILT_PIVOT_HZ);

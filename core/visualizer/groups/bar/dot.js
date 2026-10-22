@@ -1,51 +1,18 @@
 /**
- * core/visualizer/groups/bar/dot.js — [MỚI 25/09/2026, yêu cầu Giang] Style 'dot' của group bar: TRỤC
- * THỜI GIAN chuyển NGUYÊN từ connector brain (core/visualizer/groups/connector/brain.js, trước đây
- * `drawTimeline()` + khối TIMELINE_*) thành 1 visualizer effect độc lập. Cơ chế gốc giữ nguyên: dãy
- * `dotCount` dot đều nhau dọc 1 hình trục; mỗi beat THẬT (`lastBeatTime`) sinh 1 CỤM `clusterSize` dot
- * (1-7 theo nốt nhạc) từ đầu trục, dịch mượt dọc trục trong DOT_CLUSTER_TRAVEL_MS; dot trong cụm phồng
- * theo năng lượng dải tần riêng (computeNeuronBinEnergy(), synapse.js — Workflow tự gọi), làm mượt EMA.
- *
- * Khác bản trong brain (theo yêu cầu Giang 25/09/2026):
- *   (1) Dot đang bị tác động có glow blur — theo khối blur chung của Custom Effect (perf.blurMult).
- *   (2) Quãng đường sóng KHÔNG còn chỉnh tay (bỏ field "max travel" + sàn tối thiểu 15%): chiều dài
- *       trục chỉ là MỐC TỐI ĐA, quãng đường mỗi cụm = năng lượng lúc beat (chuẩn hoá theo đỉnh gần
- *       đây, DOT_ENERGY_PEAK_TAU_MS) × toàn trục.
- *   (3) Kiểu tác động: 'radius' (phồng bán kính — như cũ) | 'height' (kéo dài 2 bên VUÔNG GÓC trục,
- *       dạng viên thuốc; tối đa maxH × 0.5 mỗi bên, cùng quy ước bar mirror).
- *   (4) Thêm 2 hình: 'sinWave' (sóng sin lên xuống DOT_WAVE_PERIODS chu kỳ) + 'squareWave' (xung vuông
- *       DOT_SQUARE_PULSES xung). Dot rải theo ĐỘ DÀI CUNG thật (bản cũ theo tham số u) — xung vuông có
- *       cạnh đứng, rải theo u sẽ không có dot nào trên cạnh đứng.
- *   (5) Hình 'line' + toggle `dotLineVibrate`: dây rung đàn hồi như 7 dây output của brain — nốt đang
- *       phát (C..B, nốt thăng lấy nốt tự nhiên ngay dưới) gảy ĐÚNG 1/7 đoạn của line (tâm đoạn
- *       (k + 0.5) / 7), dạng dây gảy (2 đầu cố định, đỉnh tại điểm gảy), biên độ theo năng lượng FFT
- *       đúng tần số nốt, tắt dần. 7 vị trí rung độc lập, cộng dồn.
- *
- * SỬA (25/09/2026, Giang — lượt 2):
- *   (6) BỎ mũi tên + đường nối (nét đứt) giữa các dot — chỉ còn dãy dot. Hình trục vẫn quyết định
- *       VỊ TRÍ dot, không vẽ ra nữa.
- *   (7) ĐỒNG MÀU: mọi dot (nghỉ lẫn đang tác động) cùng 1 màu effect/frame — Workflow lấy 1 màu duy
- *       nhất, dot nghỉ không còn xám cố định. Dot tác động chỉ khác ở kích thước + glow.
- *   (8) Toggle `dotMoving` — chuỗi dot thành RẮN BÒ: đầu rắn (dot 0) bò lang thang, độ cong đường bò
- *       đổi ngẫu nhiên mượt sau mỗi quãng (không gắt hơn bán kính quay tối thiểu) + uốn lượn sin, sát
- *       mép (nhìn trước theo hướng bò) thì quay về giữa màn hình. [SỬA 25/09/2026 lượt 3 — Giang "bỏ mồi"] Bỏ hẳn con mồi (điểm
- *       đích) của bản trước. Thân (dot 1..N-1) bám đúng vết đầu đã bò, cách đều nhau. Tốc độ
- *       bò tăng theo năng lượng nhạc. Bật thì hình trục/rung đàn hồi không dùng. Sóng dot chạy từ đầu
- *       -> đuôi. Khối DOT_SNAKE_* + initDotSnake()/stepDotSnake()/sampleDotSnakeBody().
- *   (9) Kiểu 'height' + `dotBend`: 2 nhánh bẻ góc `dotBendAngle` độ quanh dot — 'gt' (>, đỉnh chỉ
- *       theo chiều chạy), 'lt' (<), 'slash' (/), 'backslash' (\), 'none' (thẳng như cũ).
- *   (10) [MỚI 25/09/2026 lượt 4, Giang] Moving có 2 kiểu `dotMoveType`: 'snake' (rắn bò, mục 8) | 'dna'.
- *       DNA: trên hình trục tĩnh, dãy dot tự NHÂN ĐÔI (chuỗi thứ 2 hiện dần tại chỗ, không cắt cứng)
- *       rồi 2 chuỗi tách ra xoắn kép quanh trục (2 sin lệch pha π theo pháp tuyến, xoay theo thời gian,
- *       ~DOT_DNA_PAIRS_PER_TURN cặp/vòng như DNA thật), có thanh nối từng cặp, chuỗi phía sau nhỏ + mờ
- *       hơn (chiều sâu). Tắt Moving / đổi sang Snake -> phá liên kết LẦN LƯỢT từng cặp từ cặp đầu
- *       (thanh nối rút về 2 dot), cặp nào đứt thì 2 dot khép lại nhập 1. Trạng thái từng cặp = `level`
- *       (0 = 1 chuỗi, 1 = xoắn hết cỡ) + `bond` (độ dài thanh nối 0-1) — stepDotDnaPairs().
- *       Đổi giữa vị trí rắn <-> hình tĩnh: blendDotPositions() trượt mượt từ vị trí cũ (không nhảy).
- *
- * Rule 2/3 — hàm THUẦN / chỉ Canvas API, không appState, không gọi hàm tự viết khác (helper cục bộ
- * khai BÊN TRONG hàm). Trạng thái (cụm, EMA, đỉnh năng lượng, biên độ rung, hình cache) do Workflow
- * (`_tickBarDot()`, event/workflow/visualizer-render.js) giữ và truyền vào.
+ * core/visualizer/groups/bar/dot.js — style 'dot' của group bar: dãy `dotCount` dot đều nhau dọc 1 hình trục (chuyển từ
+ * trục thời gian của connector brain). Mỗi beat thật sinh 1 CỤM 1-7 dot (theo nốt) từ đầu trục, dịch mượt dọc trục trong
+ * DOT_CLUSTER_TRAVEL_MS; dot trong cụm phồng theo năng lượng dải tần riêng, làm mượt EMA.
+ *   - Quãng đường mỗi cụm = năng lượng lúc beat (chuẩn hoá theo đỉnh gần đây, DOT_ENERGY_PEAK_TAU_MS) × toàn trục.
+ *   - Kiểu tác động: 'radius' (phồng bán kính) | 'height' (2 nhánh vuông góc trục, dạng viên thuốc; `dotBend` bẻ góc
+ *     'gt' (>) / 'lt' (<) / 'slash' (/) / 'backslash' (\) / 'none').
+ *   - Hình trục: line, sinDown, sinUp, sinWave, squareWave, circle, square, triangle — chỉ quyết định VỊ TRÍ dot (không vẽ).
+ *   - 'line' + `dotLineVibrate`: dây rung đàn hồi (7 vị trí theo nốt C..B, biên độ theo năng lượng đúng tần số nốt).
+ *   - Mọi dot cùng 1 màu/frame (mode gradient: dải màu theo vị trí); dot tác động khác ở kích thước + glow (perf.blurMult).
+ *   - `dotMoving`: 'snake' (đầu rắn bò lang thang, thân bám vết, quay về giữa khi sát mép, tốc độ theo năng lượng) | 'dna'
+ *     (dãy tự nhân đôi -> 2 chuỗi xoắn kép quanh trục, có thanh nối, chuỗi sau nhỏ + mờ hơn; tắt thì đứt lần lượt từng cặp
+ *     rồi khép lại). Đổi rắn <-> hình tĩnh trượt mượt (blendDotPositions()).
+ * Hàm thuần / chỉ Canvas API, không appState, không gọi hàm tự viết khác. State (cụm, EMA, đỉnh, rung, hình cache) do
+ * Workflow event/workflow/visualizer/bar.js giữ và truyền vào.
  *
  * NẠP SAU: core/visualizer/groups/bar/common.js.
  */
@@ -75,90 +42,142 @@ const DOT_VIB_ENERGY_GAIN = 1.3;
 const DOT_VIB_HZ_BASE = 5;
 const DOT_VIB_HZ_STEP = 0.6;
 
-/** Dựng hình trục: vị trí/tiếp tuyến/pháp tuyến từng dot (rải đều theo độ dài cung) + bán kính theo
- * khoảng cách dot. Hình mở: dot i ở s = i/(N-1); hình kín: s = i/N (không trùng điểm đầu). SỬA (25/09/2026,
- * lượt 2): bỏ polyline vẽ + mũi tên (không còn vẽ đường nối/mũi tên).
- * @returns {{shape, closed, dots:{x,y,tx,ty,nx,ny,u}[], baseRadius, maxRadius}} */
-function buildDotAxisGeometry(shape, W, H, dotCount) {
-    const shp = DOT_AXIS_SHAPES.includes(shape) ? shape : 'line';
-    const minWH = Math.min(W, H);
-    const closed = shp === 'circle' || shp === 'square' || shp === 'triangle';
-    const x0 = W * DOT_AXIS_MARGIN_X_FRAC, x1 = W * (1 - DOT_AXIS_MARGIN_X_FRAC), len = x1 - x0;
-    const cx = W / 2, cy = H / 2;
+/** Hình khép kín (dot rải s = i/N, tiếp tuyến quấn vòng); còn lại là hình mở (s = i/(N-1), kẹp 2 đầu). */
+const DOT_AXIS_CLOSED_SHAPES = ['circle', 'square', 'triangle'];
 
-    // 1) Polyline thô theo hình
+// Dựng hình trục (Workflow ghép, event/workflow/visualizer/bar.js::_ensureDotGeometry()): resolveDotAxisShape() ->
+// computeDotAxisFrame() -> 1 hàm buildDotAxisRaw*() theo hình (polyline thô) -> measureDotAxisPath() -> kế hoạch rải dot
+// mở / kín -> sampleDotAxisPoints() (vị trí + 2 điểm lân cận làm tiếp tuyến) -> assembleDotAxisGeometry(). Dot rải đều theo
+// ĐỘ DÀI CUNG thật (xung vuông có cạnh đứng — rải theo tham số sẽ không có dot nào trên cạnh đứng).
+
+/** Hình hợp lệ (lạ -> 'line') + kín/mở. @param {string} shape @returns {{shape: string, closed: boolean}} */
+function resolveDotAxisShape(shape) {
+    const resolved = DOT_AXIS_SHAPES.includes(shape) ? shape : 'line';
+    return { shape: resolved, closed: DOT_AXIS_CLOSED_SHAPES.includes(resolved) };
+}
+
+/** Khung chung các hình: lề trái/phải hình mở, tâm, cạnh ngắn. @returns {{W, H, x0, x1, len, cx, cy, minWH}} */
+function computeDotAxisFrame(W, H) {
+    const x0 = W * DOT_AXIS_MARGIN_X_FRAC, x1 = W * (1 - DOT_AXIS_MARGIN_X_FRAC);
+    return { W, H, x0, x1, len: x1 - x0, cx: W / 2, cy: H / 2, minWH: Math.min(W, H) };
+}
+
+/** Cung sin võng xuống ('sinDown') / vồng lên ('sinUp' — `inverted`, đối xứng qua trục ngang). @returns {{x, y}[]} */
+function buildDotAxisRawSinArc(f, inverted) {
+    const amp = f.minWH * DOT_SIN_ARC_AMP_FRAC, top = f.cy - amp / 2;
+    const base = inverted ? amp : 0;
+    const sign = inverted ? -1 : 1;
     const raw = [];
-    if (shp === 'sinDown' || shp === 'sinUp') {
-        const amp = minWH * DOT_SIN_ARC_AMP_FRAC, top = cy - amp / 2;
-        for (let k = 0; k <= 240; k++) {
-            const u = k / 240;
-            raw.push({ x: x0 + u * len, y: shp === 'sinDown' ? top + amp * Math.sin(u * Math.PI) : top + amp - amp * Math.sin(u * Math.PI) });
-        }
-    } else if (shp === 'sinWave') {
-        const amp = minWH * DOT_WAVE_AMP_FRAC;
-        for (let k = 0; k <= 480; k++) {
-            const u = k / 480;
-            raw.push({ x: x0 + u * len, y: cy - amp * Math.sin(u * Math.PI * 2 * DOT_WAVE_PERIODS) });
-        }
-    } else if (shp === 'squareWave') {
-        const amp = minWH * DOT_WAVE_AMP_FRAC, w = len / DOT_SQUARE_PULSES;
-        raw.push({ x: x0, y: cy + amp }, { x: x0, y: cy - amp });
-        for (let p = 0; p < DOT_SQUARE_PULSES; p++) {
-            const xm = x0 + p * w + w / 2, xe = x0 + (p + 1) * w;
-            raw.push({ x: xm, y: cy - amp }, { x: xm, y: cy + amp }, { x: xe, y: cy + amp });
-            if (p < DOT_SQUARE_PULSES - 1) raw.push({ x: xe, y: cy - amp });
-        }
-    } else if (shp === 'circle') {
-        const r = Math.min(W * DOT_CLOSED_W_FRAC, H * DOT_CLOSED_H_FRAC) / 2;
-        for (let k = 0; k <= 360; k++) {
-            const a = -Math.PI / 2 + (k / 360) * Math.PI * 2;
-            raw.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
-        }
-    } else if (shp === 'square') {
-        const side = Math.min(W * DOT_CLOSED_W_FRAC, H * DOT_CLOSED_H_FRAC), h = side / 2;
-        raw.push({ x: cx - h, y: cy - h }, { x: cx + h, y: cy - h }, { x: cx + h, y: cy + h }, { x: cx - h, y: cy + h }, { x: cx - h, y: cy - h });
-    } else if (shp === 'triangle') {
-        const hgt = Math.min(H * DOT_CLOSED_H_FRAC, W * DOT_CLOSED_W_FRAC * Math.sqrt(3) / 2), side = hgt * 2 / Math.sqrt(3);
-        const top = cy - hgt / 2;
-        raw.push({ x: cx, y: top }, { x: cx + side / 2, y: top + hgt }, { x: cx - side / 2, y: top + hgt }, { x: cx, y: top });
-    } else {
-        raw.push({ x: x0, y: cy }, { x: x1, y: cy });
+    for (let k = 0; k <= 240; k++) {
+        const u = k / 240;
+        raw.push({ x: f.x0 + u * f.len, y: top + base + sign * amp * Math.sin(u * Math.PI) });
     }
+    return raw;
+}
 
-    // 2) Độ dài cung tích luỹ + hàm lấy điểm theo độ dài (helper CỤC BỘ)
+/** Sóng sin DOT_WAVE_PERIODS chu kỳ. @returns {{x, y}[]} */
+function buildDotAxisRawSinWave(f) {
+    const amp = f.minWH * DOT_WAVE_AMP_FRAC;
+    const raw = [];
+    for (let k = 0; k <= 480; k++) {
+        const u = k / 480;
+        raw.push({ x: f.x0 + u * f.len, y: f.cy - amp * Math.sin(u * Math.PI * 2 * DOT_WAVE_PERIODS) });
+    }
+    return raw;
+}
+
+/** Xung vuông DOT_SQUARE_PULSES xung (cạnh đứng thật). @returns {{x, y}[]} */
+function buildDotAxisRawSquareWave(f) {
+    const amp = f.minWH * DOT_WAVE_AMP_FRAC, w = f.len / DOT_SQUARE_PULSES;
+    const raw = [{ x: f.x0, y: f.cy + amp }, { x: f.x0, y: f.cy - amp }];
+    for (let p = 0; p < DOT_SQUARE_PULSES; p++) {
+        const xm = f.x0 + p * w + w / 2, xe = f.x0 + (p + 1) * w;
+        raw.push({ x: xm, y: f.cy - amp }, { x: xm, y: f.cy + amp }, { x: xe, y: f.cy + amp });
+        if (p < DOT_SQUARE_PULSES - 1) raw.push({ x: xe, y: f.cy - amp });
+    }
+    return raw;
+}
+
+/** Vòng tròn (bắt đầu từ đỉnh trên, khép kín). @returns {{x, y}[]} */
+function buildDotAxisRawCircle(f) {
+    const r = Math.min(f.W * DOT_CLOSED_W_FRAC, f.H * DOT_CLOSED_H_FRAC) / 2;
+    const raw = [];
+    for (let k = 0; k <= 360; k++) {
+        const a = -Math.PI / 2 + (k / 360) * Math.PI * 2;
+        raw.push({ x: f.cx + Math.cos(a) * r, y: f.cy + Math.sin(a) * r });
+    }
+    return raw;
+}
+
+/** Hình vuông khép kín. @returns {{x, y}[]} */
+function buildDotAxisRawSquare(f) {
+    const h = Math.min(f.W * DOT_CLOSED_W_FRAC, f.H * DOT_CLOSED_H_FRAC) / 2;
+    return [{ x: f.cx - h, y: f.cy - h }, { x: f.cx + h, y: f.cy - h }, { x: f.cx + h, y: f.cy + h }, { x: f.cx - h, y: f.cy + h }, { x: f.cx - h, y: f.cy - h }];
+}
+
+/** Tam giác đều khép kín (đỉnh trên). @returns {{x, y}[]} */
+function buildDotAxisRawTriangle(f) {
+    const hgt = Math.min(f.H * DOT_CLOSED_H_FRAC, f.W * DOT_CLOSED_W_FRAC * Math.sqrt(3) / 2), side = hgt * 2 / Math.sqrt(3);
+    const top = f.cy - hgt / 2;
+    return [{ x: f.cx, y: top }, { x: f.cx + side / 2, y: top + hgt }, { x: f.cx - side / 2, y: top + hgt }, { x: f.cx, y: top }];
+}
+
+/** Đường thẳng ngang giữa màn hình. @returns {{x, y}[]} */
+function buildDotAxisRawLine(f) {
+    return [{ x: f.x0, y: f.cy }, { x: f.x1, y: f.cy }];
+}
+
+/** Độ dài cung tích luỹ của polyline. @param {{x, y}[]} raw @returns {{cum: number[], total: number}} */
+function measureDotAxisPath(raw) {
     const cum = [0];
     for (let k = 1; k < raw.length; k++) cum.push(cum[k - 1] + Math.hypot(raw[k].x - raw[k - 1].x, raw[k].y - raw[k - 1].y));
-    const total = Math.max(1e-6, cum[cum.length - 1]);
+    return { cum, total: Math.max(1e-6, cum[cum.length - 1]) };
+}
+
+/** Kế hoạch rải dot hình MỞ: dot i ở s = i/(N-1); 2 điểm lân cận ±eps kẹp trong [0, total].
+ * @returns {{us: number[], ss: number[], sas: number[], sbs: number[], spacing: number}} */
+function planDotAxisSamplingOpen(total, dotCount) {
+    const n = Math.max(2, Math.round(dotCount));
+    const eps = total / 960;
+    const us = Array.from({ length: n }, (_, i) => i / (n - 1));
+    const ss = us.map((u) => u * total);
+    return { us, ss, sas: ss.map((s) => Math.max(0, s - eps)), sbs: ss.map((s) => Math.min(total, s + eps)), spacing: total / (n - 1) };
+}
+
+/** Kế hoạch rải dot hình KÍN: dot i ở s = i/N (không trùng điểm đầu); 2 điểm lân cận ±eps quấn vòng. @returns như trên */
+function planDotAxisSamplingClosed(total, dotCount) {
+    const n = Math.max(2, Math.round(dotCount));
+    const eps = total / 960;
+    const us = Array.from({ length: n }, (_, i) => i / n);
+    const ss = us.map((u) => u * total);
+    return { us, ss, sas: ss.map((s) => (s - eps + total) % total), sbs: ss.map((s) => (s + eps) % total), spacing: total / n };
+}
+
+/** Điểm trên polyline tại từng độ dài cung `sValues` (dò tuyến tính tiếp từ đoạn trước; s lùi thì dò lại từ đầu).
+ * @param {{x, y}[]} raw @param {number[]} cum - measureDotAxisPath() @param {number[]} sValues @returns {{x, y}[]} */
+function sampleDotAxisPoints(raw, cum, sValues) {
     let seg = 1;
-    const pointAt = (s) => { // s tăng dần qua mỗi lần gọi trong cùng 1 vòng -> dò tuyến tính tiếp từ seg cũ
+    return sValues.map((s) => {
         if (s <= 0) { seg = 1; return { x: raw[0].x, y: raw[0].y }; }
         if (s < cum[seg - 1]) seg = 1;
         while (seg < raw.length - 1 && cum[seg] < s) seg++;
         const a = raw[seg - 1], b = raw[seg], d = cum[seg] - cum[seg - 1];
         const f = d > 0 ? Math.min(1, (s - cum[seg - 1]) / d) : 0;
         return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
-    };
+    });
+}
 
-    const n = Math.max(2, Math.round(dotCount));
-    const denom = closed ? n : n - 1;
-    const eps = total / 960;
-    const dots = [];
-    for (let i = 0; i < n; i++) {
-        const u = i / denom, s = u * total;
-        const p = pointAt(s);
-        // Tiếp tuyến qua 2 điểm lân cận ±eps (hình kín quấn vòng, hình mở kẹp 2 đầu) — pointAt dò tuyến
-        // tính nên gọi riêng (không làm lệch seg của vòng chính: seg tự dò lại khi s lùi).
-        const sa = closed ? (s - eps + total) % total : Math.max(0, s - eps);
-        const sb = closed ? (s + eps) % total : Math.min(total, s + eps);
-        const pa = pointAt(sa), pb = pointAt(sb);
-        let tx = pb.x - pa.x, ty = pb.y - pa.y;
+/** Ghép hình trục: vị trí + tiếp tuyến (qua 2 điểm lân cận) + pháp tuyến từng dot, bán kính theo khoảng cách dot.
+ * @param {{shape: string, closed: boolean}} axis @param {{x, y}[]} points @param {{x, y}[]} before @param {{x, y}[]} after
+ * @param {number[]} us @param {number} spacing @returns {{shape, closed, dots:{x,y,tx,ty,nx,ny,u}[], baseRadius, maxRadius}} */
+function assembleDotAxisGeometry(axis, points, before, after, us, spacing) {
+    const dots = points.map((p, i) => {
+        let tx = after[i].x - before[i].x, ty = after[i].y - before[i].y;
         const tl = Math.hypot(tx, ty) || 1;
         tx /= tl; ty /= tl;
-        dots.push({ x: p.x, y: p.y, tx, ty, nx: -ty, ny: tx, u });
-    }
-
-    const spacing = total / denom;
-    return { shape: shp, closed, dots, baseRadius: spacing * DOT_BASE_RADIUS_FRAC, maxRadius: spacing * DOT_MAX_RADIUS_FRAC };
+        return { x: p.x, y: p.y, tx, ty, nx: -ty, ny: tx, u: us[i] };
+    });
+    return { shape: axis.shape, closed: axis.closed, dots, baseRadius: spacing * DOT_BASE_RADIUS_FRAC, maxRadius: spacing * DOT_MAX_RADIUS_FRAC };
 }
 
 /** Đỉnh năng lượng gần đây (peak-hold tắt dần theo dt thật) — mốc chuẩn hoá quãng đường sóng. THUẦN. */
@@ -366,37 +385,43 @@ function sampleDotSnakeBody(snake, dotCount) {
 
 // ======================================= Vẽ =======================================
 
-/** Vẽ 1 dot. mode 'radius': tròn bán kính `r`. mode 'height': 2 nhánh dài `halfLen` từ tâm dot, dày 2×`r`,
- * đầu tròn — `bend` 'none' thẳng theo pháp tuyến (n); 'gt' (>) 2 nhánh ngả NGƯỢC chiều chạy t (đỉnh chỉ
- * theo t); 'lt' (<) ngả THEO t; 'slash'/'backslash' cả dải xoay ±góc (/ hoặc \). `bendDeg` = góc lệch
- * khỏi pháp tuyến. `blurPx` = 0 -> không glow. `alpha` (mặc định 1) — trả globalAlpha về 1 sau khi vẽ.
- * Chỉ Canvas API. */
-function paintDotAxisDot(ctx, dot, x, y, mode, r, halfLen, bend, bendDeg, color, glowColor, blurPx, alpha) {
-    ctx.globalAlpha = alpha === undefined ? 1 : alpha; // (25/09/2026 lượt 4) chiều sâu / hiện dần của DNA
+/** Kiểu vẽ 1 dot: mode 'height' còn chiều dài nhánh -> 2 nhánh; còn lại tròn. @returns {'branches'|'round'} */
+function resolveDotAxisPaintKind(mode, halfLen) {
+    return mode === 'height' && halfLen > 0.01 ? 'branches' : 'round';
+}
+
+/** Dot mode 'height': 2 nhánh dài `halfLen` từ tâm, dày 2×`r`, đầu tròn — `bend` 'none' thẳng theo pháp tuyến (n); 'gt'
+ * (>) 2 nhánh ngả NGƯỢC chiều chạy t (đỉnh chỉ theo t); 'lt' (<) ngả THEO t; 'slash'/'backslash' cả dải xoay ±góc (/ hoặc
+ * \). `bendDeg` = góc lệch khỏi pháp tuyến. `blurPx` = 0 -> không glow. Trả globalAlpha về 1. Chỉ Canvas API. */
+function paintDotAxisDotBranches(ctx, dot, x, y, r, halfLen, bend, bendDeg, color, glowColor, blurPx, alpha) {
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha; // chiều sâu / hiện dần của DNA
     ctx.shadowBlur = blurPx;
     ctx.shadowColor = blurPx > 0 ? glowColor : 'transparent';
-    if (mode === 'height' && halfLen > 0.01) {
-        const a = (bend && bend !== 'none' ? bendDeg : 0) * Math.PI / 180;
-        const c = Math.cos(a), sn = Math.sin(a);
-        // Hướng nhánh trên (u) và nhánh dưới (l): tổ hợp pháp tuyến n và tiếp tuyến t
-        let ux = dot.nx * c, uy = dot.ny * c, lx = -dot.nx * c, ly = -dot.ny * c;
-        // (n = (-ty, tx): trục trái->phải thì n chỉ XUỐNG màn hình — '/' = nhánh n ngả về -t, nhánh -n về +t)
-        const tShiftU = bend === 'gt' ? -sn : bend === 'lt' ? sn : bend === 'slash' ? -sn : bend === 'backslash' ? sn : 0;
-        const tShiftL = bend === 'gt' ? -sn : bend === 'lt' ? sn : bend === 'slash' ? sn : bend === 'backslash' ? -sn : 0;
-        ux += dot.tx * tShiftU; uy += dot.ty * tShiftU;
-        lx += dot.tx * tShiftL; ly += dot.ty * tShiftL;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = r * 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x + lx * halfLen, y + ly * halfLen);
-        ctx.lineTo(x, y);
-        ctx.lineTo(x + ux * halfLen, y + uy * halfLen);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        return;
-    }
+    const a = (bend && bend !== 'none' ? bendDeg : 0) * Math.PI / 180;
+    const c = Math.cos(a), sn = Math.sin(a);
+    // Hướng nhánh trên (u) và nhánh dưới (l): tổ hợp pháp tuyến n và tiếp tuyến t
+    // (n = (-ty, tx): trục trái->phải thì n chỉ XUỐNG màn hình — '/' = nhánh n ngả về -t, nhánh -n về +t)
+    const tShiftU = bend === 'gt' ? -sn : bend === 'lt' ? sn : bend === 'slash' ? -sn : bend === 'backslash' ? sn : 0;
+    const tShiftL = bend === 'gt' ? -sn : bend === 'lt' ? sn : bend === 'slash' ? sn : bend === 'backslash' ? -sn : 0;
+    const ux = dot.nx * c + dot.tx * tShiftU, uy = dot.ny * c + dot.ty * tShiftU;
+    const lx = -dot.nx * c + dot.tx * tShiftL, ly = -dot.ny * c + dot.ty * tShiftL;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = r * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + lx * halfLen, y + ly * halfLen);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + ux * halfLen, y + uy * halfLen);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+}
+
+/** Dot tròn bán kính `r` (mode 'radius', hoặc dot nghỉ). Trả globalAlpha về 1. Chỉ Canvas API. */
+function paintDotAxisDotRound(ctx, x, y, r, color, glowColor, blurPx, alpha) {
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+    ctx.shadowBlur = blurPx;
+    ctx.shadowColor = blurPx > 0 ? glowColor : 'transparent';
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -430,19 +455,28 @@ const DOT_DNA_DEPTH_SCALE = 0.25;        // ± cỡ dot theo chiều sâu
 const DOT_DNA_BOND_WIDTH = 1.5;          // × dpr
 const DOT_DNA_BOND_ALPHA = 0.45;
 
-/** Bước trạng thái từng cặp — mutate `levels`/`bonds` (Float32Array, Workflow giữ). `dnaOn`: nhân đôi +
- * xoắn (mọi cặp cùng tiến, thanh nối dài theo độ tách); tắt: cặp i bắt đầu khi `breakClockMs` ≥ i ×
- * stagger — thanh nối rút trước, rút hết thì cặp khép lại. @returns {number} level lớn nhất (0 = hết DNA). */
-function stepDotDnaPairs(levels, bonds, dt, dnaOn, breakClockMs) {
+/** DNA bật — nhân đôi + xoắn: mọi cặp cùng tiến, thanh nối dài theo độ tách. Mutate `levels`/`bonds` (Float32Array,
+ * Workflow giữ). @returns {number} level lớn nhất */
+function stepDotDnaSpawnPairs(levels, bonds, dt) {
     let maxLevel = 0;
     for (let i = 0; i < levels.length; i++) {
-        if (dnaOn) {
-            levels[i] = Math.min(1, levels[i] + dt / DOT_DNA_SPAWN_MS);
-            const sep = Math.max(0, (levels[i] - DOT_DNA_APPEAR_FRAC) / (1 - DOT_DNA_APPEAR_FRAC));
-            bonds[i] = sep * sep * (3 - 2 * sep);
-        } else if (levels[i] > 0 && breakClockMs >= i * DOT_DNA_BREAK_STAGGER_MS) {
-            if (bonds[i] > 0) bonds[i] = Math.max(0, bonds[i] - dt / DOT_DNA_BOND_BREAK_MS);
-            else levels[i] = Math.max(0, levels[i] - dt / DOT_DNA_MERGE_MS);
+        levels[i] = Math.min(1, levels[i] + dt / DOT_DNA_SPAWN_MS);
+        const sep = Math.max(0, (levels[i] - DOT_DNA_APPEAR_FRAC) / (1 - DOT_DNA_APPEAR_FRAC));
+        bonds[i] = sep * sep * (3 - 2 * sep);
+        if (levels[i] > maxLevel) maxLevel = levels[i];
+    }
+    return maxLevel;
+}
+
+/** DNA tắt — phá liên kết: cặp i bắt đầu khi `breakClockMs` ≥ i × stagger; thanh nối rút trước, rút hết thì cặp khép lại
+ * (level giảm). Mutate `levels`/`bonds`. @returns {number} level lớn nhất (0 = hết DNA) */
+function stepDotDnaBreakPairs(levels, bonds, dt, breakClockMs) {
+    let maxLevel = 0;
+    for (let i = 0; i < levels.length; i++) {
+        if (levels[i] > 0 && breakClockMs >= i * DOT_DNA_BREAK_STAGGER_MS) {
+            const bond = bonds[i];
+            bonds[i] = Math.max(0, bond - dt / DOT_DNA_BOND_BREAK_MS);
+            levels[i] = Math.max(0, levels[i] - (bond > 0 ? 0 : dt / DOT_DNA_MERGE_MS)); // còn thanh nối -> chưa khép
         }
         if (levels[i] > maxLevel) maxLevel = levels[i];
     }

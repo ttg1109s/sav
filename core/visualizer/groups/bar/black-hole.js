@@ -486,11 +486,11 @@ function paintBlackHoleBurstBand(ctx, burst, rayIndex, centerX, centerY, reach, 
 /**
  * Tia chớp + hạt thoát của 1 NỬA tia (`rayIndex` = BLACK_HOLE_BURST_RAY_BACK | _FRONT) trên canvas chính — hệ toạ độ cục
  * bộ: gốc = tâm hố đen, +x = hướng nửa tia (nửa trước cộng π). `reach` = độ dài tới hết mép (computeBlackHoleRayReach()).
- * Tia chớp gấp khúc + nhánh 3 nét (quầng rộng mờ -> nét giữa có shadowBlur màu `haloRgb` -> lõi mảnh) tô gradient màu
- * dọc thân; hạt thoát lấy màu theo vị trí.
+ * Tia chớp gấp khúc + nhánh 3 nét (quầng rộng mờ -> nét giữa có shadowBlur màu `haloRgb` -> lõi mảnh) tô `gradient`
+ * (createBlackHoleRayGradient() — Workflow tạo 1 lần, dùng chung với dải nhiệt); hạt thoát lấy màu theo vị trí.
  * Hoà trộn 'lighter' (cộng sáng) trong save/restore. Chỉ Canvas API.
  */
-function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, palette, haloRgb) {
+function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, dpr, look, gradient, palette, haloRgb) {
     const len = reach * look.grow;
     const bolt = burst.bolt[rayIndex];
     const lastColor = palette.length - 1;
@@ -500,10 +500,11 @@ function paintBlackHoleBurstBolt(ctx, burst, rayIndex, centerX, centerY, reach, 
     ctx.globalCompositeOperation = 'lighter';
     ctx.translate(centerX, centerY);
     ctx.rotate(burst.angle + rayIndex * Math.PI);
-    ctx.strokeStyle = createBlackHoleRayGradient(ctx, reach, palette);
+    ctx.strokeStyle = gradient;
     const stroke = (pts) => {
         ctx.beginPath();
-        pts.forEach((p, k) => (k === 0 ? ctx.moveTo(px(p.t), py(p.off)) : ctx.lineTo(px(p.t), py(p.off))));
+        ctx.moveTo(px(pts[0].t), py(pts[0].off));
+        for (let k = 1; k < pts.length; k++) ctx.lineTo(px(pts[k].t), py(pts[k].off));
         ctx.stroke();
     };
     ctx.lineCap = 'round';
