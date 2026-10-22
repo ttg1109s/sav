@@ -253,7 +253,7 @@ const workflowMotionPresets = {
     },
 
     /** Mở time picker "Thời gian chuyển cảnh" — trần 300ms – 60s; kẹp theo thời lượng hiển thị thật chỉ ở runtime
-     * (`capMotionEngineTransitionDurationMs()`, core/motion-engine.js). */
+     * (`resolveMotionTransitionTotalMs()`, core/motion-runner.js). */
     openTransitionDurationPicker() {
         const { isGenericDrawerOpen, motionPresets } = appState.get(['isGenericDrawerOpen', 'motionPresets']);
         if (!isGenericDrawerOpen) return;
