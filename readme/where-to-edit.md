@@ -73,7 +73,8 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | File Manager — Photo | `core/file-manager/image.js`, `photo-ui.js` (modal xem/sửa ảnh, markup `components/image-preview-modal.js`); lưới `event/workflow/photo-gallery-window.js` (cùng DOM/markup với Video); cụm `fileManagerPhoto`; giải mã/thu nhỏ ảnh `core/image-load-ui.js` |
 | Folder | `event/workflow/folder.js` (`workflowFolder` — mọi đọc DB + điều phối tạo/đổi tên/xoá/cài đặt/thành viên/migrate), `core/file-manager/folder.js` (tính thuần + ghi), `folder-picker-ui.js` (wiring lưới; chạm/giữ tay tile ở `workflowFolder`); cụm `fileManagerFolderBrowser` |
 | Quét/dọn file hỏng | `core/file-manager/cleanup.js`; cụm `fileManagerCleanup` |
-| Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js` (hàm thuần + vẽ), quét/thử giải mã file lỗi ở `event/workflow/file-manager-storage.js`; cụm `fileManagerStorage` |
+| Quản lý lưu trữ | `components/file-manager-storage.js`, `core/storage-manager.js` (hàm thuần + vẽ, quota `estimate()`/Safari < 17, `persist()`), đọc StorageManager + quét/thử giải mã file lỗi ở `event/workflow/file-manager-storage.js`; cụm `fileManagerStorage` |
+| Nhận diện thiết bị (loại máy, OS, trình duyệt) | `core/device-detect.js` (wrapper ua-parser-js — đổi thư viện chỉ sửa thân `detectDeviceWithUaParser()`), `event/workflow/device-info.js` (chạy lúc boot, state `deviceInfo`, 1 dòng log) |
 | Tải zip | `core/streaming-zip.js` (bước thi hành), điều phối Path A/B + chống treo `event/workflow/streaming-zip.js`, worker `core/workers/opfs-zip-worker.js`, UI `core/zip-download-ui.js`, nhiều phần `components/zip-download-parts.js`; cụm `zipDownload` |
 | Xuất ID3 | `core/id3-export.js` |
 | Thống kê nghe | `core/listen-stats.js`, `event/workflow/listen-stats.js`, state `service/state/listen-stats.js`; panel `components/statis-panel.js`, `core/statis-panel.js`, `core/statis-panel-ui.js`, cụm `statisPanel` |

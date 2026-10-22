@@ -105,6 +105,7 @@ Preloader **không còn `<script>` inline** (tách ra file 07/10/2026, Giang duy
   | zip.js 2.7.62 (no-worker) | Đường **duy nhất** tạo `.zip` (stream vào OPFS); JSZip đã bỏ 10/09/2026 |
   | flickr-justified-gallery 2.1 (CSS + JS) | Lưới ảnh justified |
   | Panzoom 4.6 | Pan/pinch-zoom modal xem ảnh |
+  | ua-parser-js 2.0.10 (AGPL-3.0) | Nhận diện thiết bị/OS/trình duyệt lúc boot (core/device-detect.js — wrapper Rule 3d đã audit) |
 - CSS project theo miền: `base`, `sliders`, `glass`, `animations`, `layout-nav`, `photo-gallery`, `video-gallery`,
   `misc`, `motion-engine`, `gameplay`, `recorder`, `perf-hud`, `game-panel`. `video-preview.css` chỉ nạp ở
   `pages/video-editor.html`.
@@ -129,6 +130,7 @@ Preloader **không còn `<script>` inline** (tách ra file 07/10/2026, Giang duy
 18. [CSS] `https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.css`
 19. [CDN] `https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.min.js`
 20. [CDN] `https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js`
+20a. [CDN] `https://cdn.jsdelivr.net/npm/ua-parser-js@2.0.10/dist/ua-parser.min.js` — MỚI 21/10/2026 (global `UAParser`)
 21. [CSS] `assets/css/base.css`
 22. [CSS] `assets/css/sliders.css`
 22a. [CSS] `assets/css/player-control.css` — MỚI 20/10/2026 (bề mặt + bố cục Bottom Player, khung xem trước Player control)
@@ -458,6 +460,7 @@ của group.
 224. `core/id3-export.js`
 225. `core/streaming-zip.js`
 226. `core/storage-manager.js`
+226a. `core/device-detect.js` — MỚI 21/10/2026 (detectDeviceWithUaParser/summarizeDeviceInfo/formatDeviceInfoLog); cần lúc chạy: ua-parser-js (CDN)
 227. `core/zip-download-ui.js`
 228. `core/visualizer/visualizer-display.js`
 228a. `core/visualizer/effect-picker-ui.js` — MỚI 14/10/2026 (setEffectPickerStyleOptionsUi — modal chọn effect, đợt 12); gọi lúc chạy từ event/workflow/visualizer-display.js
@@ -698,6 +701,7 @@ sự kiện lúc nạp (cần `core/dom-refs.js`, đôi khi cần workflow của
 411. `event/workflow/app-cleanup.js`
 412. `event/tab.js`
 413. `event/workflow/ui-theme.js`
+413a. `event/workflow/device-info.js` — MỚI 21/10/2026 (workflowDeviceInfo.detectOnBoot, gọi từ app-boot)
 414. `event/workflow/app-boot.js`
 415. `event/router/app-boot.js` — cần: `event/bus.js` (eventBus)
 

@@ -247,6 +247,10 @@ mọi lời gọi thư viện — chỉ hợp lệ khi CẢ 2 đúng:
    "Ngoại lệ ĐÃ audit chính thức" ở Rule 5a (`modalChoice()`) — không được tự nhận "giống file X đã
    có" để suy ra miễn trừ.
 
+**Wrapper ĐÃ audit chính thức:** `core/device-detect.js::detectDeviceWithUaParser()` — ua-parser-js 2.x (Giang chỉ định
+21/10/2026; Workflow truyền `navigator.userAgent`, thư viện tự đọc thêm client hints/feature của trình duyệt). Wrapper chưa
+có tên ở đây mà tự nhận Rule 3d trong docstring vẫn là vi phạm (vd lamejs, sổ vi phạm mục "Rule 3d").
+
 **KHÔNG áp dụng được lý do "cô lập thư viện" cho việc gọi 1 core KHÁC của project** — Rule 3a vẫn
 CẤM TUYỆT ĐỐI, kể cả khi lời gọi đó núp dưới 1 hàm/file "trông như core" ở vị trí khác (Workflow,
 `*-helpers.js`...). Đặt ở `event/workflow/` chỉ hợp lệ nếu hàm có ĐIỀU PHỐI/NGHIỆP VỤ THẬT (khuôn
