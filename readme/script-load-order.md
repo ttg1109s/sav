@@ -383,6 +383,7 @@ của group.
 157. `core/file-manager/cleanup.js`
 158. `core/motion-engine.js`
 159. `core/motion-presets.js`
+159a. `core/motion-presets-ui.js` — MỚI 22/10/2026 (ghi DOM các màn Cấu hình Motion, đợt 22a); gọi lúc chạy từ event/workflow/motion-presets.js; cần lúc chạy: lang/lang.js (tFormat)
 160. `core/player-display-settings.js`
 161. `core/player-display-apply.js`
 162. `core/point-move-timing-ui.js`

@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **392 FAIL** ở **49 file**; 0 chờ chốt; 564 dòng máy quét báo nhưng review loại (mục 5).
+- **347 FAIL** ở **47 file**; 0 chờ chốt; 587 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -74,6 +74,7 @@
 - Cập nhật 21/10/2026 (plan-debt-domains **đợt 21b — VBG Video/Photo + Image surface**: `event/workflow/visual-bg-{video,photo,photo-motion}.js`): 3 file sạch nợ (30 dòng, gồm 5 dòng ghi ở 21a). **Thời lượng item** — core thuần MỚI `isVisualBgSlideshowCycling()` + `resolveVisualBgItemDurationSource()` ('fixtime' chỉ khi đang cycle + fixtime, còn lại 'natural' = thời lượng của chính media), `computeVisualBgFixtimeMs`, `capVisualBgDurationMs`, `listVisualBgLiveKeys` (core/visual-bg-common.js); Workflow chung thêm `_isSlideshowCycling(cfg)`/`_itemDurationSource(cfg)` dùng chung Photo/Video. **Photo** — `_computePhotoAdvanceMs` rẽ map theo nguồn thời lượng (`computeVisualBgPhotoNaturalMs`, core/visual-bg-photo.js); hẹn giờ theo core `resolveVisualBgPhotoTickRoute()` ('advance'/'replay'/'off', thay `shouldRun` 5 vế); `_showCurrentPhoto`/`_photoTick` tách method + map (hết 3 if-return); 3 guard `typeof` (K1); picker qua core -ui `fillVisualBgPickerList()`. **Video** — map cho item đầu, hiện thật/thumb theo Song, 'ended' theo cycle, bước kế theo rỗng/có key, kết quả swap, Point Move mới/đổi preset, mất item (hết 6 §7 + `_applyVideo` chưa ghi); media qua core MỚI `muteVisualBgVideo`/`playVisualBgVideo`/`setVisualBgVideoLoop`/`showVisualBgVideoLayer`/`setVisualBgVideoAudioElement` (core/visual-bg-video.js) + `seekMediaElement()`/`applyPlaybackSpeed()`; phép tính → `computeVisualBgVideoNaturalMs`, `isVisualBgVideoFixtimeCutNeeded`, `shouldVisualBgVideoLoopNatively`, `isVisualBgVideoLoopWrapped`, `findVisualBgVideoAudioRowName`; hàng màn Âm thanh Video qua core -ui `setVisualBgVideoAudioRowState()`; hẹn phục hồi kẹt thành task tên cố định (bỏ field `_stuckRecoveryTimer`); 5 guard `typeof` (K1). **Image surface** — `showImage` rẽ map (URL rỗng / owner đang giữ); DOM layer qua core MỚI `setMotionEngineLayerBackgroundSize()`/`markMotionEngineLayerCurrent()` (core/motion-engine.js); `URL.revokeObjectURL` thô → `revokeBlobUrl()` (K6); comment lịch sử đầu file rút gọn. **Bug Giang báo, sửa kèm:** Point Move của VBG khi 1 nguồn hoặc perSong không theo thời lượng media đang chạy — Photo perSong trả 0 (không chạy Point Move), Photo 1 nguồn + fixtime lấy `durationSeconds`; nay theo `record.duration` của ảnh và chạy lại Point Move mỗi thời lượng ảnh (ảnh đứng yên như video tự lặp); Video lúc trình duyệt chưa/không báo được độ dài (NaN/Infinity, vd `waitBgVideoReady()` hết giờ trước metadata) trả 0 — nay dự phòng `record.duration`. Harness Chromium (ảnh PNG + video webm ghi từ canvas): Photo 6 cấu hình × (áp/nhịp/đổi bài/pause), Video 7 cấu hình (Point Move, Transition cap, loop, Fix time, lặp vòng, đổi preset), Image surface 8 bước, 9 kịch bản 21a hồi quy — khớp bản trước ngoài đúng các ca bug, 0 lỗi JS mới. Tổng 422 → 392 (52 → 49 file).
 - Cập nhật 21/10/2026 (**bug Giang báo — tải nhiều phần zip, bấm Done không giải phóng dung lượng**): dọn file tạm cũ chỉ xoá đúng tên file .zip trả về; trên Safari Path A (`createWritable`) hay treo rồi mới sang Path B — dữ liệu đã ghi nằm trong file nháp ẩn của writable (`keys()` không liệt kê, xoá theo tên không tới) và file Path A dở có thể còn khoá -> bỏ qua sau 3 s; nén lỗi giữa chừng không dọn các phần đã nén; đóng app lúc modal còn mở thì chỉ nút "Dọn dẹp dữ liệu" xoá (file > 1 giờ). Sửa: `workflowStreamingZip` giữ nhóm file đang dùng (`_inUseNames` + `_activeBuilds`), `release(names)` sau Done/Huỷ/nén lỗi rồi `sweepTemp()` — rảnh hẳn thì xoá CẢ thư mục `sav-zip-tmp` (đệ quy, core MỚI `removeZipTempDir()`), còn file đang dùng thì xoá từng mục còn lại (đệ quy); có hạn giờ 10 s, lỗi không ném. Gọi thêm lúc boot và ở "Dọn dẹp dữ liệu" (thay `cleanupOrphanedZipTempFiles()` — xoá, kèm 1 dòng mục 5). `cleanupStreamingZipTemp()` xoá. Core MỚI `openExistingZipTempDir`, `isZipTempIdle`, `pickStaleZipTempNames`, `countZipTempRemoved` (core/streaming-zip.js). Harness OPFS Chromium: đang mở modal giữ đúng 2 phần (vẫn đọc được), Done/nén lỗi/boot/nút dọn -> thư mục tạm biến mất. Không đổi số FAIL (392).
 - Cập nhật 21/10/2026 (**nhận diện thiết bị + lưu trữ bền** — Giang chốt: ua-parser-js 2.0.10, wrapper Rule 3d, chỉ log lúc boot): core MỚI `core/device-detect.js` — `detectDeviceWithUaParser()` là wrapper ua-parser-js **ĐÃ audit chính thức** (ghi tên ở core-function-conventions.md Rule 3d), `summarizeDeviceInfo()`/`formatDeviceInfoLog()` thuần; Workflow MỚI `event/workflow/device-info.js` (`detectOnBoot()` — lưu state MỚI `deviceInfo`, 1 dòng log Rule 4). Storage: `workflowFileManagerStorage._estimateOriginStorage` thay bằng `_readStorageApi()` (chỉ đọc `estimate`/`persisted`), chuẩn hoá quota sang core thuần `normalizeOriginEstimate()` — kèm (Workflow tự tính, chưa có trong sổ: `usage || 0`, phép so `quota > 0`); nguồn quota `classifyOriginEstimateSource()` → map `ORIGIN_ESTIMATE_BY_SOURCE` (Safari 15.2–16 không có `estimate()`: `buildLegacyWebKitEstimate()` mốc 1 GB); dòng chế độ lưu trữ `resolveStorageOriginNotesView()` + `renderStorageOriginNotes()`; `requestPersistOnBoot()` → core `requestPersistentStorage()` (`persist()` là thi hành). Dead code xoá: 5 key lang không nơi dùng (`storageDrawer.backToAbout.title`/`statTotalSongs`/`statTotalVideos`/`freeSpaceSectionTitle`, `settingsDrawer.title`). Không thêm dòng FAIL.
+- Cập nhật 22/10/2026 (plan-debt-domains **đợt 22a — Motion presets**: `core/motion-presets.js`, `event/workflow/motion-presets.js`): 2 file sạch nợ (45 dòng). **Core** — hết 21 dòng Rule 3a: id mới + preset/point move trắng do Workflow tạo rồi truyền vào (`buildBlankPointMove(id, linearField, plainField)`, `buildBlankMotionPreset(id, name, pointMove)`), `sanitizeMotionPreset(raw, blank)` gộp 6 hàm sanitize cũ thành 1 core (hàm con lồng, point move thiếu id lấy `${id Point 0 của blank}_${vị trí}`; phần tử `null` trong mảng không còn làm boot lỗi); biến đổi preset thành hàm thuần trả bản MỚI (`replaceMotionPresetFields`, `appendMotionPreset`, `removeMotionPresetById`, `resolveMotionPresetRename`, `buildMotionPresetResetFields`, `setPointMoveChecked`, `appendPointMove`, `buildPointMoveCopy`, `swapPointMoves`, `removePointMove`, `replacePointMoveField(s)`, `setPointMoveTimingX`, `buildPointMoveFieldRangePatch`, `buildPointMoveEndForceBaselinePatch`, `resolvePointMoveTimingBounds`, `computeAppendedPointMoveTimingSeed`, `resolvePointMoveTimingX(pointMoves, excludeId, rawX, bounds)`, `computePointMoveTimingNodes`, `computePointMoveTimingNodeCx`, `computePointMoveTimingZoomView`, `planPointMoveDrag`, `computePointMoveDragTransform`, `clampMotionTransitionDurationMs/Ratio`, `negateMotionInputValue`, 4 hàm kiểm field React Beat + `setBeatReactTopField/EffectField`, `applyBeatReactMaxValues`, di trú VBG cũ `shouldMigrateLegacyVisualBgMotion`/`buildLegacyMotionPresetRaw`/`buildMigratedVisualBgMeta`). Core -ui MỚI `core/motion-presets-ui.js` (ẩn/hiện dòng màn Edit, nhãn thời lượng/tỉ lệ, ô số + slider, cụm single/range, phiên kéo hàng, thanh Timing, cuộn Drawer) — hết 18 dòng Workflow ghi DOM; 6 dòng Workflow tự tính → core. **Kèm (chưa có trong sổ):** mọi mutator `_mutateEditing*` (Workflow tự `.map`/spread/`findIndex`) → `_patchEditing(patch)` + core thuần; `changeBeatReactField` chuỗi if/else-if chọn cách kiểm theo field (§7) → map `BEAT_REACT_FIELD_RULE_BY_KEY` + `BEAT_REACT_WRITE_BY_HAS_EFFECT`; 2 guard `typeof` (K1: `notifyMotionBeatReactPresetsChanged`, `workflowVisualBg` — chỉ index.html nạp file này); guard "Drawer đang mở" đọc `isGenericDrawerOpen` thay soi class DOM; gộp `get([…])`; `buildRandomPointMoveFieldValues::fillField` (if-return ghi `single` hoặc `rangeMin/Max` — Rule 1, lệch vị trí ghi) → luôn ghi đủ 3 khoá, khoá không thuộc mode giữ giá trị cũ. **Bug sửa kèm:** Reset preset không trả `pointMoveEndForceBaseline` ("Return baseline") về mặc định tắt. Dead code xoá: `sanitizeMotionPointMoves`/`sanitizePointMove`/`sanitizePointMoveField`/`sanitizePointMoveLinearField`/`sanitizeMotionBeatReact` (gộp), `computePointMoveTimingZoomTransform` (gộp vào view zoom), method `_persist`/`_mutateEditing`/`_mutateEditingPointMove`/`_pointMoveTimingBounds`/`_nextAppendedTimingX`/`_computeTimingPoints`/`_setInputValueById`. Harness so với bản gốc (boot sanitize + di trú, ~60 thao tác: tên, transition, thời lượng, point move thêm/nhân bản/tick/đổi chỗ/xoá/đơn vị/mode/single/range/timing kéo + modal, React Beat, Reset, Xoá + gỡ VBG, picker): state giống hệt trừ bug Reset; bản mới bỏ qua lưu thừa khi nhân bản id không tồn tại. Boot Chromium (stub CDN) chạy màn Edit/List/Point Move/Timing: 0 lỗi JS. Mục 5: 8 dòng CORE-1 cũ của `core/motion-presets.js` thay bằng 31 dòng vị trí mới (REVIEW 22/10). Tổng 392 → 347 (49 → 47 file).
 
 ## 2. Cách chấm
 
@@ -96,7 +97,7 @@
 |---|---|---|---|
 | Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 40 |  |
 | Core rule | Rule 2 — Core tự appState.get() | 10 |  |
-| Core rule | Rule 3a — Core gọi Core | 53 |  |
+| Core rule | Rule 3a — Core gọi Core | 32 |  |
 | Core rule | Rule 3b — Core tự đọc DB/service | 0 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 1 |  |
 | Core rule | Rule 3d — wrapper thư viện ngoài chưa audit | 1 |  |
@@ -110,8 +111,8 @@
 | Event bus | Router tự chuẩn bị dữ liệu | 0 |  |
 | Event bus | Workflow tự dựng template HTML | 1 |  |
 | Event bus | Workflow tự gắn sự kiện | 0 |  |
-| Event bus | Workflow tự thao tác DOM | 69 |  |
-| Event bus | Workflow tự tính toán | 69 |  |
+| Event bus | Workflow tự thao tác DOM | 51 |  |
+| Event bus | Workflow tự tính toán | 63 |  |
 | Event bus | Workflow tự vẽ canvas | 8 |  |
 | Event bus | Workflow tự điều khiển media | 6 |  |
 | Event bus | Workflow §7: rẽ nhánh không dùng object map | 19 |  |
@@ -119,7 +120,7 @@
 | TaskManager | Timer thô | 3 |  |
 | TaskManager | requestAnimationFrame thô | 3 |  |
 | TaskManager | taskManager dùng trong Core | 1 |  |
-| **Tổng** | | **392** | **0** |
+| **Tổng** | | **347** | **0** |
 
 ## 4. Chi tiết
 
@@ -187,7 +188,7 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/visualizer/draw/window-frame.js:20` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
 | `core/visualizer/draw/window-frame.js:20` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
 
-#### Rule 3a — Core gọi Core (53)
+#### Rule 3a — Core gọi Core (32)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -200,27 +201,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/modal-choice-ui.js:251` | `modalChoice` | gọi _appendDropdownRow() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/modal-choice-ui.js:252` | `modalChoice` | gọi _appendButtonRow() (cùng file) | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/modal-choice-ui.js:268` | `modalChoice` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Có |  |
-| `core/motion-presets.js:171` | `buildBlankPointMove` | gọi generatePointMoveId() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:174` | `buildBlankPointMove` | gọi buildBlankPointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:175` | `buildBlankPointMove` | gọi buildBlankPointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:176` | `buildBlankPointMove` | gọi buildBlankPointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:177` | `buildBlankPointMove` | gọi buildBlankPointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:178` | `buildBlankPointMove` | gọi buildBlankPointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:179` | `buildBlankPointMove` | gọi buildBlankPointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:192` | `buildBlankMotionPreset` | gọi generateMotionPresetId() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:206` | `buildBlankMotionPreset` | gọi buildBlankPointMove() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:277` | `sanitizeMotionPreset` | gọi buildBlankMotionPreset() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:281` | `sanitizeMotionPreset` | gọi sanitizeMotionPointMoves() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:303` | `sanitizeMotionPreset` | gọi sanitizeMotionBeatReact() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:315` | `sanitizeMotionPointMoves` | gọi sanitizePointMove() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:315` | `sanitizeMotionPointMoves` | gọi buildBlankPointMove() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:324` | `sanitizePointMove` | gọi buildBlankPointMove() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:331` | `sanitizePointMove` | gọi sanitizePointMoveLinearField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:332` | `sanitizePointMove` | gọi sanitizePointMoveLinearField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:333` | `sanitizePointMove` | gọi sanitizePointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:334` | `sanitizePointMove` | gọi sanitizePointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:335` | `sanitizePointMove` | gọi sanitizePointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/motion-presets.js:336` | `sanitizePointMove` | gọi sanitizePointMoveField() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/slider-input-modal.js:146` | `openSliderInputModal` | gọi applyUiThemeToDom() (core/ui-theme/apply-ui.js) | FAIL | Máy quét | Không |  |
 | `core/subtitle/subtitles-ui.js:102` | `buildLineCard` | gọi secToStr() (core/subtitle/subtitles.js) | FAIL | Máy quét | Có |  |
 | `core/subtitle/subtitles-ui.js:103` | `buildLineCard` | gọi secToStr() (core/subtitle/subtitles.js) | FAIL | Máy quét | Có |  |
@@ -357,7 +337,7 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 
-#### Workflow tự thao tác DOM (69)
+#### Workflow tự thao tác DOM (51)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -367,24 +347,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/motion-beat-react-runner.js:197` | `_tick` | 1 chỗ: target.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/motion-beat-react-runner.js:226` | `stop` | 1 chỗ: target.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/motion-point-move-runner.js:164` | `_applyStaticPointMoveAtZero` | 1 chỗ: target.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:150` | `_syncEditUI` | 11 chỗ: ratioRow.classList.toggle() · directionRow.classList.toggle() · zoomDirectionRow.classList.toggle() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:185` | `_updateTransitionRatioLabel` | 1 chỗ: labelEl.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:280` | `openTransitionDurationPicker` | 1 chỗ: btn.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:509` | `previewPointMoveFieldSingle` | 1 chỗ: inputEl.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:546` | `_syncPointMoveEditUI` | 4 chỗ: singleWrap.style.display = … · rangeWrap.style.display = … · singleInputWrap.classList.toggle() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:576` | `_paintPointMoveRangeFill` | 2 chỗ: fillEl.style.left = … · fillEl.style.width = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:583` | `_setInputValueById` | 1 chỗ: el.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:608` | `commitPointMoveNumberInput` | 1 chỗ: inputEl.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:637` | `startPointMoveDrag` | 2 chỗ: handleEl.setPointerCapture() · document.body.style.userSelect = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:647` | `movePointMoveDrag` | 1 chỗ: drag.rowEl.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:658` | `endPointMoveDrag` | 1 chỗ: document.body.style.userSelect = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:673` | `_paintDropTarget` | 1 chỗ: rowEl.dataset.uitk = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:715` | `_renderTimingCurve` | 2 chỗ: containerEl.innerHTML = … · containerEl.appendChild() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:729` | `_patchTimingPreview` | 1 chỗ: nodeEl.setAttribute() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:772` | `stepPointMoveTimingZoom` | 2 chỗ: zoomableEl.style.transform = … · labelEl.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:865` | `changeBeatReactField` | 2 chỗ: inputEl.value = … · sliderEl.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:882` | `commitBeatReactMaxInput` | 1 chỗ: inputEl.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-presets.js:1027` | `setPickerPage` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/motion-transition-runner.js:116` | `runTransition` | 2 chỗ: outgoingEl.classList.remove() · incomingEl.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:50` | `init` | 1 chỗ: editorTitleEl.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:56` | `_showFatalError` | 2 chỗ: editorTitleEl.textContent = … · linesContainerEl.innerHTML = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -431,7 +393,7 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/video-preview.js:912` | `_applyCroppedPreview` | 17 chỗ: cropViewEl.style.right = … · cropViewEl.style.bottom = … · cropViewEl.style.width = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/video-preview.js:1007` | `handleSaveModeSelect` | 1 chỗ: this._modalHandle.saveModeLabelEl.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 
-#### Workflow tự tính toán (69)
+#### Workflow tự tính toán (63)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -448,12 +410,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/motion-point-move-runner.js:143` | `_deriveLivePointMoveTarget` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/motion-point-move-runner.js:195` | `_activatePointMoveAll` | 1 chỗ: .sort() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/motion-point-move-runner.js:281` | `liveToggle` | 2 chỗ: Math.min() · Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-presets.js:272` | `openTransitionDurationPicker` | 3 chỗ: Math.min() · Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-presets.js:294` | `changeTransitionRatio` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-presets.js:385` | `_nextAppendedTimingX` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-presets.js:696` | `_computeTimingPoints` | 1 chỗ: .sort() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-presets.js:768` | `stepPointMoveTimingZoom` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-presets.js:815` | `_commitPointMoveTimingModal` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/motion-transition-runner.js:141` | `runTransition` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/perf-hud.js:285` | `_trackTapBlock` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/subtitle-editor.js:120` | `_initWaveform` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
@@ -658,7 +614,7 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 
 | Rule máy | Lý do loại | Số dòng |
 |---|---|---|
-| CORE-1 | Rà lại 20/10/2026 trên code hiện tại (nhánh ≥2 vế: if/else, else-if, ternary) theo phán quyết "khác thuật toán = khác tiến trình" — PASS theo tiêu chí A/B/C-D/E (core-function-conventions.md Rule 1); FAIL đã chuyển lên mục 4.1 | 363 |
+| CORE-1 | Rà lại 20/10/2026 trên code hiện tại (nhánh ≥2 vế: if/else, else-if, ternary) theo phán quyết "khác thuật toán = khác tiến trình" — PASS theo tiêu chí A/B/C-D/E (core-function-conventions.md Rule 1); FAIL đã chuyển lên mục 4.1. File viết lại sau đó rà lại tại chỗ (REVIEW 22/10) | 386 |
 | CORE-5A | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) | 99 |
 | EV-LISTENER-1 | Ủy quyền closest()/bảng tuyến chỉ để xác định phần tử rồi eventBus.send — không phải rẽ nhánh nghiệp vụ (review) | 42 |
 | CORE-3A | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core | 18 |
@@ -668,7 +624,7 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-5B | Rule chấm theo điều kiện bị bỏ — Rule 1 chấm theo nội dung nhánh đã bao (guard = PASS) | 9 |
 | CORE-1 | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 | 4 |
 
-<details><summary>Danh sách đầy đủ (564 dòng)</summary>
+<details><summary>Danh sách đầy đủ (587 dòng)</summary>
 
 | Rule máy | Vị trí | Lý do |
 |---|---|---|
@@ -799,14 +755,37 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:135` | `_buildCancelButton` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:192` | `_appendDropdownRow` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/motion-engine.js:514` | `computeMotionEngineBeatReactNextPolarity` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:277` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:282` | `sanitizeMotionPreset` B — bước tuỳ chọn (áp hoặc không 1 phép) |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:315` | `sanitizeMotionPointMoves` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:381` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:383` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:384` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:385` | `sanitizeMotionBeatReact` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-presets.js:478` | `fillLinear` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:210` | `replaceMotionPresetFields` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:236` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:255` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:257` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:259` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:271` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:274` | `sanitizeMotionPreset` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:275` | `sanitizeMotionPreset` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:279` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:280` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:281` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:282` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:284` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:317` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:374` | `resolvePointMoveTimingBounds` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:380` | `computeAppendedPointMoveTimingSeed` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:403` | `buildPointMoveEndForceBaselinePatch` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:411` | `setPointMoveChecked` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:419` | `setPointMoveTimingX` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:457` | `replacePointMoveFields` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:463` | `replacePointMoveField` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:471` | `buildPointMoveFieldRangePatch` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:472` | `buildPointMoveFieldRangePatch` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:482` | `planPointMoveDrag` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:502` | `computePointMoveTimingNodes` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:624` | `buildRandomPointMoveFieldValues` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:625` | `buildRandomPointMoveFieldValues` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:626` | `buildRandomPointMoveFieldValues` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets.js:635` | `buildRandomPointMoveFieldValues` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets-ui.js:66` | `showPointMoveFieldMode` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-presets-ui.js:67` | `showPointMoveFieldMode` E — switch A/B / cập nhật đúng 1 đối tượng |
 | CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:55` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:56` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:57` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |

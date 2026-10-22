@@ -103,7 +103,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 
 | Muốn sửa... | Vào file... |
 |---|---|
-| Preset Motion (CRUD) | `components/motion-settings-drawer.js`, `core/motion-presets.js`, `event/workflow/motion-presets.js`, state `service/state/motion-presets.js`; cụm `motionPresets`; trục Timing `core/point-move-timing-ui.js` |
+| Preset Motion (CRUD) | `components/motion-settings-drawer.js`, `core/motion-presets.js` (hàm thuần), `core/motion-presets-ui.js` (ghi DOM), `event/workflow/motion-presets.js`, state `service/state/motion-presets.js`; cụm `motionPresets`; trục Timing `core/point-move-timing-ui.js` |
 | Cơ chế Motion (engine, runner, host) | `core/motion-engine.js`; `event/workflow/motion-stage.js`, `motion-transition-runner.js`, `motion-point-move-runner.js`, `motion-beat-react-runner.js` |
 | VBG chung | `components/visual-bg-settings-drawer.js`, `core/visual-bg-common.js` (tính thuần), `core/visual-bg-panel-ui.js` (ghi DOM các màn), `event/workflow/visual-bg-common.js`, state `service/state/visual-bg.js`; cụm `visualBg` |
 | VBG Photo | `core/visual-bg-photo.js`, `event/workflow/visual-bg-photo.js`, `event/workflow/visual-bg-photo-motion.js` |
