@@ -152,7 +152,8 @@ function drawFireworksParticle(ctx, particle, blurMult, dpr) {
         ctx.lineWidth = particle.size * 0.8;
         ctx.strokeStyle = particle.color;
         ctx.globalAlpha = particle.alpha * 0.5 * depthAlpha;
-        particle.trail.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+        ctx.moveTo(particle.trail[0].x, particle.trail[0].y);
+        for (let i = 1; i < particle.trail.length; i++) ctx.lineTo(particle.trail[i].x, particle.trail[i].y);
         ctx.stroke();
     }
     ctx.globalAlpha = (particle.flicker && Math.random() < 0.3 ? 0.2 : particle.alpha) * depthAlpha;
