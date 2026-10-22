@@ -122,26 +122,34 @@ function computeClockGearLayout(dialR) {
     };
 }
 
-/** Viền răng của 1 bánh (góc quay 0, gốc toạ độ = tâm bánh) — mảng [x0,y0,x1,y1,...]. Răng hình thang
- * (đỉnh = r + m, chân = r - 1.25m); `ratchet` = răng cưa nghiêng kiểu bánh thoát. Workflow cache. */
-function buildClockGearOutline(z, pitchR, m, ratchet) {
+/** Viền răng thường của 1 bánh (góc quay 0, gốc = tâm bánh) — mảng [x0,y0,x1,y1,...]. Răng hình thang (đỉnh = r + m,
+ * chân = r - 1.25m). Workflow cache. */
+function buildClockGearOutlineSpur(z, pitchR, m) {
+    const tipR = pitchR + m, rootR = pitchR - 1.25 * m;
+    const step = (Math.PI * 2) / z;
+    const rootHalf = step * 0.28, tipHalf = step * 0.15;
+    const pts = [];
+    for (let i = 0; i < z; i++) {
+        const a = i * step;
+        pts.push(rootR * Math.cos(a - rootHalf), rootR * Math.sin(a - rootHalf));
+        pts.push(tipR * Math.cos(a - tipHalf), tipR * Math.sin(a - tipHalf));
+        pts.push(tipR * Math.cos(a + tipHalf), tipR * Math.sin(a + tipHalf));
+        pts.push(rootR * Math.cos(a + rootHalf), rootR * Math.sin(a + rootHalf));
+    }
+    return pts;
+}
+
+/** Viền răng cưa nghiêng kiểu bánh thoát (cùng định dạng buildClockGearOutlineSpur()). Đỉnh răng ĐÚNG góc a để ăn
+ * khớp computeClockGearAngles() đúng pha. */
+function buildClockGearOutlineRatchet(z, pitchR, m) {
     const tipR = pitchR + m, rootR = pitchR - 1.25 * m;
     const step = (Math.PI * 2) / z;
     const pts = [];
     for (let i = 0; i < z; i++) {
         const a = i * step;
-        if (ratchet) {
-            // Đỉnh răng đặt ĐÚNG góc a (như răng thường) để công thức ăn khớp computeClockGearAngles() đúng pha.
-            pts.push(rootR * Math.cos(a - step * 0.2), rootR * Math.sin(a - step * 0.2));
-            pts.push(tipR * Math.cos(a), tipR * Math.sin(a));
-            pts.push(rootR * Math.cos(a + step * 0.15), rootR * Math.sin(a + step * 0.15));
-        } else {
-            const rootHalf = step * 0.28, tipHalf = step * 0.15;
-            pts.push(rootR * Math.cos(a - rootHalf), rootR * Math.sin(a - rootHalf));
-            pts.push(tipR * Math.cos(a - tipHalf), tipR * Math.sin(a - tipHalf));
-            pts.push(tipR * Math.cos(a + tipHalf), tipR * Math.sin(a + tipHalf));
-            pts.push(rootR * Math.cos(a + rootHalf), rootR * Math.sin(a + rootHalf));
-        }
+        pts.push(rootR * Math.cos(a - step * 0.2), rootR * Math.sin(a - step * 0.2));
+        pts.push(tipR * Math.cos(a), tipR * Math.sin(a));
+        pts.push(rootR * Math.cos(a + step * 0.15), rootR * Math.sin(a + step * 0.15));
     }
     return pts;
 }
@@ -437,9 +445,18 @@ function paintClockTicks(ctx, dialR, glows, colors, glowPx, dpr) {
     ctx.globalAlpha = 1;
 }
 
-/** 1 bánh răng lộ máy: viền răng (outline) + vành trong + nan hoa (hoặc đặc / dây cót) + trục + chân kính đỏ.
- * `level` 0-1 làm sáng thân bánh; `glowPx` > 0 -> viền răng phát sáng màu `glowColor`. Chỉ Canvas API. */
-function paintClockGear(ctx, gear, outline, angle, color, glowColor, glowPx, level, dpr) {
+/** Bán kính vành trong + trục của 1 bánh (Workflow cache cùng outline). @returns {{rimR:number, hubR:number}} */
+function computeClockGearRadii(gear, dpr) {
+    return { rimR: gear.r - 2.4 * gear.m, hubR: Math.max(gear.r * 0.16, 3 * dpr) };
+}
+
+/** Phần trong của bánh: 'spokes' (vành + nan, đủ chỗ) / 'spiral' (hộp cót) / 'none'. */
+function resolveClockGearInterior(gear, radii) {
+    return gear.spokes > 0 && radii.rimR > radii.hubR * 1.5 ? 'spokes' : (gear.spiral ? 'spiral' : 'none');
+}
+
+/** Thân bánh: viền răng (`outline`) tô mờ + nét viền phát sáng `glowColor` (`glowPx` > 0). `level` 0-1 làm sáng. */
+function paintClockGearBody(ctx, gear, outline, angle, color, glowColor, glowPx, level, dpr) {
     ctx.save();
     ctx.translate(gear.x, gear.y);
     ctx.rotate(angle);
@@ -456,43 +473,67 @@ function paintClockGear(ctx, gear, outline, angle, color, glowColor, glowPx, lev
     ctx.shadowColor = glowColor;
     ctx.shadowBlur = glowPx * (0.5 + level);
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.restore();
+}
 
-    const rimR = gear.r - 2.4 * gear.m;
-    const hubR = Math.max(gear.r * 0.16, 3 * dpr);
-    if (gear.spokes > 0 && rimR > hubR * 1.5) {
-        // Lộ máy: vành trong + nan hoa, phần giữa nan để trống (thấy xuyên qua).
-        ctx.beginPath(); ctx.arc(0, 0, rimR, 0, Math.PI * 2); ctx.stroke();
-        ctx.lineWidth = Math.max(1, gear.r * 0.07);
-        for (let s = 0; s < gear.spokes; s++) {
-            const a = (s / gear.spokes) * Math.PI * 2;
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(a) * hubR, Math.sin(a) * hubR);
-            ctx.lineTo(Math.cos(a) * rimR, Math.sin(a) * rimR);
-            ctx.stroke();
-        }
-    } else if (gear.spiral) {
-        // Hộp cót: nắp đặc + dây cót xoắn (hé theo góc quay).
-        ctx.globalAlpha = 0.18 + 0.25 * level;
-        ctx.beginPath(); ctx.arc(0, 0, rimR, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 0.5 + 0.4 * level;
-        ctx.lineWidth = Math.max(1, dpr);
+/** Lộ máy: vành trong + nan hoa, giữa các nan để trống (thấy xuyên qua). */
+function paintClockGearSpokes(ctx, gear, radii, angle, color, level, dpr) {
+    ctx.save();
+    ctx.translate(gear.x, gear.y);
+    ctx.rotate(angle);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.6 + 0.4 * level;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, dpr * 1.2);
+    ctx.beginPath(); ctx.arc(0, 0, radii.rimR, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = Math.max(1, gear.r * 0.07);
+    for (let s = 0; s < gear.spokes; s++) {
+        const a = (s / gear.spokes) * Math.PI * 2;
         ctx.beginPath();
-        const turns = 4.5, steps = 90;
-        for (let k = 0; k <= steps; k++) {
-            const t = k / steps;
-            const a = t * turns * Math.PI * 2;
-            const r = hubR + (rimR * 0.92 - hubR) * t;
-            if (k === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-        }
+        ctx.moveTo(Math.cos(a) * radii.hubR, Math.sin(a) * radii.hubR);
+        ctx.lineTo(Math.cos(a) * radii.rimR, Math.sin(a) * radii.rimR);
         ctx.stroke();
     }
-    // Trục + chân kính (ruby).
+    ctx.restore();
+}
+
+/** Hộp cót: nắp đặc + dây cót xoắn (hé theo góc quay). */
+function paintClockGearSpiral(ctx, gear, radii, angle, color, level, dpr) {
+    const turns = 4.5, steps = 90;
+    const spanR = radii.rimR * 0.92 - radii.hubR;
+    ctx.save();
+    ctx.translate(gear.x, gear.y);
+    ctx.rotate(angle);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.18 + 0.25 * level;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(0, 0, radii.rimR, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.5 + 0.4 * level;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, dpr);
+    ctx.beginPath();
+    ctx.moveTo(radii.hubR, 0);
+    for (let k = 1; k <= steps; k++) {
+        const t = k / steps;
+        const a = t * turns * Math.PI * 2;
+        const r = radii.hubR + spanR * t;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
+/** Trục + chân kính (ruby) ở tâm bánh. Kết thúc với globalAlpha = 1. */
+function paintClockGearHub(ctx, gear, radii, angle, color) {
+    ctx.save();
+    ctx.translate(gear.x, gear.y);
+    ctx.rotate(angle);
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(0, 0, hubR, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, radii.hubR, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#c0183a';
-    ctx.beginPath(); ctx.arc(0, 0, hubR * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, radii.hubR * 0.5, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     ctx.globalAlpha = 1;
 }
@@ -542,12 +583,12 @@ function paintClockBalance(ctx, balance, escapeGear, swing, color, glowColor, gl
     ctx.lineWidth = Math.max(1, dpr * 0.8);
     ctx.beginPath();
     const turns = 5, steps = 110, inner = balance.r * 0.12, outer = balance.r * 0.72;
-    for (let k = 0; k <= steps; k++) {
+    ctx.moveTo(balance.x + Math.cos(swing) * inner, balance.y + Math.sin(swing) * inner);
+    for (let k = 1; k <= steps; k++) {
         const t = k / steps;
         const a = t * turns * Math.PI * 2 + swing * (1 - t);
         const r = inner + (outer - inner) * t;
-        const x = balance.x + Math.cos(a) * r, y = balance.y + Math.sin(a) * r;
-        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        ctx.lineTo(balance.x + Math.cos(a) * r, balance.y + Math.sin(a) * r);
     }
     ctx.stroke();
     ctx.fillStyle = '#c0183a';
