@@ -6,15 +6,15 @@
         AppState.definePackage('app-misc', {
             schema: {
                 isGridView: 'boolean',
-                // true = đang ở màn Visualizer (không phải Playlist) lúc này. Set ở
-                // core/player-controls.js::switchToVisualizer() (true)/forceBackToPlaylistUI()+
-                // setVisualizerActiveFalse() (false).
+                // true = đang ở màn Visualizer (không phải Playlist).
                 isVisualizerActive: 'boolean',
                 isStatsPanelVisible: 'boolean',
                 savLogoExpanded: 'boolean',
                 isShieldBusy: 'boolean',
                 isDestructiveTaskInProgress: 'boolean',
                 dbReadyPromise: 'any',          // Promise — gán thật ở db.js bằng appState.set('dbReadyPromise', openDatabase())
+                // null tới khi event/workflow/device-info.js nhận diện xong lúc boot (core/device-detect.js::summarizeDeviceInfo()).
+                deviceInfo: 'any',
             },
             buildDefaults() {
                 return {
@@ -25,10 +25,7 @@
                     isShieldBusy: false,
                     isDestructiveTaskInProgress: false,
                     dbReadyPromise: null,
+                    deviceInfo: null,
                 };
             },
         });
-
-        // SHIELD_FADE_MS — KHÔNG khai lại ở đây. Bản THẬT đã tồn tại sẵn trong
-        // core/loading-shield-util.js — ĐÃ XOÁ bản trùng gây SyntaxError lúc parse (xem giải thích
-        // đầy đủ ở service/state/player.js, cùng lỗi).
