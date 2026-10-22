@@ -104,7 +104,7 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Muốn sửa... | Vào file... |
 |---|---|
 | Preset Motion (CRUD) | `components/motion-settings-drawer.js`, `core/motion-presets.js` (hàm thuần), `core/motion-presets-ui.js` (ghi DOM), `event/workflow/motion-presets.js`, state `service/state/motion-presets.js`; cụm `motionPresets`; trục Timing `core/point-move-timing-ui.js` |
-| Cơ chế Motion (engine, runner, host) | `core/motion-engine.js`; `event/workflow/motion-stage.js`, `motion-transition-runner.js`, `motion-point-move-runner.js`, `motion-beat-react-runner.js` |
+| Cơ chế Motion (engine, runner, host) | `core/motion-engine.js`, `core/motion-runner.js` (tính toán của 3 runner); `event/workflow/motion-stage.js`, `motion-transition-runner.js`, `motion-point-move-runner.js`, `motion-beat-react-runner.js` |
 | VBG chung | `components/visual-bg-settings-drawer.js`, `core/visual-bg-common.js` (tính thuần), `core/visual-bg-panel-ui.js` (ghi DOM các màn), `event/workflow/visual-bg-common.js`, state `service/state/visual-bg.js`; cụm `visualBg` |
 | VBG Photo | `core/visual-bg-photo.js`, `event/workflow/visual-bg-photo.js`, `event/workflow/visual-bg-photo-motion.js` |
 | VBG Video, âm thanh từng video | `core/visual-bg-video.js`, `event/workflow/visual-bg-video.js`, `components/visual-bg-video-audio-drawer.js` |
@@ -125,6 +125,8 @@ nơi gắn listener. Tên cụm = tên file: `event/listener/<cụm>.js`, `event
 | Resize → dựng lại cảnh | `event/listener/visualizer-viewport.js` → `event/router/visualizer-viewport.js` → `workflowVisualizerRender.onViewportResize()` → hook `onResize` từng group |
 | WebGL (camera, renderer, composer, OrbitControls) | `core/webgl/three-common.js`, `three-vortex.js`, `three-connector.js`; điều phối `event/workflow/visualizer/vortex.js`, `connector.js`; state `service/state/three-*.js` |
 | Cửa sổ beat flux (rẽ ống Vortex, camera circuit, finale pháo hoa) | `core/visualizer/beat-window.js` + `event/workflow/visualizer/beat-window.js` |
+| Vortex: độ uốn / hướng rẽ ống (8 hướng, Redirect) | `VORTEX_BEND_*`, `VORTEX_NOTE_TO_DIRECTION_INDEX`, `getVortexCenterAt`, `pickVortexDirectionIndex` (`core/webgl/three-vortex.js`) + `_steerTunnel`/`_renderTunnel` (`event/workflow/visualizer/vortex.js`); state `tBend/tBendTarget/tBendDir` |
+| Rain street: nón sáng đèn, mặt đường ướt, lớp mưa, gió, tia nước, âm thanh điều khiển (dải tần từng đèn, snare, chớp khi drop) | `STREET_RAIN_LAYERS`, `STREET_CONE_LAYERS`, `STREET_LAMP_BANDS`, `STREET_THUNDER_*`, `stepStreetWind`, `shouldStartStreetThunder`, `computeStreetThunderAlpha`, `paintStreetLamp{Cone,Pool}`, `paintStreetRainLit`, `*StreetSplashes` (`core/visualizer/groups/rain/street.js`) + `_drawStreet` (`event/workflow/visualizer/rain.js`) |
 | Custom Effect drawer | `components/custom-effect-drawer.js`, `core/custom-effect.js`, `core/custom-effect-drawer-ui.js`; `event/listener/custom-effect.js` → router → `event/workflow/custom-effect.js` |
 | Field cần dựng lại scene khi đổi | `CUSTOM_EFFECT_REFRESH_BY_NAME` (`event/workflow/custom-effect.js`) |
 | Style không có khối Blur (vd fireworks) | `CUSTOM_EFFECT_NO_BLUR_STYLES` (`core/custom-effect.js`) |

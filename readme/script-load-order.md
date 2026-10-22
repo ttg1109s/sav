@@ -382,6 +382,7 @@ của group.
 156. `core/dropdown-menu.js`
 157. `core/file-manager/cleanup.js`
 158. `core/motion-engine.js`
+158a. `core/motion-runner.js` — MỚI 22/10/2026 (tính toán 3 runner Motion, đợt 22b); gọi lúc chạy từ event/workflow/motion-{transition,point-move,beat-react}-runner.js
 159. `core/motion-presets.js`
 159a. `core/motion-presets-ui.js` — MỚI 22/10/2026 (ghi DOM các màn Cấu hình Motion, đợt 22a); gọi lúc chạy từ event/workflow/motion-presets.js; cần lúc chạy: lang/lang.js (tFormat)
 160. `core/player-display-settings.js`
@@ -509,7 +510,7 @@ xem [event-bus-flow.md](./event-bus-flow.md) mục 1).
 260. `event/workflow/visualizer-render.js`
 261. `event/workflow/visualizer/beat-window.js`
 262. `event/workflow/visualizer/bar.js` — cần: `core/visualizer/groups/bar/dot.js` (DOT_VIB_SLOTS); `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-263. `event/workflow/visualizer/rain.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+263. `event/workflow/visualizer/rain.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 264. `event/workflow/visualizer/lighting.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 265. `event/workflow/visualizer/shape.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 266. `event/workflow/visualizer/vortex.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)

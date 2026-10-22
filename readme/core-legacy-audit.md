@@ -13,7 +13,7 @@
 
 ## 1. Tổng quan
 
-- **347 FAIL** ở **47 file**; 0 chờ chốt; 587 dòng máy quét báo nhưng review loại (mục 5).
+- **304 FAIL** ở **34 file**; 0 chờ chốt; 619 dòng máy quét báo nhưng review loại (mục 5).
 - Cập nhật 07/10/2026 (cùng ngày lập sổ): gỡ Service Worker tải file lớn (`sw.js`, `core/large-file-download.js`) xoá 4 dòng FAIL (1312 → 1308, 142 → 141 file). Bảng tỉ lệ ngay dưới giữ số đo lúc lập sổ.
 - Cập nhật 07/10/2026 (game Arrow): sửa nợ trong đúng các method bị đụng khi nối game mới — `workflowGameplay.start` (3 dòng: pause/currentTime trong Workflow, 2 lần get), `workflowGameCatalog.armGame` (2 lần get), `workflowAudioAnalysis._tick` (Math.floor) — xoá 5 dòng FAIL (1308 → 1303). Code mới của game Arrow không thêm dòng nào.
 - Cập nhật 12/10/2026 (plan-event-bus-wiring-07-10-2026 **đợt 1 — EQ**): nội dung Generic Drawer Edit EQ đi Listener → Router (ủy quyền 1 lần, `data-eq-*`), xoá `_wireListView()`/`_wireEditView()` — xoá 11 dòng "Workflow tự gắn sự kiện"; method bị đụng `_previewBandGain` dọn luôn nợ ghi DOM (core -ui mới `core/eq-presets-drawer-ui.js`) — xoá 1 dòng "Workflow tự thao tác DOM" (1303 → 1291). Số đầu mục/bảng §3 đếm lại theo dòng thật (đã lệch từ cập nhật game Arrow).
@@ -75,6 +75,9 @@
 - Cập nhật 21/10/2026 (**bug Giang báo — tải nhiều phần zip, bấm Done không giải phóng dung lượng**): dọn file tạm cũ chỉ xoá đúng tên file .zip trả về; trên Safari Path A (`createWritable`) hay treo rồi mới sang Path B — dữ liệu đã ghi nằm trong file nháp ẩn của writable (`keys()` không liệt kê, xoá theo tên không tới) và file Path A dở có thể còn khoá -> bỏ qua sau 3 s; nén lỗi giữa chừng không dọn các phần đã nén; đóng app lúc modal còn mở thì chỉ nút "Dọn dẹp dữ liệu" xoá (file > 1 giờ). Sửa: `workflowStreamingZip` giữ nhóm file đang dùng (`_inUseNames` + `_activeBuilds`), `release(names)` sau Done/Huỷ/nén lỗi rồi `sweepTemp()` — rảnh hẳn thì xoá CẢ thư mục `sav-zip-tmp` (đệ quy, core MỚI `removeZipTempDir()`), còn file đang dùng thì xoá từng mục còn lại (đệ quy); có hạn giờ 10 s, lỗi không ném. Gọi thêm lúc boot và ở "Dọn dẹp dữ liệu" (thay `cleanupOrphanedZipTempFiles()` — xoá, kèm 1 dòng mục 5). `cleanupStreamingZipTemp()` xoá. Core MỚI `openExistingZipTempDir`, `isZipTempIdle`, `pickStaleZipTempNames`, `countZipTempRemoved` (core/streaming-zip.js). Harness OPFS Chromium: đang mở modal giữ đúng 2 phần (vẫn đọc được), Done/nén lỗi/boot/nút dọn -> thư mục tạm biến mất. Không đổi số FAIL (392).
 - Cập nhật 21/10/2026 (**nhận diện thiết bị + lưu trữ bền** — Giang chốt: ua-parser-js 2.0.10, wrapper Rule 3d, chỉ log lúc boot): core MỚI `core/device-detect.js` — `detectDeviceWithUaParser()` là wrapper ua-parser-js **ĐÃ audit chính thức** (ghi tên ở core-function-conventions.md Rule 3d), `summarizeDeviceInfo()`/`formatDeviceInfoLog()` thuần; Workflow MỚI `event/workflow/device-info.js` (`detectOnBoot()` — lưu state MỚI `deviceInfo`, 1 dòng log Rule 4). Storage: `workflowFileManagerStorage._estimateOriginStorage` thay bằng `_readStorageApi()` (chỉ đọc `estimate`/`persisted`), chuẩn hoá quota sang core thuần `normalizeOriginEstimate()` — kèm (Workflow tự tính, chưa có trong sổ: `usage || 0`, phép so `quota > 0`); nguồn quota `classifyOriginEstimateSource()` → map `ORIGIN_ESTIMATE_BY_SOURCE` (Safari 15.2–16 không có `estimate()`: `buildLegacyWebKitEstimate()` mốc 1 GB); dòng chế độ lưu trữ `resolveStorageOriginNotesView()` + `renderStorageOriginNotes()`; `requestPersistOnBoot()` → core `requestPersistentStorage()` (`persist()` là thi hành). Dead code xoá: 5 key lang không nơi dùng (`storageDrawer.backToAbout.title`/`statTotalSongs`/`statTotalVideos`/`freeSpaceSectionTitle`, `settingsDrawer.title`). Không thêm dòng FAIL.
 - Cập nhật 22/10/2026 (plan-debt-domains **đợt 22a — Motion presets**: `core/motion-presets.js`, `event/workflow/motion-presets.js`): 2 file sạch nợ (45 dòng). **Core** — hết 21 dòng Rule 3a: id mới + preset/point move trắng do Workflow tạo rồi truyền vào (`buildBlankPointMove(id, linearField, plainField)`, `buildBlankMotionPreset(id, name, pointMove)`), `sanitizeMotionPreset(raw, blank)` gộp 6 hàm sanitize cũ thành 1 core (hàm con lồng, point move thiếu id lấy `${id Point 0 của blank}_${vị trí}`; phần tử `null` trong mảng không còn làm boot lỗi); biến đổi preset thành hàm thuần trả bản MỚI (`replaceMotionPresetFields`, `appendMotionPreset`, `removeMotionPresetById`, `resolveMotionPresetRename`, `buildMotionPresetResetFields`, `setPointMoveChecked`, `appendPointMove`, `buildPointMoveCopy`, `swapPointMoves`, `removePointMove`, `replacePointMoveField(s)`, `setPointMoveTimingX`, `buildPointMoveFieldRangePatch`, `buildPointMoveEndForceBaselinePatch`, `resolvePointMoveTimingBounds`, `computeAppendedPointMoveTimingSeed`, `resolvePointMoveTimingX(pointMoves, excludeId, rawX, bounds)`, `computePointMoveTimingNodes`, `computePointMoveTimingNodeCx`, `computePointMoveTimingZoomView`, `planPointMoveDrag`, `computePointMoveDragTransform`, `clampMotionTransitionDurationMs/Ratio`, `negateMotionInputValue`, 4 hàm kiểm field React Beat + `setBeatReactTopField/EffectField`, `applyBeatReactMaxValues`, di trú VBG cũ `shouldMigrateLegacyVisualBgMotion`/`buildLegacyMotionPresetRaw`/`buildMigratedVisualBgMeta`). Core -ui MỚI `core/motion-presets-ui.js` (ẩn/hiện dòng màn Edit, nhãn thời lượng/tỉ lệ, ô số + slider, cụm single/range, phiên kéo hàng, thanh Timing, cuộn Drawer) — hết 18 dòng Workflow ghi DOM; 6 dòng Workflow tự tính → core. **Kèm (chưa có trong sổ):** mọi mutator `_mutateEditing*` (Workflow tự `.map`/spread/`findIndex`) → `_patchEditing(patch)` + core thuần; `changeBeatReactField` chuỗi if/else-if chọn cách kiểm theo field (§7) → map `BEAT_REACT_FIELD_RULE_BY_KEY` + `BEAT_REACT_WRITE_BY_HAS_EFFECT`; 2 guard `typeof` (K1: `notifyMotionBeatReactPresetsChanged`, `workflowVisualBg` — chỉ index.html nạp file này); guard "Drawer đang mở" đọc `isGenericDrawerOpen` thay soi class DOM; gộp `get([…])`; `buildRandomPointMoveFieldValues::fillField` (if-return ghi `single` hoặc `rangeMin/Max` — Rule 1, lệch vị trí ghi) → luôn ghi đủ 3 khoá, khoá không thuộc mode giữ giá trị cũ. **Bug sửa kèm:** Reset preset không trả `pointMoveEndForceBaseline` ("Return baseline") về mặc định tắt. Dead code xoá: `sanitizeMotionPointMoves`/`sanitizePointMove`/`sanitizePointMoveField`/`sanitizePointMoveLinearField`/`sanitizeMotionBeatReact` (gộp), `computePointMoveTimingZoomTransform` (gộp vào view zoom), method `_persist`/`_mutateEditing`/`_mutateEditingPointMove`/`_pointMoveTimingBounds`/`_nextAppendedTimingX`/`_computeTimingPoints`/`_setInputValueById`. Harness so với bản gốc (boot sanitize + di trú, ~60 thao tác: tên, transition, thời lượng, point move thêm/nhân bản/tick/đổi chỗ/xoá/đơn vị/mode/single/range/timing kéo + modal, React Beat, Reset, Xoá + gỡ VBG, picker): state giống hệt trừ bug Reset; bản mới bỏ qua lưu thừa khi nhân bản id không tồn tại. Boot Chromium (stub CDN) chạy màn Edit/List/Point Move/Timing: 0 lỗi JS. Mục 5: 8 dòng CORE-1 cũ của `core/motion-presets.js` thay bằng 31 dòng vị trí mới (REVIEW 22/10). Tổng 392 → 347 (49 → 47 file).
+- Cập nhật 22/10/2026 (plan-debt-domains **đợt 22b — 3 runner Motion**: `event/workflow/motion-{transition,point-move,beat-react}-runner.js`): 3 file sạch nợ (11 dòng). Core MỚI `core/motion-runner.js` gom mọi phép tính của runner: Transition `resolveMotionTransitionTotalMs()` (thay `capMotionEngineTransitionDurationMs` + nhánh perSong), `computeMotionTransitionUniformMs()`, `computeMotionTransitionSettleMs()`, `cutMotionEngineLayers()` (cắt cứng — hết 1 dòng DOM + 1 dòng `Math.max`); Point Move `resolvePointMoveActivationKind()` ('stop'/'static'/'one'/'all' → map — hết §7 `_runActivate`), `planPointMoveAllPoints()`, `assemblePointMoveAllTargets()`, `interpolatePointMoveTargets()` (tìm đoạn + nội suy, thay `_findPointMoveSegment` + `lerpPointMoveNumber`), `computePointMoveSampleXs()`, `buildPointMoveAllKeyframes()`, `buildPointMoveTweenKeyframes()`, `listCheckedPointMoveIndices()`, `findStaticZeroPointMove()`, `computePointMoveLiveXPercent()`/`computePointMoveLiveElapsedMs()` (hết 3 dòng tự tính), `readMotionLayerTransform()`, `applyPointMoveStaticTransform()` (hết 1 dòng DOM), `seekPointMoveAnimation()`; React Beat 1 frame = `computeMotionBeatReactDeltaMs()` + `advanceMotionBeatReactBeat()` (beat mới, Random Max, đảo cực — gộp `computeMotionEngineBeatReactNextPolarity`) + envelope (`computeMotionEngineBeatReactEnvelope` dời sang đây / `computeMotionBeatReactReleaseEnvelope()`, map theo `envelopeMode`) + `computeMotionBeatReactTransform()` (gộp `...ZoomScale`/`...Offset`) + `setMotionBeatReactTransform()` (hết 2 dòng DOM, 1 dòng `Math.min`, §7 `_tick`). Hằng `MOTION_ENGINE_BEATREACT_DECAY_MS`/`MOTION_BEATREACT_MAX_FRAME_GAP_MS`/`POINT_MOVE_RUNNER_*` dời vào core. Runner chỉ giữ state phiên + điều phối qua map cấp module (`ops` của từng runner). **Kèm (chưa có trong sổ):** `runTransition` guard cắt cứng kèm việc rồi return + 2 ternary chọn cách tính (§7) → map; `sync()` if/else-if → `resolveMotionBeatReactSyncAction()` + map; `liveToggle` guard tắt kèm việc → map; `_activatePointMoveOne` ternary chọn hàm chọn điểm → map; mọi phép tính còn lại trong `_tick`/`_activatePointMove*`/`_deriveLivePointMoveTarget`/`release`. Dead code: 6 hàm ở core/motion-engine.js (dời/gộp như trên). Harness so với bản gốc (React Beat 150 frame: pause/resume, đổi preset, release có hẹn/không hẹn, tốc độ 0, mất preset; Point Move all/tiếp diễn/one tuần tự + ngẫu nhiên/không điểm/tĩnh/tắt/broadcast; Transition hướng random, perSong, cắt cứng, dồn lượt, stop): 152 mốc giống hệt kể cả số thực. Boot Chromium chạy 3 runner trong trang: 0 lỗi JS. Mục 5: dòng CORE-1 của hàm đã xoá thay bằng 22 dòng `core/motion-runner.js`; 2 dòng CORE-3A `core/motion-engine.js` cập nhật vị trí. Tổng 347 → 336 (47 → 44 file).
+- Cập nhật 22/10/2026 (plan-debt-domains **đợt 23a — core visualizer (hot path)**: `core/rubik-math.js`, `core/visualizer/draw/window-frame.js`, core group `bar/{dot,black-hole,common,mirror}`, `lighting/fireworks`, `rain/street`, `shape/clock`, `core/webgl/three-connector.js`): 9 file core sạch nợ (28 dòng) + 4 dòng Workflow theo hàm bị viết lại. **Rule 1:** `buildDotAxisGeometry` tách `resolveDotAxisShape()` + `computeDotAxisFrame()` + 7 core polyline `buildDotAxisRaw{Line,SinArc,SinWave,SquareWave,Circle,Square,Triangle}()` + `measureDotAxisPath()` + `planDotAxisSampling{Open,Closed}()` + `sampleDotAxisPoints()` + `assembleDotAxisGeometry()` (Workflow ghép qua `BAR_DOT_AXIS_RAW_BY_SHAPE`/`BAR_DOT_AXIS_SAMPLING_BY_CLOSED`); `paintDotAxisDot` → `resolveDotAxisPaintKind()` + `paintDotAxisDotBranches()`/`paintDotAxisDotRound()` (map `BAR_DOT_PAINT_BY_KIND`); `stepDotDnaPairs` → `stepDotDnaSpawnPairs()`/`stepDotDnaBreakPairs()` (map `BAR_DOT_DNA_STEP_BY_ON`); `buildClockGearOutline` → `buildClockGearOutline{Spur,Ratchet}()` (map `CLOCK_GEAR_OUTLINE_BY_RATCHET`); `paintClockGear` → `paintClockGearBody/Spokes/Spiral/Hub()` + `computeClockGearRadii()` + `resolveClockGearInterior()` (cache cùng outline, khoá hình theo dialR + dpr; map `CLOCK_GEAR_INTERIOR_BY_KIND`); `triggerCinematicCameraShift` → `pickCinematicCameraMode()` + `startCinematic{OrbitSweep,CloseNode,TrackSignal}()` (map `CN_CINEMATIC_SHIFT_BY_MODE`); `rotateRubikIndices` bảng `RUBIK_ROTATION_PLANE_BY_AXIS`; `computeBarMirrorLevels` tính cả MAX lẫn nội suy rồi chọn giá trị; `paintBarRects` luôn `roundRect` (plain = góc 0); 4 vòng moveTo/lineTo (tia chớp hố đen, đuôi pháo hoa, dây cót, dây tóc) moveTo điểm đầu rồi lineTo phần còn lại; `advanceAndDrawRainRipples` → `advanceRainRipples()` + `paintRainRipples()`. **Rule 2:** `drawWindowFrame(ctx, W, H, dpr)` (hết 9 dòng `appState.get('dpr')` + biến `canvas` toàn cục). **Rule 3a:** `paintBlackHoleBurstBolt` nhận `gradient` (Workflow tạo 1 lần, dùng chung với dải nhiệt). **Rule 4:** log writer sau `rotateRubikIndices`. Workflow: `_drawStreet` gộp 1 lần `get([…])` + hết `ctx.globalAlpha` (core ripple tự trả alpha); `_syncTunnelStraightness`/`_renderTunnel` cũ viết lại (xem dưới). Harness Chromium so bản trước, canvas thật: hình trục dot 36 ca (8 hình + hình lạ × 4 cỡ), vẽ dot 16 ca, DNA 80 bước, mirror 4 phổ, rect bar, 20 outline + bánh răng/bánh lắc 2 dpr, khung cửa sổ 3 dpr, hạt pháo hoa, tia chớp 2 nửa, gợn nước 30 frame, cinematic 24 lượt (GSAP giả) — **giống hệt từng pixel**. **Kèm — sửa hiệu ứng (Giang báo/yêu cầu):** (1) Vortex bật Redirect gần như chỉ đảo trái-phải: tâm ống cũ là sin cố định theo chiều sâu, lượt rẽ chỉ dời pha nên bay nửa chu kỳ (~1.5–4 s) ống tự cong ngược lại; màn dọc (FOV ngang ~39° so với dọc 75°) + biên độ ngang > dọc làm lên/xuống/chéo trông như trái/phải; bảng nốt lặp 4 hướng thẳng. Mô hình mới (core/webgl/three-vortex.js): độ uốn `tBend` giữ hướng tới lượt sau, tâm = `path`·g(d/L), quy theo cạnh ngắn màn hình; 8 hướng, nốt liền kề lệch 135°, không rẽ trùng/ngược hướng đang giữ; tắt Redirect ống duỗi thẳng; state `tPathParams/tPathTarget` → `tBend/tBendTarget/tBendDir`; xoá `computeVortexCurveTarget`, `computeNextVortexPath`, `isVortexTurnSettled`, `shortestAngleDelta`, `wrapVortexAngle`, `pickVortexDirectionFromNote`, `placeVortexCamera`, `VORTEX_AMPLITUDE_BY_REDIRECT`. (2) Rain street — đèn: nón sáng thể tích 3 lớp, vũng sáng + vệt phản chiếu trên đường ướt, mưa 3 lớp sâu + gió chung, giọt trong nón sáng theo màu đèn, giọt chạm đất bắn tia nước (state MỚI `streetSplashes`). Dead code: `paintRainStreetDrops`, `drift` của hạt mưa. Mục 5: 19 dòng CORE-1 của hàm đã xoá thay bằng 23 dòng REVIEW 22/10; 4 dòng CORE-4 street → 6. Tổng 336 → 304 (44 → 34 file).
+- Cập nhật 22/10/2026 (**Rain street — âm thanh điều khiển**, ngoài đợt, áp sau 23a): mỗi đèn theo 1 dải tần (`STREET_LAMP_BANDS`, `resolveStreetLampBands()`), loé + gợn nước khi dải có nốt mới, rung theo vibrato (bỏ chập chờn ngẫu nhiên 6%); nón sáng thở theo năng lượng; snare (dải mid) bắn chùm tia nước (`buildStreetSplashBurst()`); gió theo hướng giai điệu + giật khi chuyển đoạn (`stepStreetWind()`, thay `computeStreetRainWind`); chớp trời của street chỉ khi chuyển đoạn trùng cú sub (`shouldStartStreetThunder()`/`computeStreetThunderAlpha()`, `flashThreshold` = mức dải sub; glass giữ chớp cũ). Mật độ mưa giữ nghịch cường độ nhạc (chủ đích). Workflow `_drawStreet` chỉ map + guard (`_detectStreetTransition`, `_strikeThunderOnDrop`, `_rippleOnLampOnset`, `_splashOnSnare`). Không đổi số FAIL; mục 5 +5 dòng CORE-1 REVIEW 22/10.
 
 ## 2. Cách chấm
 
@@ -95,13 +98,13 @@
 
 | Nhóm | Rule | FAIL | Chờ chốt |
 |---|---|---|---|
-| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 40 |  |
-| Core rule | Rule 2 — Core tự appState.get() | 10 |  |
-| Core rule | Rule 3a — Core gọi Core | 32 |  |
+| Core rule | Rule 1 — rẽ nhánh nghiệp vụ | 23 |  |
+| Core rule | Rule 2 — Core tự appState.get() | 1 |  |
+| Core rule | Rule 3a — Core gọi Core | 31 |  |
 | Core rule | Rule 3b — Core tự đọc DB/service | 0 |  |
 | Core rule | Rule 3b — Core tự đọc nguồn khác | 1 |  |
 | Core rule | Rule 3d — wrapper thư viện ngoài chưa audit | 1 |  |
-| Core rule | Rule 4 — ghi state thiếu console.log | 3 |  |
+| Core rule | Rule 4 — ghi state thiếu console.log | 2 |  |
 | Core rule | Rule 5a — Core gắn sự kiện | 27 |  |
 | Core rule | Rule 5c — thiếu hậu tố -ui | 3 |  |
 | Core rule | Rule 5d — template HTML trong core | 1 |  |
@@ -111,16 +114,16 @@
 | Event bus | Router tự chuẩn bị dữ liệu | 0 |  |
 | Event bus | Workflow tự dựng template HTML | 1 |  |
 | Event bus | Workflow tự gắn sự kiện | 0 |  |
-| Event bus | Workflow tự thao tác DOM | 51 |  |
-| Event bus | Workflow tự tính toán | 63 |  |
-| Event bus | Workflow tự vẽ canvas | 8 |  |
+| Event bus | Workflow tự thao tác DOM | 47 |  |
+| Event bus | Workflow tự tính toán | 58 |  |
+| Event bus | Workflow tự vẽ canvas | 7 |  |
 | Event bus | Workflow tự điều khiển media | 6 |  |
-| Event bus | Workflow §7: rẽ nhánh không dùng object map | 19 |  |
-| Event bus | Workflow: ≥2 key không gộp get([…]) | 72 |  |
+| Event bus | Workflow §7: rẽ nhánh không dùng object map | 17 |  |
+| Event bus | Workflow: ≥2 key không gộp get([…]) | 69 |  |
 | TaskManager | Timer thô | 3 |  |
 | TaskManager | requestAnimationFrame thô | 3 |  |
 | TaskManager | taskManager dùng trong Core | 1 |  |
-| **Tổng** | | **347** | **0** |
+| **Tổng** | | **304** | **0** |
 
 ## 4. Chi tiết
 
@@ -134,7 +137,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 |---|---|---|---|---|---|---|
 | `core/dropdown-menu.js:119` | `closeDropdownMenu` | if-return: nhánh ghi/gọi khác chỗ — {call overlay.remove} / {call overlay.remove, set menu.style.opacity} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/modal-choice-ui.js:251` | `modalChoice` | if-else: nhánh ghi/gọi khác chỗ — {call _appendDropdownRow} / {call _appendButtonRow} | FAIL | Review (máy quét bỏ sót) | Có |  |
-| `core/rubik-math.js:16` | `<anon>` | if-elseif: nhánh ghi/gọi khác chỗ — {set rc.cy, set rc.cz} / {set rc.cx, set rc.cz} / {set rc.cx, set rc.cy} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/subtitle/subtitles-ui.js:77` | `buildLineCard` | if-else: nhánh ghi/gọi khác chỗ — {call document.createElement, set textInput.type} / {call document.createElement, set textInput.className} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/subtitle/subtitles-ui.js:105` | `buildLineCard` | if-else: nhánh ghi/gọi khác chỗ — {call document.createElement, set startBtn.type} / {call document.createElement, set startBtn.className} | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/subtitle/subtitles-ui.js:166` | `buildLineCard` | if-else: nhánh ghi/gọi khác chỗ — {call document.createElement, set cancelBtn.type} / {call document.createElement, set removeBtn.type} | FAIL | Review (máy quét bỏ sót) | Có |  |
@@ -142,16 +144,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/video-editor/filmstrip.js:40` | `buildCutFilmstripFrames` | if-return: nhánh ghi/gọi khác chỗ — {call input.dispose} / {call onProgress, call document.createElement} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-editor/filmstrip.js:52` | `buildCutFilmstripFrames` | if-return: nhánh ghi/gọi khác chỗ — {call onProgress} / {call document.createElement, set out.width} | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-editor/webcodecs-engine.js:138` | `processVideo` | if-elseif: nhánh ghi/gọi khác chỗ — {set video.process, set video.processedWidth} / {set video.rotate, set video.flip} / {} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/bar/black-hole.js:506` | `<anon>` | ternary: nhánh ghi/gọi khác chỗ — {call ctx.moveTo, call px} / {call ctx.lineTo, call px} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/bar/common.js:33` | `<anon>` | if-else: nhánh ghi/gọi khác chỗ — {call ctx.fillRect} / {call ctx.beginPath, call ctx.roundRect} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/bar/dot.js:378` | `paintDotAxisDot` | if-return: nhánh ghi/gọi khác chỗ — {set ctx.strokeStyle, set ctx.lineWidth} / {set ctx.fillStyle, call ctx.beginPath} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/bar/dot.js:444` | `stepDotDnaPairs` | if-else: nhánh ghi/gọi khác chỗ — {set bonds[]} / {set levels[]} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/lighting/fireworks.js:165` | `<anon>` | ternary: nhánh ghi/gọi khác chỗ — {call ctx.moveTo} / {call ctx.lineTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/rain/street.js:170` | `advanceAndDrawRainRipples` | if-else: nhánh ghi/gọi khác chỗ — {call appState.mutate:'ripples'} / {call ctx.beginPath, call ctx.ellipse} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/shape/clock.js:465` | `paintClockGear` | if-elseif: nhánh ghi/gọi khác chỗ — {call ctx.beginPath, call ctx.arc} / {set ctx.globalAlpha, call ctx.beginPath} / {} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/shape/clock.js:488` | `paintClockGear` | if-else: nhánh ghi/gọi khác chỗ — {call ctx.moveTo} / {call ctx.lineTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/shape/clock.js:552` | `paintClockBalance` | if-else: nhánh ghi/gọi khác chỗ — {call ctx.moveTo} / {call ctx.lineTo} | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/webgl/three-connector.js:452` | `triggerCinematicCameraShift` | if-elseif: ORBIT/CLOSE animate camera.position + target, TRACK chỉ target | FAIL | Review (máy quét bỏ sót) | Có |  |
 | `core/auto-switch-visual.js:77` | `pickNextAutoSwitchStyleFromGroupList` | if-else theo selectMode: chọn ngẫu nhiên / chọn kế tiếp — 2 thuật toán chọn | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
 | `core/custom-effect.js:434` | `resolveCustomEffectSliderInput` | ternary theo isFloat: parseFloat / parseInt — 2 luật đọc số | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
 | `core/file-manager/photo-ui.js:95` | `computeInteractPos` | ternary theo fitMode: contain (min) / cover (max) — 2 luật khớp khung | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
@@ -166,27 +158,12 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/subtitle/subtitles-ui.js:46` | `buildLineCard` | if-elseif ×4 theo mode (chọn dòng / đang sửa / bị khoá / thường): mỗi mode 1 kiểu dựng card | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
 | `core/video-editor/webcodecs-engine.js:131` | `processVideo` | ternary theo writable: StreamTarget (ghi file) / BufferTarget (RAM) — 2 cách xuất | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
 | `core/video-editor/webcodecs-engine.js:173` | `processVideo` | ternary theo writable: không Blob / dựng Blob từ buffer — cùng nhánh xuất ở trên | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
-| `core/visualizer/groups/bar/dot.js:91` | `buildDotAxisGeometry` | if-elseif ×7 theo hình trục (sin/wave/circle/…): mỗi hình 1 công thức dựng | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
-| `core/visualizer/groups/bar/dot.js:143` | `buildDotAxisGeometry` | ternary theo closed: số đoạn đường khép kín / mở | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
-| `core/visualizer/groups/bar/dot.js:151` | `buildDotAxisGeometry` | ternary theo closed: quấn vòng (modulo) / kẹp biên — 2 luật lấy điểm | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
-| `core/visualizer/groups/bar/dot.js:152` | `buildDotAxisGeometry` | ternary theo closed: quấn vòng (modulo) / kẹp biên — 2 luật lấy điểm | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
-| `core/visualizer/groups/bar/mirror.js:78` | `computeBarMirrorLevels` | if-else theo độ rộng dải: lấy MAX các bin / nội suy tuyến tính — 2 thuật toán lấy mức | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
-| `core/visualizer/groups/shape/clock.js:133` | `buildClockGearOutline` | if-else theo ratchet: răng cóc / răng thường — 2 hình răng | FAIL | Review 20/10 (phán quyết khác thuật toán) | Có |  |
 
 #### Rule 2 — Core tự appState.get() (10)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `core/loading-shield-util.js:18` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Có |  |
-| `core/visualizer/draw/window-frame.js:8` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:8` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:15` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:16` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:17` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:17` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:20` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:20` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
-| `core/visualizer/draw/window-frame.js:20` |  | appState.get() trong core — phải nhận qua tham số | FAIL | Máy quét | Không |  |
 
 #### Rule 3a — Core gọi Core (32)
 
@@ -223,7 +200,6 @@ Cột "Nợ cũ": file đã có trong bản sổ nợ trước (12/07/2026) hay 
 | `core/video-editor/webcodecs-engine.js:94` | `_buildCropProcess` | gọi _computeOutputFrameMatrix() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-editor/webcodecs-engine.js:140` | `processVideo` | gọi _mapCropRectToOutputFrame() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 | `core/video-editor/webcodecs-engine.js:141` | `processVideo` | gọi _buildCropProcess() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
-| `core/visualizer/groups/bar/black-hole.js:503` | `paintBlackHoleBurstBolt` | gọi createBlackHoleRayGradient() (cùng file) | FAIL | Review (máy quét bỏ sót) | Không |  |
 
 #### Rule 3b — Core tự đọc DB/service (0)
 
@@ -250,7 +226,6 @@ _Đã dọn hết 19/10/2026 (plan-debt-domains đợt 16, 17a)._
 |---|---|---|---|---|---|---|
 | `core/loading-shield-util.js:25` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 | `core/loading-shield-util.js:52` |  | appState.set() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
-| `core/rubik-math.js:13` |  | appState.mutate() không có console.log ngay statement kế tiếp. | FAIL | Máy quét | Có |  |
 
 #### Rule 5a — Core gắn sự kiện (27)
 
@@ -337,17 +312,13 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 
-#### Workflow tự thao tác DOM (51)
+#### Workflow tự thao tác DOM (47)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `event/workflow/audio-engine.js:111` | `_applyVolumeGain` | 1 chỗ: volumeGainNode.gain.value = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/generic-drawer-helpers.js:137` | `_setScrollState` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/generic-drawer-helpers.js:144` | `restoreScroll` | 1 chỗ: genericDrawerBody.scrollTop = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-beat-react-runner.js:197` | `_tick` | 1 chỗ: target.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-beat-react-runner.js:226` | `stop` | 1 chỗ: target.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-point-move-runner.js:164` | `_applyStaticPointMoveAtZero` | 1 chỗ: target.style.transform = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
-| `event/workflow/motion-transition-runner.js:116` | `runTransition` | 2 chỗ: outgoingEl.classList.remove() · incomingEl.classList.add() | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:50` | `init` | 1 chỗ: editorTitleEl.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:56` | `_showFatalError` | 2 chỗ: editorTitleEl.textContent = … · linesContainerEl.innerHTML = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/subtitle-editor.js:139` | `_initWaveform` | 5 chỗ: waveformControlsEl.classList.remove() · iconWaveformPlay.classList.add() · iconWaveformPause.classList.remove() … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
@@ -393,7 +364,7 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/video-preview.js:912` | `_applyCroppedPreview` | 17 chỗ: cropViewEl.style.right = … · cropViewEl.style.bottom = … · cropViewEl.style.width = … … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 | `event/workflow/video-preview.js:1007` | `handleSaveModeSelect` | 1 chỗ: this._modalHandle.saveModeLabelEl.textContent = … | FAIL | Review (máy quét bỏ sót) | — | Ghi DOM là việc thi hành → hàm core (-ui) nhận phần tử qua tham số (where-to-edit: "sửa DOM tại chỗ: core/…-ui.js") |
 
-#### Workflow tự tính toán (63)
+#### Workflow tự tính toán (58)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
@@ -406,11 +377,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/audio-analysis.js:442` | `_resetPitchRingsOnGap` | 1 chỗ: Math.abs() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/generic-drawer-helpers.js:74` | `_startHeightAnim` | 1 chỗ: Math.abs() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/generic-drawer-helpers.js:187` | `_retargetHeight` | 2 chỗ: Math.abs() · Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-beat-react-runner.js:184` | `_tick` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-point-move-runner.js:143` | `_deriveLivePointMoveTarget` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-point-move-runner.js:195` | `_activatePointMoveAll` | 1 chỗ: .sort() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-point-move-runner.js:281` | `liveToggle` | 2 chỗ: Math.min() · Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
-| `event/workflow/motion-transition-runner.js:141` | `runTransition` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/perf-hud.js:285` | `_trackTapBlock` | 1 chỗ: Math.max() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/subtitle-editor.js:120` | `_initWaveform` | 1 chỗ: Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
 | `event/workflow/subtitle-editor.js:231` | `seekFromClick` | 2 chỗ: Math.max() · Math.min() | FAIL | Review (máy quét bỏ sót) | — | Phép tính/chuẩn hoá → core thuần trả giá trị (K4/K5) |
@@ -471,7 +437,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/visualizer/bar.js:365` | `_drawDot` | 1 chỗ: ctx.shadowBlur = … | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Vẽ là thi hành → core vẽ nhận ctx qua tham số |
 | `event/workflow/visualizer/rain.js:75` | `_drawGlass` | 5 chỗ: ctx.globalAlpha = … · ctx.fillStyle = … · ctx.fillRect() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Vẽ là thi hành → core vẽ nhận ctx qua tham số |
 | `event/workflow/visualizer/rain.js:124` | `_paintBackdrop` | 2 chỗ: ctx.fillStyle = … · ctx.fillRect() | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Vẽ là thi hành → core vẽ nhận ctx qua tham số |
-| `event/workflow/visualizer/rain.js:160` | `_drawStreet` | 1 chỗ: ctx.globalAlpha = … | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Vẽ là thi hành → core vẽ nhận ctx qua tham số |
 | `event/workflow/visualizer/shape.js:167` | `_drawClock` | 8 chỗ: ctx.save() · ctx.translate() · ctx.scale() … | FAIL | Review (máy quét bỏ sót) | — | Hot path visualizer. Vẽ là thi hành → core vẽ nhận ctx qua tham số |
 
 #### Workflow tự điều khiển media (6)
@@ -485,15 +450,13 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/video-preview.js:553` | `handleCaptureClick` | 1 chỗ: videoEl.pause() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 | `event/workflow/video-preview.js:584` | `handleMediaTapClick` | 2 chỗ: videoEl.play() · videoEl.pause() | FAIL | Review (máy quét bỏ sót) | — | play/pause/src/currentTime là thi hành → core nhận phần tử media qua tham số |
 
-#### Workflow §7: rẽ nhánh không dùng object map (19)
+#### Workflow §7: rẽ nhánh không dùng object map (17)
 
 | Vị trí | Hàm | Mô tả | Trạng thái | Nguồn | Nợ cũ | Ghi chú |
 |---|---|---|---|---|---|---|
 | `event/workflow/generic-drawer-helpers.js:74` | `_startHeightAnim` | if-return: {set _heightAnimEndAt} / {call animateGenericDrawerHeight, set _heightAnimFromPx} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/generic-drawer-helpers.js:183` | `_retargetHeight` | if-return: {call settleGenericDrawerHeightPx, call animateGenericDrawerHeight} / {call settleGenericDrawerHeightPx, call _startHeightAnim} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/generic-drawer-helpers.js:187` | `_retargetHeight` | if-return: {call animateGenericDrawerHeight} / {call _startHeightAnim} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/motion-beat-react-runner.js:136` | `_tick` | if-return: {call stop} / {call audioAnalysis.beatScale, call _rollEffectiveMax} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
-| `event/workflow/motion-point-move-runner.js:223` | `_runActivate` | if-return: {call _activatePointMoveOne} / {call _activatePointMoveAll} | FAIL | Review (máy quét bỏ sót) | — | Nhánh chạy việc khác (dọn/chuyển hướng/tiến trình khác) rồi return — không phải guard thuần |
 | `event/workflow/subtitle-editor.js:248` | `<anon>` | if-else: {call onSeeked} / {call _seekWithRetry} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/subtitle-editor.js:503` | `onConfirm` | if-else: {call appState.set:'_editingPendingStart'} / {call appState.set:'_editingPendingEnd'} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
 | `event/workflow/subtitle-editor.js:520` | `handleAutoTimingClick` | if-else: {call _clearLineRangeStopHandler, call appState.set:'_autoSubStartTime'} / {call appState.set:'_subtitles', call sortSubtitlesByStart} | FAIL | Review (máy quét bỏ sót) | — | Rẽ ≥2 tiến trình — phải viết object map / VirtualMachineState |
@@ -581,9 +544,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | `event/workflow/visualizer/connector.js:180` | `onNewMedia` | 2 lần appState.get cho 2 key ('cnInitialized', 'cnChips') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visualizer/connector.js:281` | `_clearCircuitSignals` | 2 lần appState.get cho 2 key ('cnActiveSignalsCircuit', 'cnGroupCircuit') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visualizer/rain.js:60` | `_drawGlass` | 2 lần appState.get cho 2 key ('glassStaticDrops', 'glassStreaks') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/visualizer/rain.js:130` | `_drawStreet` | 4 lần appState.get cho 4 key ('streetRain', 'streetGroundY', 'streetLamps', 'ripples') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/visualizer/vortex.js:118` | `_syncTunnelStraightness` | 2 lần appState.get cho 2 key ('tInitialized', 'tPathTarget') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
-| `event/workflow/visualizer/vortex.js:153` | `_renderTunnel` | 6 lần appState.get cho 7 key ('tInitialized', 'tCurrentWarpZ', 'tPathParams', 'tPathTarget'…) — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 | `event/workflow/visualizer/vortex.js:199` | `_rebaseWarpZ` | 3 lần appState.get cho 3 key ('tRings', 'tWaveMeshes', 'tBarRingZs') — phải gộp 1 lần get([…]) | FAIL | Review (máy quét bỏ sót) | — |  |
 
 ### 4.3 TaskManager
@@ -614,17 +574,17 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 
 | Rule máy | Lý do loại | Số dòng |
 |---|---|---|
-| CORE-1 | Rà lại 20/10/2026 trên code hiện tại (nhánh ≥2 vế: if/else, else-if, ternary) theo phán quyết "khác thuật toán = khác tiến trình" — PASS theo tiêu chí A/B/C-D/E (core-function-conventions.md Rule 1); FAIL đã chuyển lên mục 4.1. File viết lại sau đó rà lại tại chỗ (REVIEW 22/10) | 386 |
+| CORE-1 | Rà lại 20/10/2026 trên code hiện tại (nhánh ≥2 vế: if/else, else-if, ternary) theo phán quyết "khác thuật toán = khác tiến trình" — PASS theo tiêu chí A/B/C-D/E (core-function-conventions.md Rule 1); FAIL đã chuyển lên mục 4.1. File viết lại sau đó rà lại tại chỗ (REVIEW 22/10) | 416 |
 | CORE-5A | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) | 99 |
 | EV-LISTENER-1 | Ủy quyền closest()/bảng tuyến chỉ để xác định phần tử rồi eventBus.send — không phải rẽ nhánh nghiệp vụ (review) | 42 |
 | CORE-3A | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core | 18 |
 | CORE-5C | createElement canvas/a/video/script/link để xử lý hoặc tải file — không phải dựng UI | 10 |
 | CORE-5A | Ngoại lệ đã audit: nằm trong danh sách 18 chỗ đã audit (changelog/v11.md mục 2) | 10 |
-| CORE-4 | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 | 9 |
+| CORE-4 | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 | 11 |
 | CORE-5B | Rule chấm theo điều kiện bị bỏ — Rule 1 chấm theo nội dung nhánh đã bao (guard = PASS) | 9 |
 | CORE-1 | Switch A/B trên cùng một đối tượng (play/pause, mở/đóng, hiện/ẩn…) = 1 nghiệp vụ — phán quyết Giang 07/10 | 4 |
 
-<details><summary>Danh sách đầy đủ (587 dòng)</summary>
+<details><summary>Danh sách đầy đủ (608 dòng)</summary>
 
 | Rule máy | Vị trí | Lý do |
 |---|---|---|
@@ -754,7 +714,28 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:112` | `alertModal` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:135` | `_buildCancelButton` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/modal-choice-ui.js:192` | `_appendDropdownRow` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/motion-engine.js:514` | `computeMotionEngineBeatReactNextPolarity` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:48` | `resolvePointMoveActivationKind` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:49` | `resolvePointMoveActivationKind` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:59` | `listCheckedPointMoveIndices` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:83` | `assemblePointMoveAllTargets` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:107` | `interpolatePointMoveTargets` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:130` | `buildPointMoveAllKeyframes` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:147` | `readMotionLayerTransform` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:177` | `computeMotionBeatReactDeltaMs` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:178` | `computeMotionBeatReactDeltaMs` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:196` | `advanceMotionBeatReactBeat` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:200` | `advanceMotionBeatReactBeat` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:201` | `advanceMotionBeatReactBeat` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:203` | `advanceMotionBeatReactBeat` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:215` | `advanceMotionBeatReactBeat` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:216` | `advanceMotionBeatReactBeat` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:217` | `advanceMotionBeatReactBeat` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:241` | `resolveMotionBeatReactRelease` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:255` | `computeMotionBeatReactTransform` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:256` | `computeMotionBeatReactTransform` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:257` | `computeMotionBeatReactTransform` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:258` | `computeMotionBeatReactTransform` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/motion-runner.js:266` | `resolveMotionBeatReactSyncAction` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 22/10) | `core/motion-presets.js:210` | `replaceMotionPresetFields` E — switch A/B / cập nhật đúng 1 đối tượng |
 | CORE-1 (REVIEW 22/10) | `core/motion-presets.js:236` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 22/10) | `core/motion-presets.js:255` | `sanitizeMotionPreset` A — giá trị dự phòng / guard dữ liệu |
@@ -786,6 +767,34 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 22/10) | `core/motion-presets.js:635` | `buildRandomPointMoveFieldValues` B — bước tuỳ chọn (áp hoặc không 1 phép) |
 | CORE-1 (REVIEW 22/10) | `core/motion-presets-ui.js:66` | `showPointMoveFieldMode` E — switch A/B / cập nhật đúng 1 đối tượng |
 | CORE-1 (REVIEW 22/10) | `core/motion-presets-ui.js:67` | `showPointMoveFieldMode` E — switch A/B / cập nhật đúng 1 đối tượng |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:55` | `resolveDotAxisShape` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:68` | `buildDotAxisRawSinArc` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:69` | `buildDotAxisRawSinArc` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:96` | `buildDotAxisRawSquareWave` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:161` | `sampleDotAxisPoints` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:162` | `sampleDotAxisPoints` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:165` | `sampleDotAxisPoints` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:390` | `resolveDotAxisPaintKind` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:397` | `paintDotAxisDotBranches` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:399` | `paintDotAxisDotBranches` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:400` | `paintDotAxisDotBranches` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:404` | `paintDotAxisDotBranches` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:405` | `paintDotAxisDotBranches` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:422` | `paintDotAxisDotRound` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:424` | `paintDotAxisDotRound` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:476` | `stepDotDnaBreakPairs` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/dot.js:479` | `stepDotDnaBreakPairs` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/mirror.js:84` | `computeBarMirrorLevels` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/bar/common.js:17` | `paintBarRects` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/shape/clock.js:455` | `resolveClockGearInterior` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/shape/clock.js:455` | `resolveClockGearInterior` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/webgl/three-vortex.js:51` | `getVortexCenterAt` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/webgl/three-vortex.js:58` | `pickVortexDirectionIndex` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/rain/street.js:78` | `stepStreetWind` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/rain/street.js:100` | `computeStreetThunderAlpha` A — giá trị dự phòng / guard dữ liệu |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/rain/street.js:101` | `computeStreetThunderAlpha` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/rain/street.js:302` | `advanceRainLampsAndBuildSpecs` B — bước tuỳ chọn (áp hoặc không 1 phép) |
+| CORE-1 (REVIEW 22/10) | `core/visualizer/groups/rain/street.js:309` | `advanceRainLampsAndBuildSpecs` B — bước tuỳ chọn (áp hoặc không 1 phép) |
 | CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:55` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:56` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/mp3-cut.js:57` | `indexMp3Frames` A — giá trị dự phòng / guard dữ liệu |
@@ -863,12 +872,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 20/10) | `core/recorder-ui.js:115` | `setRecorderCountIn` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/recorder.js:235` | `computeRecorderMeterView` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/recorder.js:394` | `computeRecorderPreviewProgress` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:16` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:16` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:17` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:17` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:18` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/rubik-math.js:18` | `rotateRubikIndices` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/settings-carousel-ui.js:29` | `measureSettingsCarousel` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/settings-carousel-ui.js:29` | `measureSettingsCarousel` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/statis-panel.js:36` | `computeStatisAggregates` A — giá trị dự phòng / guard dữ liệu |
@@ -957,8 +960,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:427` | `computeBlackHoleRayReach` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:428` | `computeBlackHoleRayReach` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/black-hole.js:448` | `createBlackHoleRayGradient` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:95` | `buildDotAxisGeometry` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:138` | `pointAt` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:207` | `computeDotTargetBoosts` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:207` | `computeDotTargetBoosts` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:239` | `stepDotLineVibration` A — giá trị dự phòng / guard dữ liệu |
@@ -966,13 +967,6 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:251` | `computeDotLineDisplacement` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:294` | `stepDotSnake` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:357` | `sampleDotSnakeBody` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:384` | `paintDotAxisDot` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:384` | `paintDotAxisDot` B — bước tuỳ chọn (áp hoặc không 1 phép) |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:384` | `paintDotAxisDot` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` B — bước tuỳ chọn (áp hoặc không 1 phép) |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` B — bước tuỳ chọn (áp hoặc không 1 phép) |
-| CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:385` | `paintDotAxisDot` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:414` | `blendDotPositions` A — giá trị dự phòng / guard dữ liệu |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/dot.js:414` | `blendDotPositions` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/visualizer/groups/bar/mirror.js:92` | `computeBarMirrorLevels` A — giá trị dự phòng / guard dữ liệu |
@@ -1014,15 +1008,11 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:247` | `buildCircuitWires` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:247` | `buildCircuitWires` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
 | CORE-1 (REVIEW 20/10) | `core/webgl/three-connector.js:310` | `collectCircuitJunctions` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:108` | `computeVortexCurveTarget` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:108` | `computeVortexCurveTarget` A — giá trị dự phòng / guard dữ liệu |
-| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:109` | `computeVortexCurveTarget` C/D — cùng công thức khác toán hạng/hằng, hoặc công thức từng khúc của 1 hàm theo chính giá trị đầu vào |
-| CORE-1 (REVIEW 20/10) | `core/webgl/three-vortex.js:109` | `computeVortexCurveTarget` A — giá trị dự phòng / guard dữ liệu |
 | CORE-3A (FAIL) | `core/color-utils.js:144` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/color-utils.js:181` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/color-utils.js:184` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
-| CORE-3A (FAIL) | `core/motion-engine.js:384` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
-| CORE-3A (FAIL) | `core/motion-engine.js:393` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
+| CORE-3A (FAIL) | `core/motion-engine.js:356` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
+| CORE-3A (FAIL) | `core/motion-engine.js:368` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/player-controls.js:160` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/player-controls.js:160` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
 | CORE-3A (FAIL) | `core/playlist/loader.js:38` | Gọi phương thức của phần tử media/zipWriter/animation trùng tên hàm core (vd bgVideoElement.pause()) — không phải core |
@@ -1041,10 +1031,12 @@ _Đã dọn hết 21/10/2026 (2 chỗ `requestVideoFrameCallback` qua adapter `r
 | CORE-4 (REVIEW) | `core/visualizer/groups/rain/glass.js:176` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
 | CORE-4 (REVIEW) | `core/visualizer/groups/rain/glass.js:183` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
 | CORE-4 (REVIEW) | `core/visualizer/groups/rain/glass.js:188` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
-| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:65` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
-| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:98` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
-| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:156` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
-| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:171` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
+| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:69` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
+| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:199` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
+| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:210` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
+| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:254` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
+| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:309` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
+| CORE-4 (REVIEW) | `core/visualizer/groups/rain/street.js:317` | Hot path 60fps (vòng vẽ visualizer) — ngoại lệ chính thức của Rule 4 |
 | CORE-5A (FAIL) | `core/file-manager/folder-picker-ui.js:125` | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) |
 | CORE-5A (FAIL) | `core/file-manager/photo-ui.js:379` | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) |
 | CORE-5A (FAIL) | `core/file-manager/photo-ui.js:380` | Hàm wire của file -ui: callback chỉ eventBus.send, listener gom cuối hàm (khuôn wireDebugConsolePanelActions ở event-bus-flow §3a) |
