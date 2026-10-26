@@ -17,18 +17,20 @@
  */
 const TPL_GAMEPLAY_OVERLAY = `
             <div id="gameplay-layer" class="hidden absolute inset-0 z-[65]">
-                <div id="gameplay-tap-surface" class="absolute inset-0 pointer-events-auto"></div>
+                <div id="gameplay-arrow-viewport" class="absolute inset-0 overflow-hidden">
+                    <div id="gameplay-tap-surface" class="absolute inset-0 pointer-events-auto"></div>
 ${TPL_GAMEPLAY_ARROW_STAGE}
 
-                <button id="btn-gameplay-exit" class="absolute top-4 left-3 sm:left-6 z-20 w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors shadow-lg pointer-events-auto">
-                    ${iconSvg('x', 'h-5 w-5 text-slate-300')}
-                </button>
+                    <button id="btn-gameplay-exit" class="absolute top-4 left-3 sm:left-6 z-20 w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors shadow-lg pointer-events-auto">
+                        ${iconSvg('x', 'h-5 w-5 text-slate-300')}
+                    </button>
 
-                <canvas id="gameplay-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
-                <div id="gameplay-tier-popup-layer" class="absolute inset-0 pointer-events-none"></div>
+                    <canvas id="gameplay-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                    <div id="gameplay-tier-popup-layer" class="absolute inset-0 pointer-events-none"></div>
 
-                <div id="gameplay-countdown-screen" class="hidden absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                    <div id="gameplay-countdown-number" class="gameplay-countdown-number">5</div>
+                    <div id="gameplay-countdown-screen" class="hidden absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                        <div id="gameplay-countdown-number" class="gameplay-countdown-number">5</div>
+                    </div>
                 </div>
             </div>
 `;
