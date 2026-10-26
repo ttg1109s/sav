@@ -74,7 +74,8 @@ const GAMEPLAY_ARROW_CONFIG = Object.freeze({
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phần tiếp theo: /**
+
+/**
  * core/gameplay/arrow.js — MỚI (07/10/2026, Giang yêu cầu game "Arrow"). Core THUẦN riêng mode "Arrow": dựng dải
  * mũi tên theo level, thời lượng 1 vòng chạy của nút tròn (theo BPM + tăng tốc), tiến nút tròn mỗi frame, chấm 1 lần
  * nhập mũi tên, chấm commit theo vạch đích, lên level. Chấm combo/sao/điểm trung bình DÙNG CHUNG core/gameplay/
@@ -211,7 +212,8 @@ function computeArrowPopupAnchor(stripRect, layerRect) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phần tiếp theo: /**
+
+/**
  * core/gameplay/arrow.js — MỚI (07/10/2026, game "Arrow"). Core RIÊNG mode "Arrow" ghi lên DOM TĨNH của stage
  * (components/gameplay-arrow-stage.js — tra qua core/dom-refs.js, Workflow truyền element vào). KHÔNG hậu tố `-ui`
  * (Rule 5c): file không tự createElement cụm DOM mới, chỉ gán class/style/text/innerHTML lên phần tử có sẵn — cùng khuôn
