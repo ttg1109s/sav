@@ -23,6 +23,15 @@
 [data-dir="6"], [data-arrow-dir="6"] { --dir-angle: 270deg; }
 [data-dir="7"], [data-arrow-dir="7"] { --dir-angle: 315deg; }
 
+/* ── Khung hiển thị Arrow ────────────────────────────────────────────────────────────────────────── */
+#gameplay-arrow-viewport { position:absolute; inset:0; overflow:hidden; }
+@media (orientation: portrait) {
+  #gameplay-layer[data-game-mode="arrow"] #gameplay-arrow-viewport {
+    inset:auto; top:0; left:100%; width:100dvh; height:100dvw;
+    transform:rotate(90deg); transform-origin:top left;
+  }
+}
+
 /* ── Khung stage ─────────────────────────────────────────────────────────────────────────────────── */
 /* Chiếm MỌI chạm trên màn (cử chỉ Visualizer phía dưới không chạy giữa ván), chặn zoom/cuộn/chọn chữ. */
 .gameplay-arrow-stage {
@@ -237,13 +246,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 28px 20px max(22px, calc(env(safe-area-inset-bottom) + 12px));
+    padding: 12px 18px max(12px, calc(env(safe-area-inset-bottom) + 8px));
     background: linear-gradient(to top, rgba(2, 6, 23, 0.72) 0%, rgba(2, 6, 23, 0.34) 65%, rgba(2, 6, 23, 0) 100%);
 }
 
 /* Bố cục vòng 8 hướng giữ nguyên vị trí và ánh xạ data-arrow-dir 0..7. */
 .gameplay-arrow-pad {
-    --pad-size: min(48vw, 216px, 32vh);
+    --pad-size: min(32vw, 150px, 24vh);
     position: relative;
     width: var(--pad-size);
     height: var(--pad-size);
@@ -312,7 +321,7 @@
 
 /* Enter: biểu tượng Material-style dạng SVG, không thêm phụ thuộc font bên ngoài. */
 .gameplay-arrow-commit {
-    --commit-size: min(30vw, 124px, 20vh);
+    --commit-size: min(20vw, 84px, 14vh);
     position: relative;
     width: var(--commit-size);
     min-height: var(--commit-size);
@@ -333,8 +342,8 @@
 .gameplay-arrow-commit-icon {
     width: 32%;
     height: 32%;
-    min-width: 24px;
-    min-height: 24px;
+    min-width: 18px;
+    min-height: 18px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
