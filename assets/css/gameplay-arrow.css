@@ -27,7 +27,7 @@
 #gameplay-arrow-viewport { position:absolute; inset:0; overflow:hidden; }
 @media (orientation: portrait) {
   #gameplay-layer[data-game-mode="arrow"] #gameplay-arrow-viewport {
-    inset:auto; top:0; left:100%; width:100dvh; height:100dvw;
+    inset:auto; top:0; left:100%; width:calc(100dvh - 88px); height:100dvw;
     transform:rotate(90deg); transform-origin:top left;
   }
 }
