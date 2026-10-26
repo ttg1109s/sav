@@ -80,7 +80,7 @@ function computePhotoPlayerSurfaceTiming(durationSec, surfaceHasContent, transit
 
 /** Tên + album + Media Session của ảnh đang phát (Photo không có artist). @param {string} title @param {string} album */
 function applyPhotoPlayerTrackInfo(title, album) {
-    playerTitle.textContent = title;
+    setPlayerTitleText(title);
     playerArtist.textContent = ''; playerAlbum.textContent = album;
     if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: '', artwork: [] });
 }
