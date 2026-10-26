@@ -148,7 +148,8 @@ ${TPL_RECORDER_OVERLAY}
                  phải Settings Stack). -->
             <div id="visualizer-volume-hud" data-uitk="vizPanelSurface" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] rounded-full pointer-events-auto flex items-center gap-3 px-5 py-3 w-64 max-w-[80vw]">
                 ${iconSvg('volume-hud', 'w-5 h-5 shrink-0', 'id="volume-hud-icon"')}
-                <input type="range" id="volume-hud-slider" min="0" max="200" step="1" class="setting-slider flex-1">
+                <input type="range" id="volume-hud-slider" min="0" max="200" step="1" class="setting-slider flex-1 min-w-0">
+                <span id="volume-hud-percent" class="shrink-0 min-w-[3.5ch] text-right text-xs font-mono font-semibold tabular-nums" aria-live="polite">100%</span>
             </div>
 
             <!-- Speed HUD — SỬA (18/09/2026, Giang cho phép dải liên tục 0.5-2, làm tròn 2 chữ số
