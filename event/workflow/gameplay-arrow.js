@@ -5,7 +5,7 @@
  *
  * Cơ chế:
  *   - Mỗi VÒNG = nút tròn trên thanh tiến trình chạy 0 -> 100% (thời lượng theo BPM + tăng tốc —
- *     core/gameplay/arrow-mode.js::computeArrowRoundTiming()), kèm 1 dải mũi tên `level` ô.
+ *     core/gameplay/arrow.js::computeArrowRoundTiming()), kèm 1 dải mũi tên `level` ô.
  *   - Bấm hướng trên bàn phím tròn: đúng -> ô xanh lá, sang ô kế; sai -> không tính VÀ huỷ mọi ô đã đúng, nhập lại từ
  *     đầu (applyArrowInput()). Vòng đỏ = phải bấm NGƯỢC hướng hiển thị.
  *   - Enter: nút tròn trong vùng đích (tâm 80% + dải blur) VÀ đã nhập đủ dải -> perfect/excellent/good/bad theo độ lệch;
@@ -18,7 +18,7 @@
  * workflowStatisPanel / `_hardChainQueue` của Circle), không đưa vào appState. Core trả object kết quả, Workflow chỉ gán
  * lại (event-bus-flow.md mục 7.1). Rẽ nhánh theo kết quả nhập = object map (mục 7.2).
  *
- * NẠP SAU: core/gameplay/arrow-config.js, core/gameplay/arrow-mode.js, core/gameplay/arrow-stage.js,
+ * NẠP SAU: core/gameplay/arrow.js,
  * core/gameplay/engine.js, core/gameplay/engine-ui.js, components/gameplay-arrow-stage.js
  * (renderGameplayArrowStripHtml), core/player-controls.js (getActiveMediaElement, setPlayerControlsBlocked),
  * event/workflow/gameplay-engine.js (resolveEndModalLabels, GAMEPLAY_TIER_LABEL_KEY_BY_NAME),
@@ -60,7 +60,7 @@ const workflowGameplayArrow = {
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
         setPlayerControlsBlocked(true); // core (player-controls.js)
         setGameplayPlayerBarHidden(playerContainer, true); // core-ui (engine-ui.js)
-        paintArrowTargetZone(gameplayArrowZone, gameplayArrowTarget, computeArrowTargetZoneGeometry(GAMEPLAY_ARROW_CONFIG)); // core (arrow-stage.js) + core
+        paintArrowTargetZone(gameplayArrowZone, gameplayArrowTarget, computeArrowTargetZoneGeometry(GAMEPLAY_ARROW_CONFIG)); // core (arrow.js) + core
         this._paintIdleStage();
 
         this.startCountdown();
@@ -131,7 +131,7 @@ const workflowGameplayArrow = {
 
         const finalScore = computeFinalAverageScore(gameplayTotalScore, gameplayCircleCount); // core (engine.js)
         const { title, playCount } = await workflowGameplayEngine.persistScore(GAMEPLAY_ARROW_MODE_ID, gameplayDifficulty, finalScore, playingMediaType);
-        const extras = computeArrowEndExtras(gameplayCircleCount, playCount, cfg); // core (arrow-mode.js)
+        const extras = computeArrowEndExtras(gameplayCircleCount, playCount, cfg); // core (arrow.js)
         const starRating = computeStarRating(gameplayTotalScore, extras.maxScore, cfg); // core (engine.js)
 
         appState.set('gameplayPhase', 'ended', { skipCheck: true });
@@ -163,7 +163,7 @@ const workflowGameplayArrow = {
         round.elapsedMs = step.elapsedMs;
         round.lastTickAt = now;
         round.progressPercent = step.progressPercent;
-        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, step.progressPercent); // core (arrow-stage.js)
+        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, step.progressPercent); // core (arrow.js)
 
         if (step.hasWrapped) this._finishRound(now); // bước tuỳ chọn — chạm 100%
     },
@@ -212,11 +212,11 @@ const workflowGameplayArrow = {
         const timing = computeArrowRoundTiming(audioAnalysis.bpmText(), this._lap, this._diffCfg, cfg); // core + service/audio-analysis.js
         this._round = { arrows, inputIndex: 0, periodMs: timing.periodMs, elapsedMs: 0, lastTickAt: now, progressPercent: 0, isResolved: false };
 
-        paintArrowStrip(gameplayArrowStrip, renderGameplayArrowStripHtml(arrows)); // core (arrow-stage.js) + components/gameplay-arrow-stage.js
-        paintArrowStripProgress(gameplayArrowStrip, 0); // core (arrow-stage.js)
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
-        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core (arrow-stage.js)
-        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, timing.speedMultiplier); // core (arrow-stage.js)
+        paintArrowStrip(gameplayArrowStrip, renderGameplayArrowStripHtml(arrows)); // core (arrow.js) + components/gameplay-arrow-stage.js
+        paintArrowStripProgress(gameplayArrowStrip, 0); // core (arrow.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow.js)
+        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core (arrow.js)
+        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, timing.speedMultiplier); // core (arrow.js)
     },
 
     /** Nút tròn chạm 100%: vòng chưa commit -> miss; lên level rồi mở vòng mới. */
@@ -247,30 +247,30 @@ const workflowGameplayArrow = {
         appState.set('gameplayHitCounts', totals.hitCounts, { skipCheck: true });
         console.log(`writer: "workflowGameplayArrow._resolveRound", page: "gameplayHitCounts", content: "${tier.name}+1"`);
 
-        paintArrowStripResult(gameplayArrowStrip, tier.name); // core (arrow-stage.js)
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
+        paintArrowStripResult(gameplayArrowStrip, tier.name); // core (arrow.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow.js)
         const anchor = computeArrowPopupAnchor(gameplayArrowStrip.getBoundingClientRect(), gameplayLayer.getBoundingClientRect()); // đọc kích thước (chuẩn bị) -> core thuần tính toạ độ
         showTapTierPopup(gameplayTierPopupLayer, t(GAMEPLAY_TIER_LABEL_KEY_BY_NAME[tier.name]), tier.name, anchor.x, anchor.y, newComboByTier[tier.name] || 0, cfg); // core-ui (engine-ui.js)
     },
 
     /** Bấm đúng — tô lại tiến độ dải; `isComplete` -> nút Enter sáng chờ commit. */
     _paintInputProgress(isComplete) {
-        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core (arrow-stage.js)
-        paintArrowCommitReady(btnGameplayArrowCommit, isComplete); // core (arrow-stage.js)
+        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core (arrow.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, isComplete); // core (arrow.js)
     },
 
     /** Bấm sai — mọi ô về chưa nhập, dải rung. */
     _paintWrongInput() {
-        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core (arrow-stage.js) (inputIndex đã về 0)
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
-        flashArrowStripWrong(gameplayArrowStrip); // core (arrow-stage.js)
+        paintArrowStripProgress(gameplayArrowStrip, this._round.inputIndex); // core (arrow.js) (inputIndex đã về 0)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow.js)
+        flashArrowStripWrong(gameplayArrowStrip); // core (arrow.js)
     },
 
     /** Stage rỗng (trước đếm ngược / sau khi thoát / hết bài): không dải, nút tròn ở 0%, Enter tắt, HUD level đầu. */
     _paintIdleStage() {
-        paintArrowStrip(gameplayArrowStrip, ''); // core (arrow-stage.js)
-        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core (arrow-stage.js)
-        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow-stage.js)
-        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, 1); // core (arrow-stage.js)
+        paintArrowStrip(gameplayArrowStrip, ''); // core (arrow.js)
+        paintArrowCursor(gameplayArrowCursorRail, gameplayArrowTrackFill, 0); // core (arrow.js)
+        paintArrowCommitReady(btnGameplayArrowCommit, false); // core (arrow.js)
+        paintArrowHud(gameplayArrowLevel, gameplayArrowSpeed, this._level, 1); // core (arrow.js)
     },
 };
