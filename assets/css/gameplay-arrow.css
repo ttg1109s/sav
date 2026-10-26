@@ -230,7 +230,7 @@
     100% { transform: scale(1); filter: brightness(1.1); }
 }
 
-/* ── Bàn phím ────────────────────────────────────────────────────────────────────────────────────── */
+/* ── Bàn phím Material Silver: phẳng, bạc bán trong suốt, hỗ trợ đủ 8 hướng ───────────────────── */
 .gameplay-arrow-controls {
     flex: 0 0 auto;
     display: flex;
@@ -238,10 +238,10 @@
     justify-content: space-between;
     gap: 16px;
     padding: 28px 20px max(22px, calc(env(safe-area-inset-bottom) + 12px));
-    background: linear-gradient(to top, rgba(2, 6, 23, 0.82) 0%, rgba(2, 6, 23, 0.5) 65%, rgba(2, 6, 23, 0) 100%);
+    background: linear-gradient(to top, rgba(2, 6, 23, 0.72) 0%, rgba(2, 6, 23, 0.34) 65%, rgba(2, 6, 23, 0) 100%);
 }
 
-/* Vòng tròn 8 hướng — mỗi nút đặt bằng xoay quanh tâm (rotate -> đẩy ra bán kính -> xoay ngược để nút đứng thẳng). */
+/* Bố cục vòng 8 hướng giữ nguyên vị trí và ánh xạ data-arrow-dir 0..7. */
 .gameplay-arrow-pad {
     --pad-size: min(48vw, 216px, 32vh);
     position: relative;
@@ -253,93 +253,115 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: radial-gradient(circle at 50% 40%, rgba(51, 65, 85, 0.75) 0%, rgba(15, 23, 42, 0.85) 70%);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: inset 0 3px 10px rgba(255, 255, 255, 0.08), inset 0 -6px 14px rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.5);
+    background: rgba(148, 163, 184, 0.055);
+    border: 1px solid rgba(203, 213, 225, 0.13);
+    pointer-events: none;
 }
 .gameplay-arrow-pad-hub {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: calc(var(--pad-size) * 0.22);
-    height: calc(var(--pad-size) * 0.22);
-    margin: calc(var(--pad-size) * -0.11) 0 0 calc(var(--pad-size) * -0.11);
+    width: calc(var(--pad-size) * 0.16);
+    height: calc(var(--pad-size) * 0.16);
+    margin: calc(var(--pad-size) * -0.08) 0 0 calc(var(--pad-size) * -0.08);
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 35%, #475569, #0f172a);
-    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.15), 0 2px 6px rgba(0, 0, 0, 0.6);
+    background: rgba(192, 198, 206, 0.10);
+    border: 1px solid rgba(220, 225, 232, 0.18);
     pointer-events: none;
 }
 .gameplay-arrow-pad-btn {
-    --btn-size: calc(var(--pad-size) * 0.235);
+    --btn-size: calc(var(--pad-size) * 0.25);
     position: absolute;
     left: 50%;
     top: 50%;
     width: var(--btn-size);
     height: var(--btn-size);
     margin: calc(var(--btn-size) / -2) 0 0 calc(var(--btn-size) / -2);
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
-    background: radial-gradient(circle at 35% 28%, #7dd3fc 0%, #2563eb 55%, #1e3a8a 100%);
-    box-shadow: inset 0 -4px 7px rgba(0, 0, 0, 0.35), inset 0 2px 5px rgba(255, 255, 255, 0.35), 0 3px 0 #1e3a8a, 0 6px 12px rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(226, 232, 240, 0.19);
+    border-radius: 50%;
+    color: #c0c6ce;
+    background: rgba(148, 163, 184, 0.12);
     transform: rotate(var(--dir-angle)) translateY(calc(var(--pad-size) * -0.365)) rotate(calc(var(--dir-angle) * -1));
-    transition: transform 80ms ease-out, filter 80ms ease-out;
+    transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 100ms ease;
     touch-action: none;
+    -webkit-tap-highlight-color: transparent;
 }
-.gameplay-arrow-pad-btn svg {
-    width: 58%;
-    height: 58%;
-    stroke-width: 3;
+.gameplay-arrow-triangle {
+    display: block;
+    width: 34%;
+    height: 34%;
+    background: currentColor;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
     transform: rotate(var(--dir-angle));
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
     pointer-events: none;
 }
 .gameplay-arrow-pad-btn:active {
-    filter: brightness(1.35);
-    transform: rotate(var(--dir-angle)) translateY(calc(var(--pad-size) * -0.365)) rotate(calc(var(--dir-angle) * -1)) scale(0.9);
+    color: #f8fafc;
+    background: rgba(226, 232, 240, 0.28);
+    border-color: rgba(241, 245, 249, 0.48);
+    transform: rotate(var(--dir-angle)) translateY(calc(var(--pad-size) * -0.365)) rotate(calc(var(--dir-angle) * -1)) scale(0.92);
+}
+.gameplay-arrow-pad-btn:focus-visible,
+.gameplay-arrow-commit:focus-visible {
+    outline: 2px solid rgba(226, 232, 240, 0.9);
+    outline-offset: 3px;
 }
 
-/* Nút Enter — khối tròn lớn bên phải, sáng nhịp khi đã nhập đủ dải (paintArrowCommitReady()). */
+/* Enter: biểu tượng Material-style dạng SVG, không thêm phụ thuộc font bên ngoài. */
 .gameplay-arrow-commit {
     --commit-size: min(30vw, 124px, 20vh);
     position: relative;
     width: var(--commit-size);
-    height: var(--commit-size);
+    min-height: var(--commit-size);
     flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid rgba(226, 232, 240, 0.2);
     border-radius: 50%;
-    color: #ffffff;
-    background: radial-gradient(circle at 35% 28%, #c4b5fd 0%, #7c3aed 55%, #4c1d95 100%);
-    box-shadow: inset 0 -6px 10px rgba(0, 0, 0, 0.35), inset 0 3px 7px rgba(255, 255, 255, 0.35), 0 5px 0 #4c1d95, 0 10px 20px rgba(0, 0, 0, 0.5);
-    transition: transform 80ms ease-out, filter 80ms ease-out;
+    color: #c0c6ce;
+    background: rgba(148, 163, 184, 0.12);
+    transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 100ms ease;
     touch-action: none;
+    -webkit-tap-highlight-color: transparent;
 }
-.gameplay-arrow-commit::before {
-    content: '';
-    position: absolute;
-    top: 8%;
-    left: 22%;
-    width: 56%;
+.gameplay-arrow-commit-icon {
+    width: 32%;
     height: 32%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 75%);
+    min-width: 24px;
+    min-height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     pointer-events: none;
 }
 .gameplay-arrow-commit-label {
     position: relative;
-    font-size: 15px;
-    font-weight: 900;
+    font-size: 11px;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
     pointer-events: none;
 }
-.gameplay-arrow-commit:active { transform: translateY(3px) scale(0.95); filter: brightness(1.25); }
-.gameplay-arrow-commit.is-ready { animation: gameplayArrowCommitReady 700ms ease-in-out infinite; }
+.gameplay-arrow-commit:active {
+    color: #f8fafc;
+    background: rgba(226, 232, 240, 0.28);
+    border-color: rgba(241, 245, 249, 0.48);
+    transform: scale(0.94);
+}
+.gameplay-arrow-commit.is-ready {
+    animation: gameplayArrowCommitReady 700ms ease-in-out infinite;
+}
 @keyframes gameplayArrowCommitReady {
-    0%, 100% { box-shadow: inset 0 -6px 10px rgba(0, 0, 0, 0.35), inset 0 3px 7px rgba(255, 255, 255, 0.35), 0 5px 0 #4c1d95, 0 0 0 0 rgba(253, 224, 71, 0.7), 0 10px 20px rgba(0, 0, 0, 0.5); }
-    50%      { box-shadow: inset 0 -6px 10px rgba(0, 0, 0, 0.35), inset 0 3px 7px rgba(255, 255, 255, 0.35), 0 5px 0 #4c1d95, 0 0 0 8px rgba(253, 224, 71, 0.35), 0 0 26px rgba(253, 224, 71, 0.8); }
+    0%, 100% { border-color: rgba(226, 232, 240, 0.2); background: rgba(148, 163, 184, 0.12); }
+    50% { border-color: rgba(241, 245, 249, 0.55); background: rgba(226, 232, 240, 0.24); }
 }
 
 @media (prefers-reduced-motion: reduce) {
