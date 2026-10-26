@@ -4,12 +4,12 @@
  */
 
 /** Mốc icon loa theo âm lượng — 0 = câm, 1 = chỉ loa, 2/3/4 = thêm dần 1/2/3 vòng sóng.
- * @param {number} volume - 0-100 @returns {0|1|2|3|4} */
+ * @param {number} volume - 0-200 @returns {0|1|2|3|4} */
 function resolveVolumeIconLevel(volume) {
     if (volume <= 0) return 0;
-    if (volume <= 25) return 1;
-    if (volume <= 50) return 2;
-    if (volume <= 75) return 3;
+    if (volume <= 50) return 1;
+    if (volume <= 100) return 2;
+    if (volume <= 150) return 3;
     return 4;
 }
 
@@ -38,9 +38,10 @@ function hideHudPanel(panelEl) {
 }
 
 /** Phần "đã kéo" của slider volume — biến `--hud-fill-pct`, `.setting-slider` (sliders.css) tô theo UI theme.
- * @param {HTMLElement} sliderEl - #volume-hud-slider @param {number} volume - 0-100 */
+ * @param {HTMLElement} sliderEl - #volume-hud-slider @param {number} volume - 0-200 */
 function syncVolumeHudSliderFill(sliderEl, volume) {
-    sliderEl.style.setProperty('--hud-fill-pct', `${Math.max(0, Math.min(100, volume))}%`);
+    const safeVolume = Math.max(0, Math.min(200, Number(volume) || 0));
+    sliderEl.style.setProperty('--hud-fill-pct', `${(safeVolume / 200) * 100}%`);
 }
 
 // ===================== Speed HUD =====================
