@@ -142,6 +142,7 @@
         // event/workflow/eq-presets.js.)
         const btnCycleEq = document.getElementById('btn-cycle-eq'), eqBadgeLabel = document.getElementById('eq-badge-label');
         const volumeHudSlider = document.getElementById('volume-hud-slider');
+        const volumeHudPercent = document.getElementById('volume-hud-percent');
         const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
         // Speed HUD — SỬA (18/09/2026) — slider liên tục 0.5-2 + nhãn giá trị, VẪN giữ 6 nút mốc
         // nhảy nhanh bên dưới (trước đây CHỈ có 6 nút, không có slider) — xem core/hud.js.
