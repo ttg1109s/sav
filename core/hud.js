@@ -22,9 +22,21 @@ function syncVolumeHudIcon(level) {
     if (typeof volumeHudWave3 !== 'undefined' && volumeHudWave3) volumeHudWave3.classList.toggle('hidden', level < 4);
 }
 
-/** Đặt vị trí slider volume. @param {HTMLElement} sliderEl - #volume-hud-slider @param {number} volume - 0-100 */
+/** Đặt vị trí slider volume và nhãn phần trăm. @param {HTMLElement} sliderEl - #volume-hud-slider @param {number} volume - 0-200 */
 function setVolumeHudSliderValue(sliderEl, volume) {
-    sliderEl.value = volume;
+    const safeVolume = Math.max(0, Math.min(200, Number(volume) || 0));
+    sliderEl.value = safeVolume;
+    if (typeof volumeHudPercent !== 'undefined' && volumeHudPercent) {
+        volumeHudPercent.textContent = `${safeVolume}%`;
+    }
+}
+
+/** Đồng bộ nhãn % theo giá trị slider hiện tại. @param {number} volume - 0-200 */
+function syncVolumeHudPercent(volume) {
+    const safeVolume = Math.max(0, Math.min(200, Number(volume) || 0));
+    if (typeof volumeHudPercent !== 'undefined' && volumeHudPercent) {
+        volumeHudPercent.textContent = `${safeVolume}%`;
+    }
 }
 
 /** Hiện 1 panel HUD (Volume/Speed). @param {HTMLElement} panelEl */
