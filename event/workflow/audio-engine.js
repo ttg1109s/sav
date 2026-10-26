@@ -91,10 +91,12 @@ const workflowAudioEngine = {
      * Ứng với 'visualizerDisplay.volume.input' (Volume HUD). THAY `setVolume()` core cũ (core/visualizer/visualizer-display.js,
      * đã xoá 01/10/2026 — R2 tự appState.get, ghi thẳng masterGainNode). Âm lượng giờ nằm ở `volumeGainNode` — node CHỈ có
      * trên nhánh ra loa, nên phân tích audio không đổi theo volume.
-     * @param {string|number} value - 0..100
+     * @param {string|number} value - 0..200
      */
     setVolume(value) {
-        appConfigViz.mutateAll((cfg) => { cfg.volume = parseInt(value, 10); });
+        const parsedVolume = Number.parseInt(value, 10);
+        const safeVolume = Number.isFinite(parsedVolume) ? Math.max(0, Math.min(200, parsedVolume)) : 0;
+        appConfigViz.mutateAll((cfg) => { cfg.volume = safeVolume; });
         const volume = appConfigViz.getAll().volume;
         console.log(`writer: "workflowAudioEngine.setVolume", page: "vizConfig", content: "volume=${volume}"`);
         this._applyVolumeGain(appState.get('volumeGainNode'), volume);
