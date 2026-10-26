@@ -31,7 +31,9 @@ const workflowHud = {
 
     /** 'hud.volume.slider.input' (#volume-hud-slider). @param {string} value */
     handleVolumeSliderInput(value) {
-        syncVolumeHudSliderFill(volumeHudSlider, parseInt(value, 10)); // core/hud.js
+        const volume = parseInt(value, 10);
+        syncVolumeHudPercent(volume); // core/hud.js
+        syncVolumeHudSliderFill(volumeHudSlider, volume); // core/hud.js
         eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.volume.input', payload: { value } });
         this._scheduleAutoHide(visualizerVolumeHud, VOLUME_HUD_AUTO_HIDE_TASK);
     },
