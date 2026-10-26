@@ -402,9 +402,7 @@ của group.
 174. `core/gameplay/engine-ui.js`
 175. `core/gameplay/circle-mode.js`
 176. `core/gameplay/circle-mode-ui.js`
-176a. `core/gameplay/arrow-config.js` — MỚI 07/10/2026 (GAMEPLAY_ARROW_CONFIG, chỉ dữ liệu)
-176b. `core/gameplay/arrow-mode.js` — MỚI 07/10/2026
-176c. `core/gameplay/arrow-stage.js` — MỚI 07/10/2026
+176a. `core/gameplay/arrow.js` — hợp nhất cấu hình, logic chơi và cập nhật giao diện game Arrow
 177. `core/gameplay/catalog.js`
 178. `core/gameplay/game-panel-ui.js`
 178a. `core/statis-panel.js` — MỚI 13/10/2026 (phép tính thuần panel Statistics — plan-debt-domains đợt 6)
