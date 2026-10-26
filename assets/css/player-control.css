@@ -37,9 +37,12 @@
 /* Nghệ sĩ 25% | tên 50% | album 25% — cố định, thiếu tag (Video/Photo không có nghệ sĩ) chỉ trống chữ, tên luôn ở giữa. */
 .pc-info-row { grid-area: info; display: flex; align-items: center; justify-content: space-between; min-width: 0; }
 .pc-title { flex: 0 0 50%; min-width: 0; padding: 0 8px; text-align: center; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; white-space: nowrap; }
-.pc-title-track { display: inline-flex; width: max-content; max-width: none; vertical-align: top; }
-.pc-title-copy { display: block; flex: 0 0 auto; white-space: nowrap; }
-.pc-title-marquee .pc-title-track { animation: pc-title-marquee var(--pc-marquee-duration, 12s) linear infinite; will-change: transform; }
+/* Trik marquee phổ biến: nội dung được nhân đôi, track dịch đúng bằng chiều rộng một bản + khoảng cách. */
+.pc-title-track { display: inline-block; width: auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
+.pc-title-copy { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-title-marquee { text-align: left; }
+.pc-title-marquee .pc-title-track { display: inline-flex; width: max-content; max-width: none; gap: 40px; overflow: visible; text-overflow: clip; animation: pc-title-marquee var(--pc-marquee-duration, 12s) linear infinite; will-change: transform; }
+.pc-title-marquee .pc-title-copy { flex: 0 0 auto; overflow: visible; text-overflow: clip; }
 @keyframes pc-title-marquee { from { transform: translateX(0); } to { transform: translateX(var(--pc-marquee-distance, -100%)); } }
 @media (prefers-reduced-motion: reduce) { .pc-title-marquee .pc-title-track { animation: none; transform: none; } }
 .pc-artist, .pc-album { flex: 0 0 25%; min-width: 0; font-weight: 500; font-size: 11px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
