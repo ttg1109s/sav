@@ -17,7 +17,7 @@ const GAMEPLAY_GAMES_CATALOG = Object.freeze([
         // 2 vòng tròn đồng tâm — wave co dần vào target circle.
         coverIconSvg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/>',
     }),
-    // Game "Arrow" (core/gameplay/arrow-mode.js, event/workflow/gameplay-arrow.js). Nền cover dùng class riêng
+    // Game "Arrow" (core/gameplay/arrow.js, event/workflow/gameplay-arrow.js). Nền cover dùng class riêng
     // `game-cover-gradient-arrow` (assets/css/game-panel.css) — bộ màu này chưa có trong tailwind.css build sẵn.
     Object.freeze({
         id: 'arrow',
