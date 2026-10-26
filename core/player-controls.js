@@ -89,9 +89,66 @@
             return img.decode().then(() => 'decoded', () => 'error');
         }
 
+        /**
+         * Cập nhật tên media và chỉ bật marquee khi chữ rộng hơn vùng tiêu đề.
+         * Hai bản sao nối nhau tạo vòng lặp liền mạch; tốc độ mục tiêu khoảng 36 px/giây.
+         * @param {string} title
+         */
+        function setPlayerTitleText(title) {
+            if (!playerTitle) return;
+            let track = playerTitle.querySelector('.pc-title-track');
+            if (!track) {
+                track = document.createElement('span');
+                track.className = 'pc-title-track';
+                playerTitle.replaceChildren(track);
+            }
+            track.replaceChildren();
+            const first = document.createElement('span');
+            first.className = 'pc-title-copy';
+            first.textContent = title || '';
+            track.append(first);
+            playerTitle.classList.remove('pc-title-marquee');
+            track.style.removeProperty('--pc-marquee-distance');
+            track.style.removeProperty('--pc-marquee-duration');
+
+            // Đo sau khi DOM cập nhật; chừa một khoảng nhỏ trước bản sao kế tiếp.
+            requestAnimationFrame(() => {
+                if (!playerTitle.isConnected || !track.isConnected) return;
+                const overflow = first.scrollWidth > playerTitle.clientWidth + 1;
+                if (!overflow || !title || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                const gap = 40;
+                const second = document.createElement('span');
+                second.className = 'pc-title-copy';
+                second.setAttribute('aria-hidden', 'true');
+                second.textContent = title;
+                track.append(second);
+                const distance = first.scrollWidth + gap;
+                track.style.setProperty('--pc-marquee-distance', `-${distance}px`);
+                track.style.setProperty('--pc-marquee-duration', `${Math.max(8, distance / 36)}s`);
+                playerTitle.classList.add('pc-title-marquee');
+            });
+        }
+
+        // Khi đổi kích thước cửa sổ hoặc font tải xong, tính lại trạng thái tràn chữ.
+        if (playerTitle && !playerTitle.dataset.marqueeResizeBound) {
+            playerTitle.dataset.marqueeResizeBound = 'true';
+            let marqueeResizeFrame = 0;
+            const refreshTitleMarquee = () => {
+                cancelAnimationFrame(marqueeResizeFrame);
+                marqueeResizeFrame = requestAnimationFrame(() => {
+                    const titleText = playerTitle.querySelector('.pc-title-copy')?.textContent
+                        || playerTitle.textContent || '';
+                    setPlayerTitleText(titleText);
+                });
+            };
+            if ('ResizeObserver' in window) new ResizeObserver(refreshTitleMarquee).observe(playerTitle);
+            window.addEventListener('resize', refreshTitleMarquee, { passive: true });
+            if (document.fonts?.ready) document.fonts.ready.then(refreshTitleMarquee);
+        }
+
         /** Nhãn Bottom Player — chuỗi rỗng thì ô đó trống chữ (vẫn giữ chỗ). @param {string} title @param {string} artist @param {string} album */
         function setPlayerTrackLabels(title, artist, album) {
-            playerTitle.textContent = title;
+            setPlayerTitleText(title);
             playerArtist.textContent = artist; playerAlbum.textContent = album;
         }
 
