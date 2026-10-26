@@ -48,7 +48,7 @@ const TPL_GAMEPLAY_ARROW_STAGE = `
                             <div class="gameplay-arrow-pad-hub"></div>
                         </div>
                         <button type="button" id="btn-gameplay-arrow-commit" class="gameplay-arrow-commit">
-                            <svg class="gameplay-arrow-commit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13v6H5v-6M12 3v12m-5-5 5 5 5-5" /></svg><span class="gameplay-arrow-commit-label" data-i18n="gameplayArrow.commit.label">${t('gameplayArrow.commit.label')}</span>
+                            <svg class="gameplay-arrow-commit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7v4H5m0 0 4-4m-4 4 4 4" /></svg><span class="gameplay-arrow-commit-label" data-i18n="gameplayArrow.commit.label">${t('gameplayArrow.commit.label')}</span>
                         </button>
                     </div>
                 </div>
