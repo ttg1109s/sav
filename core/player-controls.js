@@ -102,6 +102,8 @@
                 track.className = 'pc-title-track';
                 playerTitle.replaceChildren(track);
             }
+            playerTitle.setAttribute('aria-label', title || '');
+            track.setAttribute('aria-hidden', 'true');
             track.replaceChildren();
             const first = document.createElement('span');
             first.className = 'pc-title-copy';
