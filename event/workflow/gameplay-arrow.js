@@ -59,7 +59,7 @@ const workflowGameplayArrow = {
         setGameplayLayerMode(gameplayLayer, GAMEPLAY_ARROW_MODE_ID); // core-ui (engine-ui.js)
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
         setPlayerControlsBlocked(true); // core (player-controls.js)
-        setGameplayPlayerBarHidden(playerContainer, true); // core-ui (engine-ui.js)
+        setGameplayPlayerBarHidden(playerContainer, false); // Arrow keeps the bottom player bar visible
         paintArrowTargetZone(gameplayArrowZone, gameplayArrowTarget, computeArrowTargetZoneGeometry(GAMEPLAY_ARROW_CONFIG)); // core (arrow.js) + core
         this._paintIdleStage();
 
