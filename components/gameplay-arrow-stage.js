@@ -37,18 +37,18 @@ const TPL_GAMEPLAY_ARROW_STAGE = `
                     <div class="gameplay-arrow-controls">
                         <div id="gameplay-arrow-pad" class="gameplay-arrow-pad">
                             <div class="gameplay-arrow-pad-ring"></div>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="0">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="1">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="2">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="3">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="4">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="5">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="6">${iconSvg('arrow-sm-up')}</button>
-                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="7">${iconSvg('arrow-sm-up')}</button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="0" aria-label="Lên"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="1" aria-label="Chéo lên phải"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="2" aria-label="Phải"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="3" aria-label="Chéo xuống phải"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="4" aria-label="Xuống"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="5" aria-label="Chéo xuống trái"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="6" aria-label="Trái"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
+                            <button type="button" class="gameplay-arrow-pad-btn" data-arrow-dir="7" aria-label="Chéo lên trái"><span class="gameplay-arrow-triangle" aria-hidden="true"></span></button>
                             <div class="gameplay-arrow-pad-hub"></div>
                         </div>
                         <button type="button" id="btn-gameplay-arrow-commit" class="gameplay-arrow-commit">
-                            <span class="gameplay-arrow-commit-label" data-i18n="gameplayArrow.commit.label">${t('gameplayArrow.commit.label')}</span>
+                            <svg class="gameplay-arrow-commit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13v6H5v-6M12 3v12m-5-5 5 5 5-5" /></svg><span class="gameplay-arrow-commit-label" data-i18n="gameplayArrow.commit.label">${t('gameplayArrow.commit.label')}</span>
                         </button>
                     </div>
                 </div>
