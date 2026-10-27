@@ -1,17 +1,17 @@
 /**
- * core/visualizer/groups/rain/glass.js — [LÀM PHẲNG, 05/09/2026, yêu cầu Giang] Style 'glass'
+ * core/visualizer/groups/falling/glass.js — [LÀM PHẲNG, 05/09/2026, yêu cầu Giang] Style 'glass'
  * (mưa trôi trên ô cửa kính nhìn ra thành phố ban đêm, có trăng) tách riêng khỏi
  * `core/visualizer/types/rain.js` cũ (trước đây gộp chung với 'street'). Nội dung hàm GIỮ NGUYÊN
  * 100%.
  *
- * Mọi hàm dưới đây chỉ nhận tham số; màu/nền/giọt nước/khung cửa do Workflow (event/workflow/visualizer/rain.js) gọi riêng.
+ * Mọi hàm dưới đây chỉ nhận tham số; màu/nền/giọt nước/khung cửa do Workflow (event/workflow/visualizer/falling.js) gọi riêng.
  * `appState.mutate('glassStreaks'/'glassStaticDrops', ...)` ghi bên trong — Rule 2 chỉ cấm đọc.
  *
  * `computeRainFlashEnergy()` (nguồn năng lượng chớp, dùng chung với style 'street') nằm ở
- * `core/visualizer/groups/rain/common.js`; alpha + vẽ dùng chung `computeScreenFlashAlpha()`/`drawScreenFlash()`
+ * `core/visualizer/groups/falling/common.js`; alpha + vẽ dùng chung `computeScreenFlashAlpha()`/`drawScreenFlash()`
  * (core/visualizer/draw/).
  *
- * NẠP SAU: core/visualizer/groups/rain/common.js.
+ * NẠP SAU: core/visualizer/groups/falling/common.js.
  */
 
 // =================================== Kiểu 'glass' — cửa kính ===================================

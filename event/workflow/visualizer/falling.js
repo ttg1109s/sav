@@ -1,5 +1,5 @@
 /**
- * event/workflow/visualizer/rain.js — Group "rain" (hiển thị Falling; canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
+ * event/workflow/visualizer/falling.js — Group "rain" (hiển thị Falling; canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
  * `onResize` (và chọn style) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
  */
 
@@ -72,7 +72,7 @@ const workflowVizRain = {
         appState.set('streetGroundY', groundY);
         const streetLamps = buildStreetLamps(canvas.width, canvas.height, groundY, viewport.dpr, rainCfg.customLamps); // core
         appState.set('streetLamps', streetLamps);
-        this._street.bands = resolveStreetLampBands(streetLamps.length); // core/visualizer/groups/rain/street.js
+        this._street.bands = resolveStreetLampBands(streetLamps.length); // core/visualizer/groups/falling/street.js
         const style = RAIN_STREET_STYLES.snow;
         appState.set('streetRain', buildStreetRainPool(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr, style.spec)); // core
         console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Rain theo khung nhìn"');
@@ -159,7 +159,7 @@ const workflowVizRain = {
 
     /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> màn tuyết (tuyết) -> đèn (cột/quầng) + mặt đường ướt + quầng tán
      * xạ (tuyết) -> hạt 3 lớp -> hạt sáng trong vùng đèn -> tia nước -> gợn nước. Âm thanh -> cảnh: xem đầu
-     * core/visualizer/groups/rain/street.js. */
+     * core/visualizer/groups/falling/street.js. */
     _drawStreet(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying, audio } = frame;
         const W = canvas.width, H = canvas.height;

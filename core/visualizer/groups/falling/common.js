@@ -1,5 +1,5 @@
 /**
- * core/visualizer/groups/rain/common.js — phần dùng chung của group "rain" (`glass.js`, `street.js`):
+ * core/visualizer/groups/falling/common.js — phần dùng chung của group "rain" (`glass.js`, `street.js`):
  * `computeRainFlashEnergy()` (thuần). Chớp màn hình vẽ bằng `drawScreenFlash()` (core/visualizer/draw/screen-flash.js),
  * Workflow gọi trực tiếp.
  *

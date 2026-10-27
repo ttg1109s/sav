@@ -1,5 +1,5 @@
 /**
- * core/visualizer/groups/rain/street.js — Rain style 'street': phố & công viên về đêm (đèn đường, hàng rào, mưa).
+ * core/visualizer/groups/falling/street.js — Rain style 'street': phố & công viên về đêm (đèn đường, hàng rào, mưa).
  *
  * Ánh sáng đèn: quầng tròn quanh bóng đèn + vũng sáng trên mặt đường ướt + vệt phản chiếu dọc (KHÔNG còn nón sáng —
  * Giang bỏ 22/10/2026); giọt nào nằm trong vùng sáng tròn của đèn được vẽ lại sáng theo màu đèn, nhạt dần theo khoảng cách.
@@ -18,9 +18,9 @@
  * 1 dải tần (STREET_LAMP_BANDS) — sáng theo mức dải, loé + gợn nước khi dải có nốt mới, rung theo vibrato; vùng sáng thở
  * theo năng lượng; snare (dải mid) bắn chùm tia nước; gió nghiêng theo hướng giai điệu, giật khi chuyển đoạn (tắt được —
  * streetWindEnabled); chớp trời khi chuyển đoạn trùng cú sub mạnh, có hồi chiêu.
- * Màu/nền do Workflow (event/workflow/visualizer/rain.js) resolve. Ghi state qua `appState.mutate(...)`.
+ * Màu/nền do Workflow (event/workflow/visualizer/falling.js) resolve. Ghi state qua `appState.mutate(...)`.
  *
- * NẠP SAU: core/visualizer/groups/rain/common.js.
+ * NẠP SAU: core/visualizer/groups/falling/common.js.
  */
 
 // =================================== Kiểu 'street' — phố đêm ===================================
