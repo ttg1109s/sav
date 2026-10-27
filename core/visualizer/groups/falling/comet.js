@@ -7,7 +7,7 @@
 const COMET_DIRECTION_MODES = ['diagonal', 'vertical', 'horizontal', 'omnidirectional', 'directionalStream', 'perspectiveApproach', 'customAngle'];
 
 function createCometMeteorState() {
-    return { particles: [], mountains: [], lastSpawnMs: 0, lastFrameMs: 0, width: 0, height: 0, nextId: 1 };
+    return { particles: [], mountains: [], lastSpawnMs: 0, lastFrameMs: 0, lastBeatTime: null, width: 0, height: 0, nextId: 1 };
 }
 
 function buildCometMountainLayers(width, height, dpr, cfg) {
@@ -62,7 +62,7 @@ function _spawnCometMeteor(state, frame, energy) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
     const perspective = cfg.cometDirectionMode === 'perspectiveApproach';
     const angle = _cometDirection(cfg);
-    const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(0.7, 1.3) * (1 + energy * 0.45);
+    const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(0.7, 1.3) * (1 + energy * (Math.max(0, Number(cfg.cometAudioSensitivity) || 0.8) * 0.45));
     const x = _cometRandom(0, W);
     const y = _cometRandom(0, H * 0.72);
     const z = _cometRandom(0.15, 1);
@@ -104,7 +104,7 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs) {
             p.y += p.vy * dt;
             p.screenX = p.x; p.screenY = p.y; p.screenScale = 1;
         }
-        if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * 18) {
+        if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * (18 + energy * Math.max(0, Number(cfg.cometAudioSensitivity) || 0.8) * 18)) {
             p.dustParticles.push({ x: p.screenX || p.x, y: p.screenY || p.y, vx: _cometRandom(-28, 28), vy: _cometRandom(-28, 28), life: _cometRandom(0.15, 0.7), maxLife: 0.7, size: _cometRandom(0.4, 1.4) });
         }
         p.dustParticles.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; dustCount++; });
@@ -113,10 +113,10 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs) {
     state.particles = state.particles.filter(p => p.age < p.life && (p.perspective ? p.z > 0.035 : p.screenX > -W * 0.3 && p.screenX < W * 1.3 && p.screenY > -H * 0.3 && p.screenY < H * 1.3));
 }
 
-function paintCometMeteor(ctx, p, cfg, color) {
+function paintCometMeteor(ctx, p, cfg, color, energy) {
     const x = p.screenX, y = p.screenY, scale = p.screenScale;
     const fade = Math.max(0, 1 - p.age / p.life);
-    const brightness = Math.max(0, Math.min(2, Number(cfg.cometBrightness) || 1)) * fade;
+    const brightness = Math.max(0, Math.min(2, Number(cfg.cometBrightness) || 1)) * fade * (1 + Math.max(0, Number(cfg.cometAudioSensitivity) || 0.8) * Math.max(0, energy || 0) * 0.8);
     const tail = p.tail * scale * (p.perspective ? 0.75 + (1 - p.z) : 1);
     const angle = p.perspective ? Math.atan2(y - ctx.canvas.height / 2, x - ctx.canvas.width / 2) : p.angle;
     const tx = x - Math.cos(angle) * tail, ty = y - Math.sin(angle) * tail;
