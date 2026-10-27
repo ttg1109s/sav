@@ -87,7 +87,7 @@ const CUSTOM_EFFECT_NO_BLUR_STYLES = { lighting: ['fireworks'] };
  * style (shape) — nhất quán, không cần rẽ nhánh riêng. */
 const CUSTOM_EFFECT_STYLE = {
     bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole', 'dot'] },
-    rain: { field: 'rainStyle', options: ['glass', 'street'] },
+    rain: { field: 'rainStyle', options: ['glass', 'street', 'comet'] }, // Comet Meteor Shower
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik', 'clock'] },
@@ -101,7 +101,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
         mirror: 'visualizerSettingsDrawer.barStyle.mirror', cascade: 'visualizerSettingsDrawer.barStyle.cascade',
         'black hole': 'visualizerSettingsDrawer.barStyle.blackHole', dot: 'visualizerSettingsDrawer.barStyle.dot',
     },
-    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street' },
+    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street', comet: 'visualizerSettingsDrawer.rainStyle.comet' }, // Comet Meteor Shower
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik', clock: 'visualizerSettingsDrawer.shapeStyle.clock' },
@@ -201,6 +201,32 @@ const CUSTOM_EFFECT_FIELDS = {
         // ── motion ──
         { id: 'glassStreakFrequency', labelKey: 'customEffectDrawer.field.glassStreakFrequency', type: 'slider', min: 0, max: 100, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'streetWindEnabled', labelKey: 'customEffectDrawer.field.streetWindEnabled', type: 'toggle', card: 'motion', showIf: (cfg) => cfg.rainStyle === 'street' },
+        // Comet Meteor Shower — density and rendering cost
+        { id: 'cometMaxMeteors', labelKey: 'customEffectDrawer.field.cometMaxMeteors', type: 'slider', min: 1, max: 60, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometSpawnRate', labelKey: 'customEffectDrawer.field.cometSpawnRate', type: 'sliderFloat', min: 0.5, max: 15, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometDustPerMeteor', labelKey: 'customEffectDrawer.field.cometDustPerMeteor', type: 'slider', min: 0, max: 32, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometTailLength', labelKey: 'customEffectDrawer.field.cometTailLength', type: 'slider', min: 10, max: 300, step: 5, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometBrightness', labelKey: 'customEffectDrawer.field.cometBrightness', type: 'sliderFloat', min: 0.1, max: 2, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometGlow', labelKey: 'customEffectDrawer.field.cometGlow', type: 'slider', min: 0, max: 40, step: 1, card: 'glow', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometDirectionMode', labelKey: 'customEffectDrawer.field.cometDirectionMode', type: 'select', card: 'motion', rerender: true, showIf: (cfg) => cfg.rainStyle === 'comet', options: [
+            { value: 'diagonal', labelKey: 'customEffectDrawer.cometDirection.diagonal' },
+            { value: 'vertical', labelKey: 'customEffectDrawer.cometDirection.vertical' },
+            { value: 'horizontal', labelKey: 'customEffectDrawer.cometDirection.horizontal' },
+            { value: 'omnidirectional', labelKey: 'customEffectDrawer.cometDirection.omnidirectional' },
+            { value: 'directionalStream', labelKey: 'customEffectDrawer.cometDirection.directionalStream' },
+            { value: 'perspectiveApproach', labelKey: 'customEffectDrawer.cometDirection.perspectiveApproach' },
+            { value: 'customAngle', labelKey: 'customEffectDrawer.cometDirection.customAngle' },
+        ] },
+        { id: 'cometSpeed', labelKey: 'customEffectDrawer.field.cometSpeed', type: 'slider', min: 40, max: 700, step: 10, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'comet' && cfg.cometDirectionMode !== 'perspectiveApproach' },
+        { id: 'cometDirectionAngle', labelKey: 'customEffectDrawer.field.cometDirectionAngle', type: 'slider', min: 0, max: 360, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'comet' && cfg.cometDirectionMode === 'customAngle' },
+        { id: 'cometApproachSpeed', labelKey: 'customEffectDrawer.field.cometApproachSpeed', type: 'sliderFloat', min: 0.05, max: 0.8, step: 0.05, decimals: 2, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'comet' && cfg.cometDirectionMode === 'perspectiveApproach' },
+        { id: 'cometPerspectiveStrength', labelKey: 'customEffectDrawer.field.cometPerspectiveStrength', type: 'sliderFloat', min: 0.2, max: 1.8, step: 0.1, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' && cfg.cometDirectionMode === 'perspectiveApproach' },
+        { id: 'cometNearScale', labelKey: 'customEffectDrawer.field.cometNearScale', type: 'sliderFloat', min: 1, max: 6, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' && cfg.cometDirectionMode === 'perspectiveApproach' },
+        { id: 'cometSpawnSpread', labelKey: 'customEffectDrawer.field.cometSpawnSpread', type: 'slider', min: 10, max: 100, step: 5, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometBehindMountains', labelKey: 'customEffectDrawer.field.cometBehindMountains', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometMountainLayerCount', labelKey: 'customEffectDrawer.field.cometMountainLayerCount', type: 'slider', min: 1, max: 5, step: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet', refresh: 'resizeCanvas' },
+        { id: 'cometMountainOpacity', labelKey: 'customEffectDrawer.field.cometMountainOpacity', type: 'slider', min: 10, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet', refresh: 'resizeCanvas' },
+        { id: 'cometHorizonHeight', labelKey: 'customEffectDrawer.field.cometHorizonHeight', type: 'slider', min: 5, max: 45, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet', refresh: 'resizeCanvas' },
     ],
     shape: [ // ĐỔI TÊN (05/09/2026) — trước đây khoá 'rubik', field không đổi.
         // SỬA (26/09/2026) — group có thêm style 'clock' -> field rubik gắn showIf theo style.
