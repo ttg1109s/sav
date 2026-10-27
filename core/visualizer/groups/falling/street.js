@@ -108,6 +108,7 @@ function resolveStreetLampBands(lampCount) {
  */
 function advanceRainLampsAndBuildSpecs(lamps, isPlaying, bandLevels, onsetTimes, vibrato, nowMs, dpr) {
     const total = lamps.length;
+    const vibratoPulse = vibrato && vibrato.active ? Math.min(1, (Number(vibrato.extentCents) || 0) / 100) : 0;
     return lamps.map((lamp, i) => {
         const band = Math.max(0, Math.min(1, (Number(bandLevels[i]) || 0)));
         const onsetAt = Number(onsetTimes[i]) || 0;
@@ -122,7 +123,7 @@ function advanceRainLampsAndBuildSpecs(lamps, isPlaying, bandLevels, onsetTimes,
         const postTopY = lamp.baseY - height;
         const flareScale = Math.max(0.5, Number(lamp.flareScale) || 1);
         const capW = (lamp.main ? 15 : 11) * dpr * flareScale;
-        const haloR = (lamp.main ? 52 : 34) * dpr * flareScale * (0.9 + 0.18 * flicker + 0.08 * Math.max(0, Number(vibrato) || 0));
+        const haloR = (lamp.main ? 52 : 34) * dpr * flareScale * (0.9 + 0.18 * flicker + 0.08 * vibratoPulse);
         const value = Math.max(0, Math.min(255, Math.round((isPlaying ? 28 + band * 190 : 32) + pulse * 35)));
         return {
             ...lamp,
