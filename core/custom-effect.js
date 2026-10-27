@@ -209,7 +209,7 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'cometBrightness', labelKey: 'customEffectDrawer.field.cometBrightness', type: 'sliderFloat', min: 0.1, max: 2, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometGlow', labelKey: 'customEffectDrawer.field.cometGlow', type: 'slider', min: 0, max: 40, step: 1, card: 'glow', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometAudioSensitivity', labelKey: 'customEffectDrawer.field.cometAudioSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'comet' },
-        { id: 'cometBeatBurst', labelKey: 'customEffectDrawer.field.cometBeatBurst', type: 'toggle', card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'comet' }
+        { id: 'cometBeatBurst', labelKey: 'customEffectDrawer.field.cometBeatBurst', type: 'toggle', card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometDirectionMode', labelKey: 'customEffectDrawer.field.cometDirectionMode', type: 'select', card: 'motion', rerender: true, showIf: (cfg) => cfg.rainStyle === 'comet', options: [
             { value: 'diagonal', labelKey: 'customEffectDrawer.cometDirection.diagonal' },
             { value: 'vertical', labelKey: 'customEffectDrawer.cometDirection.vertical' },
