@@ -70,12 +70,21 @@ const workflowVizFalling = {
         state.lastFrameMs = now;
         const energy = frame.audio.smoothedEnergy();
         advanceCometMeteorState(state, frame, dt, energy, now); // core/visualizer/groups/falling/comet.js
+        // Beat mới tạo burst nhỏ, luôn tôn trọng hard cap số meteor.
+        const beatTime = frame.audio.lastBeatTime();
+        if (state.lastBeatTime === null) state.lastBeatTime = beatTime;
+        else if (frame.isPlaying && frame.cfg.cometBeatBurst !== false && beatTime > state.lastBeatTime) {
+            const cap = Math.max(1, Math.min(100, Math.round(Number(frame.cfg.cometMaxMeteors) || 18)));
+            const burst = Math.min(4, cap - state.particles.length);
+            for (let i = 0; i < burst; i++) _spawnCometMeteor(state, frame, energy);
+            state.lastBeatTime = beatTime;
+        } else if (beatTime > state.lastBeatTime) state.lastBeatTime = beatTime;
         this._paintBackdrop(frame);
         const colorOf = (p, i) => workflowVisualizerRender.colorAt(i, Math.max(1, state.particles.length), energy);
         // Lớp sau núi -> dãy núi từ xa tới gần -> lớp trước núi.
-        state.particles.filter(p => p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i)));
+        state.particles.filter(p => p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i), energy));
         paintCometMountains(frame.ctx, state, frame.cfg);
-        state.particles.filter(p => !p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i + state.particles.length)));
+        state.particles.filter(p => !p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i + state.particles.length), energy));
     },
 
     // ===================== Vòng đời =====================
