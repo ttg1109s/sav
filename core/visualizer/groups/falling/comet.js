@@ -71,10 +71,12 @@ function _spawnCometMeteor(state, frame, energy) {
     let x = _cometRandom(0, W);
     let y = _cometRandom(0, H * 0.72);
     const region = cfg.cometSpawnRegion || 'random';
-    if (region === 'top') y = _cometRandom(0, H * 0.22);
-    else if (region === 'bottom') y = _cometRandom(H * 0.65, H);
-    else if (region === 'left') x = _cometRandom(0, W * 0.2);
-    else if (region === 'right') x = _cometRandom(W * 0.8, W);
+    if (!perspective) {
+        if (region === 'top') y = _cometRandom(0, H * 0.22);
+        else if (region === 'bottom') y = _cometRandom(H * 0.65, H);
+        else if (region === 'left') x = _cometRandom(0, W * 0.2);
+        else if (region === 'right') x = _cometRandom(W * 0.8, W);
+    }
     const z = _cometRandom(0.65, 1);
     const spread = Math.max(0, Math.min(100, Number(cfg.cometSpawnSpread) || 70)) / 100;
     const behindRatio = Number.isFinite(Number(cfg.cometBehindMountains)) ? Number(cfg.cometBehindMountains) : 0.55;
