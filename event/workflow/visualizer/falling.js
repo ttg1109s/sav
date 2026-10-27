@@ -176,8 +176,8 @@ const workflowVizFalling = {
         paintFallingGroundGradient(ctx, W, H, groundY, stopColors); // core
         paintParkFence(ctx, W, groundY, dpr); // core
 
-        st.energy = smoothStreetSnowEnergy(st.energy, audio.energyPercent()); // core
-        const density = computeStreetSnowDensity(s.streetRain.length, isPlaying, st.energy); // core — nghịch Energy % (chủ đích)
+        st.energy = smoothStreetSnowEnergy(st.energy, audio.energySpectrumPercent()); // core — giữ thang phổ cũ để mật độ tuyết không đổi khi Energy chính chuyển sang RMS
+        const density = computeStreetSnowDensity(s.streetRain.length, isPlaying, st.energy); // core — nghịch Energy phổ % (chủ đích)
         style.paintMist(ctx, W, H, groundY, density.ratio);
 
         const bandLevels = st.bands.map((b) => audio.band(b)); // service/audio-analysis.js
