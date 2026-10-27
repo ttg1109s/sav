@@ -29,13 +29,11 @@ const FALLING_STREET_GROUND_STOPS_BY_MODE = {
 
 /** Street Light dùng duy nhất Snow — thông số bể hạt, lớp vẽ, màn mờ + quầng, vùng sáng. */
 const FALLING_STREET_SNOW = {
-    snow: {
-        spec: STREET_SNOW_SPEC, layers: STREET_SNOW_LAYERS, // core
-        paintMist: paintStreetSnowMist, // core
-        paintLampHaze: paintStreetSnowLampHaze, // core
-        paintLayer: paintStreetSnowLayer, // core
-        paintLit: paintStreetSnowLit, // core
-    },
+    spec: STREET_SNOW_SPEC, layers: STREET_SNOW_LAYERS, // core
+    paintMist: paintStreetSnowMist, // core
+    paintLampHaze: paintStreetSnowLampHaze, // core
+    paintLayer: paintStreetSnowLayer, // core
+    paintLit: paintStreetSnowLit, // core
 };
 
 /** Gió street theo toggle streetWindEnabled: bật -> gió theo giai điệu + giật khi chuyển đoạn; tắt -> lặng (rơi thẳng). */
