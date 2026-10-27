@@ -25,7 +25,7 @@
 // =================================== Kiểu 'street' — phố đêm ===================================
 
 /** Vẽ nền gradient mặt đường từ các color-stop đã được Workflow resolve. */
-function paintRainGroundGradient(ctx, canvasWidth, canvasHeight, groundY, stopColors) {
+function paintFallingGroundGradient(ctx, canvasWidth, canvasHeight, groundY, stopColors) {
     const gradient = ctx.createLinearGradient(0, groundY, 0, canvasHeight);
     stopColors.forEach((stop) => gradient.addColorStop(stop.offset, stop.color));
     ctx.fillStyle = gradient;
@@ -135,7 +135,7 @@ function computeStreetThunderAlpha(nowMs, startAtMs, maxOpacity) {
 
 // ----------------------------------- Tuyết: dựng, mật độ, vật lý -----------------------------------
 
-/** Bể hạt theo kiểu (`spec` = STREET_RAIN_SPEC_*): rải ngẫu nhiên, mỗi hạt 1 đường kính -> v_t, τ = v_t/g, độ sâu `z`,
+/** Bể hạt tuyết (`spec` = STREET_SNOW_SPEC): rải ngẫu nhiên, mỗi hạt 1 đường kính -> v_t, τ = v_t/g, độ sâu `z`,
  * bán kính bông `size` (tuyết). tx/ty/cx/cy = hình vệt (đuôi/điểm điều khiển), advanceStreetSnowflakes() tính mỗi frame. */
 function buildStreetSnowPool(density, canvasWidth, canvasHeight, dpr, spec) {
     return Array.from({ length: Math.round(density * spec.countMult) }, () => {
