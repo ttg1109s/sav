@@ -76,7 +76,7 @@ function _spawnCometMeteor(state, frame, energy) {
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         angle, z, age: 0, life: _cometRandom(1.1, 2.8),
         size: _cometRandom(0.7, 1.5), tail: Math.max(10, Number(cfg.cometTailLength) || 100),
-        dust: Math.max(0, Math.min(32, Math.round(Number.isFinite(Number(cfg.cometDustPerMeteor)) ? Number(cfg.cometDustPerMeteor) : 8)),
+        dust: Math.max(0, Math.min(32, Math.round(Number.isFinite(Number(cfg.cometDustPerMeteor)) ? Number(cfg.cometDustPerMeteor) : 8))),
         dustParticles: [], behind, perspective,
         seed: Math.random() * 1000,
     });
