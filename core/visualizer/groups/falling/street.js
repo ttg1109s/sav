@@ -1,5 +1,5 @@
 /**
- * core/visualizer/groups/falling/street.js — Rain style 'street': phố & công viên về đêm (đèn đường, hàng rào, mưa).
+ * core/visualizer/groups/falling/street.js — Falling style 'street': phố & công viên về đêm (đèn đường, hàng rào, tuyết).
  *
  * Ánh sáng đèn: quầng tròn quanh bóng đèn + vũng sáng trên mặt đường ướt + vệt phản chiếu dọc (KHÔNG còn nón sáng —
  * Giang bỏ 22/10/2026); giọt nào nằm trong vùng sáng tròn của đèn được vẽ lại sáng theo màu đèn, nhạt dần theo khoảng cách.
@@ -12,11 +12,10 @@
  *     giọt rơi chéo rồi dựng dần lên; cộng rối (trường sin trôi theo thời gian) -> quỹ đạo cong mềm.
  *   - Vệt giọt = cung parabol Bézier bậc 2: tiếp tuyến đầu = vận tốc hiện tại, tiếp tuyến đuôi = vận tốc trễ ~0.1 s (lưu
  *     ảnh), dài = tốc độ × thời gian phơi — giọt đang bị gió bẻ hướng thì vệt cong theo đúng quỹ đạo.
- * 2 kiểu (customEffect.rain.streetRainStyle, Workflow chọn qua map): 'normal' (mưa — vệt thon, bắn tia nước) / 'snow'
- * (tuyết — bông tròn mềm lớn nhỏ khác nhau, đung đưa theo gió, lấp lánh trong quầng đèn, màn tuyết mờ, không bắn tia).
+ * Street Light chỉ dùng Snow; không còn kiểu mưa hoặc tia nước.
  * Âm thanh điều khiển: mật độ D_cuối = D_custom × (1 − Energy%/100) (sàn 10% — nhạc càng mạnh mưa càng thưa); mỗi đèn theo
  * 1 dải tần (STREET_LAMP_BANDS) — sáng theo mức dải, loé + gợn nước khi dải có nốt mới, rung theo vibrato; vùng sáng thở
- * theo năng lượng; snare (dải mid) bắn chùm tia nước; gió nghiêng theo hướng giai điệu, giật khi chuyển đoạn (tắt được —
+ * theo năng lượng; gió nghiêng theo hướng giai điệu, giật khi chuyển đoạn (tắt được —
  * streetWindEnabled); chớp trời khi chuyển đoạn trùng cú sub mạnh, có hồi chiêu.
  * Màu/nền do Workflow (event/workflow/visualizer/falling.js) resolve. Ghi state qua `appState.mutate(...)`.
  *
@@ -24,6 +23,14 @@
  */
 
 // =================================== Kiểu 'street' — phố đêm ===================================
+
+/** Vẽ nền gradient mặt đường từ các color-stop đã được Workflow resolve. */
+function paintRainGroundGradient(ctx, canvasWidth, canvasHeight, groundY, stopColors) {
+    const gradient = ctx.createLinearGradient(0, groundY, 0, canvasHeight);
+    stopColors.forEach((stop) => gradient.addColorStop(stop.offset, stop.color));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, groundY, canvasWidth, canvasHeight - groundY);
+}
 
 /** Hàng rào sắt công viên (cọc + 2 thanh ngang) dọc mép đất — tĩnh, màu tối, không cướp chú ý khỏi đèn/mưa. */
 function paintParkFence(ctx, canvasWidth, groundY, dpr) {
@@ -65,7 +72,6 @@ const STREET_WIND_TURBULENCE = 0.45;
 const STREET_STREAK_LAG = 0.06;
 /** Mật độ tối thiểu khi nhạc rất mạnh. */
 const STREET_RAIN_MIN_DENSITY_RATIO = 0.1;
-const STREET_RAIN_COLOR = 'rgb(200, 215, 230)';
 const STREET_SNOW_COLOR = 'rgb(236, 242, 250)';
 
 /** Gió tắt (streetWindEnabled = false): mưa rơi thẳng, không giật. */
