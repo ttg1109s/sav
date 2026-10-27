@@ -379,7 +379,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.type.rubik': 'Rubik',
     'settingsVisualizer.type.vortex': 'Tunnel',
     'settingsVisualizer.type.blackHole': 'Black Hole',
-    'settingsVisualizer.type.rain': 'Rain',
+    'settingsVisualizer.type.rain': 'Falling',
     'settingsVisualizer.type.space': 'Space',
     'settingsVisualizer.type.lighting': 'Lighting',
     'settingsVisualizer.type.connector': 'Connector',

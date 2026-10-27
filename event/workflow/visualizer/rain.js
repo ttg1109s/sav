@@ -1,6 +1,6 @@
 /**
- * event/workflow/visualizer/rain.js — Group "rain" (canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
- * `onResize` (và chọn style rain) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
+ * event/workflow/visualizer/rain.js — Group "rain" (hiển thị Falling; canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
+ * `onResize` (và chọn style) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
  */
 
 /** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
@@ -30,23 +30,12 @@ const RAIN_STREET_GROUND_STOPS_BY_MODE = {
 /** 2 kiểu hạt street (customEffect.rain.streetRainStyle: mưa / tuyết) — thông số bể hạt, lớp vẽ, màn mờ + quầng (chỉ tuyết),
  * vùng sáng, tia nước (chỉ mưa). Kiểu lạ -> 'normal'. */
 const RAIN_STREET_STYLES = {
-    normal: {
-        spec: STREET_RAIN_SPEC_NORMAL, layers: STREET_RAIN_STREAK_LAYERS, // core/visualizer/groups/rain/street.js
-        paintMist: () => {},
-        paintLampHaze: () => {},
-        paintLayer: paintStreetRainStreakLayer, // core
-        paintLit: paintStreetRainStreakLit, // core
-        splashHits: spawnStreetSplashes, // core
-        splashBurst: (W, H, groundY, dpr) => spawnStreetSplashes(buildStreetSplashBurst(W, H, groundY), dpr), // core
-    },
     snow: {
         spec: STREET_RAIN_SPEC_SNOW, layers: STREET_SNOW_LAYERS, // core
         paintMist: paintStreetSnowMist, // core
         paintLampHaze: paintStreetSnowLampHaze, // core
         paintLayer: paintStreetSnowLayer, // core
         paintLit: paintStreetSnowLit, // core
-        splashHits: () => {},
-        splashBurst: () => {},
     },
 };
 
@@ -66,9 +55,8 @@ const workflowVizRain = {
         street: (frame) => workflowVizRain._drawStreet(frame),
     },
 
-    /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, mốc snare đã xử lý, cửa
-     * sổ beat dò chuyển đoạn. */
-    _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, snareSeenMs: 0, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
+    /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, cửa sổ beat dò chuyển đoạn. */
+    _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
 
     // ===================== Vòng đời =====================
 
@@ -85,9 +73,8 @@ const workflowVizRain = {
         const streetLamps = buildStreetLamps(canvas.width, canvas.height, groundY, viewport.dpr, rainCfg.customLamps); // core
         appState.set('streetLamps', streetLamps);
         this._street.bands = resolveStreetLampBands(streetLamps.length); // core/visualizer/groups/rain/street.js
-        const style = RAIN_STREET_STYLES[rainCfg.streetRainStyle] || RAIN_STREET_STYLES.normal;
+        const style = RAIN_STREET_STYLES.snow;
         appState.set('streetRain', buildStreetRainPool(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr, style.spec)); // core
-        appState.set('streetSplashes', []);
         console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Rain theo khung nhìn"');
     },
 
@@ -179,8 +166,8 @@ const workflowVizRain = {
         const nowMs = performance.now();
         const smoothedEnergy = audio.smoothedEnergy(); // service/audio-analysis.js
         const st = this._street;
-        const style = RAIN_STREET_STYLES[cfg.streetRainStyle] || RAIN_STREET_STYLES.normal;
-        const s = appState.get(['streetRain', 'streetGroundY', 'streetLamps', 'streetSplashes', 'ripples']);
+        const style = RAIN_STREET_STYLES.snow;
+        const s = appState.get(['streetRain', 'streetGroundY', 'streetLamps', 'ripples']);
         this._paintBackdrop(frame);
 
         const isTransition = this._detectStreetTransition(frame);
@@ -211,13 +198,10 @@ const workflowVizRain = {
         });
 
         st.wind = RAIN_STREET_WIND_BY_ENABLED[cfg.streetWindEnabled !== false](st.wind, audio, isTransition);
-        this._splashOnSnare(frame, groundY, dpr, style); // trước tia nước của mưa — chùm snare được ưu tiên chỗ khi chạm trần
-        style.splashHits(advanceStreetRainDrops(W, H, groundY, dpr, density.activeCount, st.wind.value, nowMs), dpr); // core
+        advanceStreetRainDrops(W, H, groundY, dpr, density.activeCount, st.wind.value, nowMs); // core
         style.layers.forEach((layer) => style.paintLayer(ctx, s.streetRain, layer, dpr));
         lamps.forEach((l) => style.paintLit(ctx, s.streetRain, l.light, l.fill, dpr, nowMs));
 
-        advanceStreetSplashes(); // core
-        paintStreetSplashes(ctx, s.streetSplashes, dpr); // core
         advanceRainRipples(); // core
         paintRainRipples(ctx, s.ripples, dpr); // core
     },
@@ -248,13 +232,6 @@ const workflowVizRain = {
         spawnRainRipple(lamp.spec.x, groundY, H, dpr, lamp.fill, lamp.fill); // core
     },
 
-    /** Snare (dải mid có nốt mới) -> 1 chùm tia nước rải trên mặt đường (tuyết: không bắn). */
-    _splashOnSnare(frame, groundY, dpr, style) {
-        const onsetMs = frame.audio.lastBandOnsetTime('mid'); // service/audio-analysis.js
-        if (!frame.isPlaying || onsetMs <= this._street.snareSeenMs) return;
-        this._street.snareSeenMs = onsetMs;
-        style.splashBurst(frame.canvas.width, frame.canvas.height, groundY, dpr);
-    },
 };
 
 workflowVisualizerRender.registerGroup('rain', workflowVizRain);

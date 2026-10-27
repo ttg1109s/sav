@@ -65,7 +65,7 @@ const VIZ_COLOR_RULE_BY_KEY = {
 };
 
 /** Màu 1 phần tử theo color mode của effect — dùng chung các effect tự chọn màu theo mode (vortex rings/bars/
- * wave, đèn Rain street): gradient = màu colorAt() đã tính, dynamic = xen kẽ dynA/dynB theo index,
+ * wave, đèn Street Light (Snow)): gradient = màu colorAt() đã tính, dynamic = xen kẽ dynA/dynB theo index,
  * solid = solidColor. */
 const VIZ_MODE_COLOR_BY_MODE = {
     gradient: (cfg, index, gradientFill) => gradientFill,

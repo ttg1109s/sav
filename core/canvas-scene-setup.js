@@ -1,6 +1,6 @@
 /**
  * core/canvas-scene-setup.js — dựng cảnh tĩnh cho visualizer canvas 2D: kích thước canvas, giọt kính / dãy nhà (Rain glass),
- * sao hố đen, khối Rubik, mặt đất + đèn (Rain street; bể hạt mưa: buildStreetRainPool(), core/visualizer/groups/rain/street.js).
+ * sao hố đen, khối Rubik, mặt đất + đèn (Street Light/Snow; bể hạt: buildStreetRainPool(), core/visualizer/groups/rain/street.js).
  * Thuần — Workflow từng group gọi khi resize/chọn style.
  */
 
@@ -62,7 +62,7 @@
             return cubes;
         }
 
-        /** Mặt đất phố (Rain street): 88% chiều cao nhưng luôn cao hơn vùng thanh điều khiển dưới cùng (130px × dpr). */
+        /** Mặt đất phố (Street Light): 88% chiều cao nhưng luôn cao hơn vùng thanh điều khiển dưới cùng (130px × dpr). */
         function computeStreetGroundY(canvasHeight, dpr) {
             return Math.min(canvasHeight * 0.88, canvasHeight - 130 * dpr);
         }

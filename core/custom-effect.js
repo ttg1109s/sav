@@ -197,7 +197,6 @@ const CUSTOM_EFFECT_FIELDS = {
         // ── layout ── (card Đèn tuỳ chỉnh của style street vẽ NGAY SAU card này)
         { id: 'glassDropDensity', labelKey: 'customEffectDrawer.field.glassDropDensity', type: 'slider', min: 40, max: 400, step: 10, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'glass', refresh: 'resizeCanvas' },
         { id: 'streetRainStyle', labelKey: 'customEffectDrawer.field.streetRainStyle', type: 'select', card: 'layout', showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas', options: [
-            { value: 'normal', labelKey: 'customEffectDrawer.streetRainStyle.normal' },
             { value: 'snow', labelKey: 'customEffectDrawer.streetRainStyle.snow' },
         ] },
         { id: 'streetDensity', labelKey: 'customEffectDrawer.field.streetDensity', type: 'slider', min: 40, max: 400, step: 10, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas' },

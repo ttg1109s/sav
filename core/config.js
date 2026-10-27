@@ -72,7 +72,7 @@
                 glassDropDensity: 250, glassStreakFrequency: 20,
                 streetDensity: 220, streetBuildingScale: 1.0,
                 // Kiểu hạt mưa street ('normal' — mưa | 'snow' — tuyết) + bật/tắt hướng gió (tắt = rơi thẳng).
-                streetRainStyle: 'normal', streetWindEnabled: true,
+                streetRainStyle: 'snow', streetWindEnabled: true,
                 // Đèn thêm vào 3 cột gốc (tối đa 8) — generateStreetScene(), core/canvas-scene-setup.js; mỗi đèn
                 // xPercent/heightPx/flareScale riêng.
                 customLamps: [],
@@ -626,6 +626,8 @@
                 if (cfg.rainGlassCityVisible != null) t.glassCityVisible = cfg.rainGlassCityVisible;
                 if (cfg.rainGlassMoonVisible != null) t.glassMoonVisible = cfg.rainGlassMoonVisible;
             }
+            // Street Light chỉ còn kiểu Snow; chuẩn hoá mọi cấu hình cũ (Rain/normal) sang Snow.
+            if (next.rain && next.rain.streetRainStyle !== 'snow') next.rain.streetRainStyle = 'snow';
             // rain.glassFlash -> flashEnabled (chỉ khi save cũ chưa có flashEnabled); luôn xoá glassFlash.
             const savedRain = cfg.customEffect && cfg.customEffect.rain;
             if (next.rain && next.rain.glassFlash != null) {
