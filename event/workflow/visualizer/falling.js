@@ -5,6 +5,7 @@
 
 /** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
 const FALLING_FFT_SIZE = 256;
+const FALLING_COMET_FFT_SIZE = 256;
 
 /** Cửa sổ nhà (glass): sáng -> đúng màu color mode; tắt -> màu tương phản. */
 const FALLING_GLASS_WINDOW_COLOR_BY_LIT = {
@@ -50,10 +51,32 @@ const workflowVizFalling = {
     styles: {
         glass: (frame) => workflowVizFalling._drawGlass(frame),
         street: (frame) => workflowVizFalling._drawStreet(frame),
+        comet: (frame) => workflowVizFalling._drawComet(frame),
     },
+
+    _comet: createCometMeteorState(),
+    _cometColorIndex: 0,
 
     /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, cửa sổ beat dò chuyển đoạn. */
     _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
+
+    // ===================== Comet Meteor Shower =====================
+
+    /** Sao băng và núi dùng cùng canvas của host; không tạo RAF/timer riêng. */
+    _drawComet(frame) {
+        const state = this._comet;
+        const now = performance.now();
+        const dt = computeFrameDeltaMs(now, state.lastFrameMs); // core/visualizer/frame-clock.js
+        state.lastFrameMs = now;
+        const energy = frame.audio.smoothedEnergy();
+        advanceCometMeteorState(state, frame, dt, energy, now); // core/visualizer/groups/falling/comet.js
+        this._paintBackdrop(frame);
+        const colorOf = (p, i) => workflowVisualizerRender.colorAt(i, Math.max(1, state.particles.length), energy);
+        // Lớp sau núi -> dãy núi từ xa tới gần -> lớp trước núi.
+        state.particles.filter(p => p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i)));
+        paintCometMountains(frame.ctx, state, frame.cfg);
+        state.particles.filter(p => !p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i + state.particles.length)));
+    },
 
     // ===================== Vòng đời =====================
 
@@ -61,6 +84,7 @@ const workflowVizFalling = {
      * lại dãy nhà + cảnh phố theo kích thước mới. */
     onResize(viewport) {
         const rainCfg = resolveEffectConfig(appConfigViz.getAll().customEffect, 'rain'); // core/custom-effect.js
+        resetCometMeteorState(this._comet, canvas.width, canvas.height, viewport.dpr, rainCfg);
         appState.set('ripples', []);
         appState.set('glassStreaks', []);
         appState.set('glassStaticDrops', buildGlassStaticDrops(rainCfg.glassDropDensity, canvas.width, canvas.height, viewport.dpr)); // core/canvas-scene-setup.js
