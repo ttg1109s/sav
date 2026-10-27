@@ -5,15 +5,15 @@
  * Giang bỏ 22/10/2026); giọt nào nằm trong vùng sáng tròn của đèn được vẽ lại sáng theo màu đèn, nhạt dần theo khoảng cách.
  *
  * Vật lý giọt (đơn vị px/frame ở 60 fps, × dpr; 1 m/s ≈ STREET_PX_PER_MPS px/frame):
- *   - Tốc độ rơi cuối v_t = a·D^b·e^(c·D) theo đường kính D (mm): mưa — Uplinger 1981 (4.874·D·e^(−0.195·D), 0.1–7 mm);
+ *   - Tốc độ rơi cuối v_t = a·D^b·e^(c·D) theo đường kính D (mm): 
  *     tuyết — Locatelli & Hobbs 1974, bông kết tinh nhánh (0.8·D^0.16 ≈ 0.8–1.1 m/s).
- *   - Lực cản kéo vận tốc hạt về vận tốc gió với thời gian hồi τ = v_t / g (giọt mưa to "lì", bông tuyết bám gió ngay).
+ *   - Lực cản kéo vận tốc hạt về vận tốc gió với thời gian hồi τ = v_t / g (hạt bám gió theo quán tính).
  *   - Gió theo độ cao: luật lũy thừa u(z) = u_ref·(z/z_ref)^α, đô thị α ≈ 0.4 — trên cao gió mạnh, sát đất yếu dần nên
- *     giọt rơi chéo rồi dựng dần lên; cộng rối (trường sin trôi theo thời gian) -> quỹ đạo cong mềm.
+ *     bông tuyết trôi chéo rồi dựng dần lên; cộng rối (trường sin trôi theo thời gian) -> quỹ đạo cong mềm.
  *   - Vệt giọt = cung parabol Bézier bậc 2: tiếp tuyến đầu = vận tốc hiện tại, tiếp tuyến đuôi = vận tốc trễ ~0.1 s (lưu
  *     ảnh), dài = tốc độ × thời gian phơi — giọt đang bị gió bẻ hướng thì vệt cong theo đúng quỹ đạo.
  * Street Light chỉ dùng Snow; không còn kiểu mưa hoặc tia nước.
- * Âm thanh điều khiển: mật độ D_cuối = D_custom × (1 − Energy%/100) (sàn 10% — nhạc càng mạnh mưa càng thưa); mỗi đèn theo
+ * Âm thanh điều khiển: mật độ D_cuối = D_custom × (1 − Energy%/100) (sàn 10% — nhạc càng mạnh tuyết càng thưa); mỗi đèn theo
  * 1 dải tần (STREET_LAMP_BANDS) — sáng theo mức dải, loé + gợn nước khi dải có nốt mới, rung theo vibrato; vùng sáng thở
  * theo năng lượng; gió nghiêng theo hướng giai điệu, giật khi chuyển đoạn (tắt được —
  * streetWindEnabled); chớp trời khi chuyển đoạn trùng cú sub mạnh, có hồi chiêu.
@@ -32,7 +32,7 @@ function paintRainGroundGradient(ctx, canvasWidth, canvasHeight, groundY, stopCo
     ctx.fillRect(0, groundY, canvasWidth, canvasHeight - groundY);
 }
 
-/** Hàng rào sắt công viên (cọc + 2 thanh ngang) dọc mép đất — tĩnh, màu tối, không cướp chú ý khỏi đèn/mưa. */
+/** Hàng rào sắt công viên (cọc + 2 thanh ngang) dọc mép đất — tĩnh, màu tối, không cướp chú ý khỏi đèn/tuyết. */
 function paintParkFence(ctx, canvasWidth, groundY, dpr) {
     const postSpacing = 26 * dpr;
     const postH = 34 * dpr;
@@ -71,7 +71,7 @@ const STREET_WIND_TURBULENCE = 0.45;
 /** Hệ số trễ vận tốc cho tiếp tuyến đuôi vệt (~16 frame ≈ 0.27 s lưu ảnh). */
 const STREET_STREAK_LAG = 0.06;
 /** Mật độ tối thiểu khi nhạc rất mạnh. */
-const STREET_RAIN_MIN_DENSITY_RATIO = 0.1;
+const STREET_SNOW_MIN_DENSITY_RATIO = 0.1;
 const STREET_SNOW_COLOR = 'rgb(236, 242, 250)';
 
 /** Gió tắt (streetWindEnabled = false): mưa rơi thẳng, không giật. */
@@ -80,7 +80,7 @@ const STREET_WIND_CALM = Object.freeze({ base: 0, gust: 0, value: 0 });
 /** Thông số từng kiểu: số hạt = mật độ × countMult; đường kính (mm) rải lệch về cỡ nhỏ theo sizeSkew (D = min + Δ·r^skew);
  * hệ số v_t = fallA·D^fallB·e^(fallC·D); đung đưa (m/s); thời gian phơi vệt (frame) + độ dài vệt tối đa (px CSS); bán kính bông
  * tuyết (px CSS mỗi mm). */
-const STREET_RAIN_SPEC_SNOW = Object.freeze({
+const STREET_SNOW_SPEC = Object.freeze({
     countMult: 3, diameterMinMm: 1.0, diameterMaxMm: 8.0, sizeSkew: 2.5, fallA: 0.8, fallB: 0.16, fallC: 0,
     flutterMps: 0.35, exposure: 0, maxStreakPx: 0, flakePxPerMm: 0.18,
 });
@@ -117,7 +117,7 @@ function stepStreetWind(wind, melodyDirection, gustKick, frameIndex) {
     return { base, gust, value: Math.max(-0.5, Math.min(0.6, base + gust)) };
 }
 
-/** Chùm tia nước ngẫu nhiên trên mặt đường (cú snare) — cùng định dạng điểm chạm của advanceStreetRainDrops(). */
+/** Chùm tia nước ngẫu nhiên trên mặt đường (cú snare) — cùng định dạng điểm chạm của advanceStreetSnowflakes(). */
 /** Có bắt đầu chớp trời không: bật, nhạc vừa chuyển đoạn, sub vừa có nốt mới đủ mạnh (`threshold` = mức dải sub), đã qua
  * hồi chiêu kể từ lần trước (`lastAtMs`). */
 function shouldStartStreetThunder(enabled, isTransition, subOnsetAgeMs, subLevel, threshold, nowMs, lastAtMs) {
@@ -133,11 +133,11 @@ function computeStreetThunderAlpha(nowMs, startAtMs, maxOpacity) {
     return cap * env;
 }
 
-// ----------------------------------- Mưa: dựng, mật độ, vật lý -----------------------------------
+// ----------------------------------- Tuyết: dựng, mật độ, vật lý -----------------------------------
 
 /** Bể hạt theo kiểu (`spec` = STREET_RAIN_SPEC_*): rải ngẫu nhiên, mỗi hạt 1 đường kính -> v_t, τ = v_t/g, độ sâu `z`,
- * bán kính bông `size` (tuyết). tx/ty/cx/cy = hình vệt (đuôi/điểm điều khiển), advanceStreetRainDrops() tính mỗi frame. */
-function buildStreetRainPool(density, canvasWidth, canvasHeight, dpr, spec) {
+ * bán kính bông `size` (tuyết). tx/ty/cx/cy = hình vệt (đuôi/điểm điều khiển), advanceStreetSnowflakes() tính mỗi frame. */
+function buildStreetSnowPool(density, canvasWidth, canvasHeight, dpr, spec) {
     return Array.from({ length: Math.round(density * spec.countMult) }, () => {
         const diameterMm = spec.diameterMinMm + Math.pow(Math.random(), spec.sizeSkew) * (spec.diameterMaxMm - spec.diameterMinMm);
         const vtMps = spec.fallA * Math.pow(diameterMm, spec.fallB) * Math.exp(spec.fallC * diameterMm);
@@ -155,14 +155,14 @@ function buildStreetRainPool(density, canvasWidth, canvasHeight, dpr, spec) {
 }
 
 /** EMA của Energy % (0-100) — mật độ không giật theo từng frame. */
-function smoothStreetRainEnergy(prevEnergyPercent, energyPercent) {
+function smoothStreetSnowEnergy(prevEnergyPercent, energyPercent) {
     return prevEnergyPercent + (energyPercent - prevEnergyPercent) * 0.04;
 }
 
-/** Mật độ cuối: tỉ lệ = 1 − Energy%/100 (sàn STREET_RAIN_MIN_DENSITY_RATIO; dừng phát = đủ mật độ), số hạt đang rơi =
+/** Mật độ cuối: tỉ lệ = 1 − Energy%/100 (sàn STREET_SNOW_MIN_DENSITY_RATIO; dừng phát = đủ mật độ), số hạt đang rơi =
  * bể × tỉ lệ. @returns {{ratio:number, activeCount:number}} */
-function computeStreetRainDensity(poolSize, isPlaying, energyPercent) {
-    const ratio = isPlaying ? Math.max(STREET_RAIN_MIN_DENSITY_RATIO, 1 - energyPercent / 100) : 1;
+function computeStreetSnowDensity(poolSize, isPlaying, energyPercent) {
+    const ratio = isPlaying ? Math.max(STREET_SNOW_MIN_DENSITY_RATIO, 1 - energyPercent / 100) : 1;
     return { ratio, activeCount: Math.round(poolSize * ratio) };
 }
 
@@ -170,7 +170,7 @@ function computeStreetRainDensity(poolSize, isPlaying, energyPercent) {
  * đỗ mà i < activeCount thì rơi tiếp — mật độ đổi mượt. Gió tại hạt = wind × hồ sơ độ cao × (1 + rối) + rung phùn; vận tốc
  * hồi về gió theo τ; quấn ngang khi trôi ra mép; chạm đất (y chạm = groundY + phần mặt đường theo z) -> về đỉnh.
  * @returns {{x:number, y:number, z:number}[]} các điểm chạm frame này (cho tia nước). */
-function advanceStreetRainDrops(canvasWidth, canvasHeight, groundY, dpr, activeCount, wind, nowMs) {
+function advanceStreetSnowflakes(canvasWidth, canvasHeight, groundY, dpr, activeCount, wind, nowMs) {
     const hits = [];
     const roadH = canvasHeight - groundY;
     const windPx = wind * STREET_WIND_MPS * STREET_PX_PER_MPS * dpr;
@@ -220,7 +220,7 @@ function advanceStreetRainDrops(canvasWidth, canvasHeight, groundY, dpr, activeC
     return hits;
 }
 
-// ----------------------------------- Mưa: vẽ -----------------------------------
+// ----------------------------------- Tuyết: vẽ -----------------------------------
 
 /** Mưa thường, 1 lớp độ sâu: cả vệt cong mờ + 60% phía đầu đậm hơn (đuôi thon nhạt dần) — 2 path, 2 lần stroke. Đoạn
  * đầu là cung con t ∈ [0.4, 1] của chính Bézier đó (tách de Casteljau) nên nối liền, không gãy góc. */
