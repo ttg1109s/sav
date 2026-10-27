@@ -102,6 +102,74 @@ function resolveStreetLampBands(lampCount) {
     return Array.from({ length: lampCount }, (_, i) => STREET_LAMP_BANDS[i % STREET_LAMP_BANDS.length]);
 }
 
+/**
+ * Cập nhật nhịp sáng từng đèn và dựng thông số hình học cho frame hiện tại.
+ * bandLevels là mức dải âm thanh; onsetTimes là timestamp của onset theo performance.now().
+ */
+function advanceRainLampsAndBuildSpecs(lamps, isPlaying, bandLevels, onsetTimes, vibrato, nowMs, dpr) {
+    const total = lamps.length;
+    return lamps.map((lamp, i) => {
+        const band = Math.max(0, Math.min(1, (Number(bandLevels[i]) || 0)));
+        const onsetAt = Number(onsetTimes[i]) || 0;
+        const onset = isPlaying && onsetAt > 0 && nowMs - onsetAt >= 0 && nowMs - onsetAt < 140;
+        const pulse = onset ? 1 : 0;
+        const targetFlicker = isPlaying ? 0.55 + band * 0.75 + pulse * 0.45 : 0.42;
+        const flicker = (Number.isFinite(lamp.flicker) ? lamp.flicker : 1)
+            + (targetFlicker - (Number.isFinite(lamp.flicker) ? lamp.flicker : 1)) * 0.22;
+        lamp.flicker = flicker;
+        const depth = Number.isFinite(lamp.depth) ? lamp.depth : 0;
+        const height = Math.max(20 * dpr, Number(lamp.height) || 0);
+        const postTopY = lamp.baseY - height;
+        const flareScale = Math.max(0.5, Number(lamp.flareScale) || 1);
+        const capW = (lamp.main ? 15 : 11) * dpr * flareScale;
+        const haloR = (lamp.main ? 52 : 34) * dpr * flareScale * (0.9 + 0.18 * flicker + 0.08 * Math.max(0, Number(vibrato) || 0));
+        const value = Math.max(0, Math.min(255, Math.round((isPlaying ? 28 + band * 190 : 32) + pulse * 35)));
+        return {
+            ...lamp,
+            postTopY,
+            capW,
+            haloR,
+            glow: Math.max(0.12, Math.min(1.5, flicker)),
+            depth,
+            onset,
+            colorArgs: [i, total, value],
+        };
+    });
+}
+
+/** Vẽ cột, tay đèn, chụp và bóng đèn; quầng/mặt đường được vẽ riêng trong workflow. */
+function paintRainLamp(ctx, spec, fill, dpr) {
+    const { x, baseY, postTopY, capW, glow, depth } = spec;
+    const poleW = Math.max(1 * dpr, (spec.main ? 3 : 2) * dpr * (1 - depth * 0.35));
+    const armY = postTopY + 4 * dpr;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#171b24';
+    ctx.lineWidth = poleW;
+    ctx.beginPath();
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, postTopY);
+    ctx.lineTo(x + capW * 0.55, armY);
+    ctx.stroke();
+    ctx.fillStyle = '#10141c';
+    ctx.beginPath();
+    ctx.moveTo(x - capW * 0.58, armY);
+    ctx.lineTo(x + capW * 0.9, armY);
+    ctx.lineTo(x + capW * 0.68, armY + 4 * dpr);
+    ctx.lineTo(x - capW * 0.42, armY + 4 * dpr);
+    ctx.closePath();
+    ctx.fill();
+    const bulbR = Math.max(2 * dpr, capW * 0.18);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.min(1, 0.45 + glow * 0.4);
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(x + capW * 0.2, armY + 4 * dpr, bulbR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
 /** Gió chung (wind.value, 1 ≈ 10 m/s): nền lắc chậm + nghiêng theo hướng giai điệu (-1/0/1, bám chậm); cơn giật khi nhạc
  * chuyển đoạn (`gustKick`) tắt dần. @param {{base:number, gust:number}|null} wind @returns {{base, gust, value}} */
 function stepStreetWind(wind, melodyDirection, gustKick, frameIndex) {
