@@ -485,9 +485,9 @@ của group.
 247. `core/visualizer/groups/vortex/rings.js`
 248. `core/visualizer/groups/vortex/bars.js`
 249. `core/visualizer/groups/vortex/wave.js`
-250. `core/visualizer/groups/rain/common.js`
-251. `core/visualizer/groups/rain/glass.js`
-252. `core/visualizer/groups/rain/street.js`
+250. `core/visualizer/groups/falling/common.js`
+251. `core/visualizer/groups/falling/glass.js`
+252. `core/visualizer/groups/falling/street.js`
 254. `core/visualizer/groups/lighting/thunder.js`
 255. `core/visualizer/groups/lighting/fireworks.js`
 256. `core/visualizer/groups/connector/common.js`
@@ -508,7 +508,7 @@ xem [event-bus-flow.md](./event-bus-flow.md) mục 1).
 260. `event/workflow/visualizer-render.js`
 261. `event/workflow/visualizer/beat-window.js`
 262. `event/workflow/visualizer/bar.js` — cần: `core/visualizer/groups/bar/dot.js` (DOT_VIB_SLOTS); `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
-263. `event/workflow/visualizer/rain.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
+263. `event/workflow/visualizer/falling.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 264. `event/workflow/visualizer/lighting.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 265. `event/workflow/visualizer/shape.js` — cần: `event/workflow/visualizer-render.js` (workflowVisualizerRender)
 266. `event/workflow/visualizer/vortex.js` — cần: `core/visualizer/beat-window.js` (createBeatFluxWindow); `event/workflow/visualizer-render.js` (workflowVisualizerRender)
