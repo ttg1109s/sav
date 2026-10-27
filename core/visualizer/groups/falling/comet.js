@@ -13,6 +13,7 @@ function createCometMeteorState() {
 function buildCometMountainLayers(width, height, dpr, cfg) {
     const count = Math.max(1, Math.min(5, Math.round(cfg.cometMountainLayerCount || 3)));
     const horizon = height * (1 - Math.max(5, Math.min(45, cfg.cometHorizonHeight || 22)) / 100);
+    const heightScale = Math.max(0.5, Math.min(1.8, Number(cfg.cometMountainHeight) || 100)) / 100;
     const layers = [];
     for (let layerIndex = 0; layerIndex < count; layerIndex++) {
         const depth = (layerIndex + 1) / count;
@@ -20,9 +21,9 @@ function buildCometMountainLayers(width, height, dpr, cfg) {
         const step = Math.max(24 * dpr, width / 22);
         const seed = 37 + layerIndex * 101;
         for (let x = -step; x <= width + step; x += step) {
-            const waveA = Math.sin((x / width) * (3.1 + layerIndex * 0.9) * Math.PI + seed) * height * (0.035 + depth * 0.025);
-            const waveB = Math.sin((x / width) * (7.7 + layerIndex) * Math.PI + seed * 0.31) * height * 0.018;
-            const variation = ((Math.sin(x * 0.013 + seed) * 0.5) + (Math.cos(x * 0.027 + seed * 2) * 0.5)) * height * 0.018;
+            const waveA = Math.sin((x / width) * (3.1 + layerIndex * 0.9) * Math.PI + seed) * height * (0.035 + depth * 0.025) * heightScale;
+            const waveB = Math.sin((x / width) * (7.7 + layerIndex) * Math.PI + seed * 0.31) * height * 0.018 * heightScale;
+            const variation = ((Math.sin(x * 0.013 + seed) * 0.5) + (Math.cos(x * 0.027 + seed * 2) * 0.5)) * height * 0.018 * heightScale;
             points.push({ x, y: horizon + waveA + waveB + variation + depth * height * 0.12 });
         }
         layers.push({
@@ -63,7 +64,8 @@ function _spawnCometMeteor(state, frame, energy) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
     const perspective = cfg.cometDirectionMode === 'perspectiveApproach';
     const angle = _cometDirection(cfg);
-    const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(0.7, 1.3) * (1 + energy * (Math.max(0, Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8) * 0.45));
+    const speedVariation = Math.max(0, Math.min(100, Number(cfg.cometSpeedVariation) || 30)) / 100;
+    const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(1 - speedVariation, 1 + speedVariation) * (1 + energy * (Math.max(0, Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8) * 0.45));
     const x = _cometRandom(0, W);
     const y = _cometRandom(0, H * 0.72);
     const z = _cometRandom(0.65, 1);
