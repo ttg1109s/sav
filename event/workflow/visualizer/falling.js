@@ -1,5 +1,5 @@
 /**
- * event/workflow/visualizer/falling.js — Group "rain" (hiển thị Falling; canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
+ * event/workflow/visualizer/falling.js — Group "falling" (canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
  * `onResize` (và chọn style) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
  */
 
@@ -27,9 +27,8 @@ const RAIN_STREET_GROUND_STOPS_BY_MODE = {
     gradient: () => [{ offset: 0, color: 'rgba(15, 20, 28, 0.9)' }, { offset: 1, color: 'rgba(8, 10, 15, 0.95)' }],
 };
 
-/** 2 kiểu hạt street (customEffect.rain.streetRainStyle: mưa / tuyết) — thông số bể hạt, lớp vẽ, màn mờ + quầng (chỉ tuyết),
- * vùng sáng, tia nước (chỉ mưa). Kiểu lạ -> 'normal'. */
-const RAIN_STREET_STYLES = {
+/** Street Light dùng duy nhất Snow — thông số bể hạt, lớp vẽ, màn mờ + quầng, vùng sáng. */
+const FALLING_STREET_SNOW = {
     snow: {
         spec: STREET_RAIN_SPEC_SNOW, layers: STREET_SNOW_LAYERS, // core
         paintMist: paintStreetSnowMist, // core
@@ -73,7 +72,7 @@ const workflowVizRain = {
         const streetLamps = buildStreetLamps(canvas.width, canvas.height, groundY, viewport.dpr, rainCfg.customLamps); // core
         appState.set('streetLamps', streetLamps);
         this._street.bands = resolveStreetLampBands(streetLamps.length); // core/visualizer/groups/falling/street.js
-        const style = RAIN_STREET_STYLES.snow;
+        const style = FALLING_STREET_SNOW;
         appState.set('streetRain', buildStreetRainPool(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr, style.spec)); // core
         console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Rain theo khung nhìn"');
     },
