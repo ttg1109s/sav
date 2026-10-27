@@ -141,6 +141,10 @@ const workflowAudioAnalysis = {
     },
 
     _resetMediaFields(d) {
+        d.energyPercent = 0;
+        d.energyRmsPercent = 0;
+        d.energyPeakPercent = 0;
+        d.energySpectrumPercent = 0;
         d.fluxHistory.length = 0;
         d.bpm = null;
         d.pitch.frequency = -1; d.pitch.confidence = 0; d.pitch.midi = null; d.pitch.name = null; d.pitch.time = 0;
