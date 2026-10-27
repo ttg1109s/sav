@@ -1,6 +1,6 @@
 /**
- * event/workflow/visualizer/rain.js — Group "rain" (canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
- * `onResize` (và chọn style rain) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
+ * event/workflow/visualizer/rain.js — Group "rain" (hiển thị Falling; canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
+ * `onResize` (và chọn style) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
  */
 
 /** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
@@ -66,8 +66,7 @@ const workflowVizRain = {
         street: (frame) => workflowVizRain._drawStreet(frame),
     },
 
-    /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, mốc snare đã xử lý, cửa
-     * sổ beat dò chuyển đoạn. */
+    /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, cửa sổ beat dò chuyển đoạn. */
     _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, snareSeenMs: 0, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
 
     // ===================== Vòng đời =====================
@@ -248,13 +247,6 @@ const workflowVizRain = {
         spawnRainRipple(lamp.spec.x, groundY, H, dpr, lamp.fill, lamp.fill); // core
     },
 
-    /** Snare (dải mid có nốt mới) -> 1 chùm tia nước rải trên mặt đường (tuyết: không bắn). */
-    _splashOnSnare(frame, groundY, dpr, style) {
-        const onsetMs = frame.audio.lastBandOnsetTime('mid'); // service/audio-analysis.js
-        if (!frame.isPlaying || onsetMs <= this._street.snareSeenMs) return;
-        this._street.snareSeenMs = onsetMs;
-        style.splashBurst(frame.canvas.width, frame.canvas.height, groundY, dpr);
-    },
 };
 
 workflowVisualizerRender.registerGroup('rain', workflowVizRain);
