@@ -175,7 +175,7 @@ const workflowVizFalling = {
 
         const groundY = s.streetGroundY || computeStreetGroundY(H, dpr); // core/canvas-scene-setup.js
         const stopColors = (FALLING_STREET_GROUND_STOPS_BY_MODE[cfg.mode] || FALLING_STREET_GROUND_STOPS_BY_MODE.gradient)(cfg);
-        paintRainGroundGradient(ctx, W, H, groundY, stopColors); // core
+        paintFallingGroundGradient(ctx, W, H, groundY, stopColors); // core
         paintParkFence(ctx, W, groundY, dpr); // core
 
         st.energy = smoothStreetSnowEnergy(st.energy, audio.energyPercent()); // core
