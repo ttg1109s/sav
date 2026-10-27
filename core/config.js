@@ -75,7 +75,7 @@
                 streetWindEnabled: true,
                 // Comet Meteor Shower — Canvas 2D, thuộc group falling (registry key rain).
                 cometMaxMeteors: 18, cometSpawnRate: 3, cometTailLength: 100, cometDustPerMeteor: 8,
-                cometBrightness: 1, cometGlow: 16, cometSpeed: 220,
+                cometBrightness: 1, cometGlow: 16, cometSpeed: 220, cometAudioSensitivity: 0.8, cometBeatBurst: true,
                 cometDirectionMode: 'diagonal', cometDirectionAngle: 315,
                 cometApproachSpeed: 0.28, cometPerspectiveStrength: 0.85, cometNearScale: 3,
                 cometSpawnSpread: 70, cometBehindMountains: 0.55,
