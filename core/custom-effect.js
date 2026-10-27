@@ -363,7 +363,7 @@ const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
 const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     bar: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, 'maxH'],
     lighting: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
-    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
+    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id), 'cometMaxMeteors', 'cometSpawnRate', 'cometDustPerMeteor', 'cometTailLength', 'cometBrightness', 'cometGlow', 'cometAudioSensitivity', 'cometBeatBurst', 'cometDirectionMode', 'cometSpeed', 'cometDirectionAngle', 'cometApproachSpeed', 'cometPerspectiveStrength', 'cometNearScale', 'cometSpawnSpread', 'cometBehindMountains', 'cometMountainLayerCount', 'cometMountainOpacity', 'cometHorizonHeight'],
     vortex: [...CUSTOM_EFFECT_COLOR_FIELDS, 'warpSpeedBase', 'warpSpeedEnergyMult', 'redirectEnabled', 'sectionWindowBeats', 'fluxThreshold'],
     shape: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS], // MỚI 26/09/2026 — rubik/clock mỗi style giữ màu riêng; blur (lượt 2) chỉ clock đọc
     connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
