@@ -157,8 +157,6 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.glassDropDensity': 'Droplet density',
     'customEffectDrawer.field.glassStreakFrequency': 'Streak frequency',
     'customEffectDrawer.field.streetDensity': 'Snow density',
-    'customEffectDrawer.field.streetRainStyle': 'Precipitation',
-    'customEffectDrawer.streetRainStyle.snow': 'Snow',
     'customEffectDrawer.field.streetWindEnabled': 'Wind direction',
     'customEffectDrawer.field.streetBuildingScale': 'Building size',
     'customEffectDrawer.field.tunnelRingCount': 'Number of rings',
