@@ -16,7 +16,6 @@
                 streetLamps: 'array',
                 streetRain: 'array',
                 streetGroundY: 'number',
-                streetSplashes: 'array', // tia nước giọt mưa chạm đất (style street)
                 fwRockets: 'array',
                 fwParticles: 'array',
             },
@@ -33,7 +32,6 @@
                     streetLamps: [],
                     streetRain: [],
                     streetGroundY: 0,
-                    streetSplashes: [],
                     fwRockets: [],
                     fwParticles: [],
                 };
