@@ -52,7 +52,8 @@ function _cometRandom(min, max) { return min + Math.random() * (max - min); }
 
 function _cometDirection(cfg) {
     const mode = cfg.cometDirectionMode || 'diagonal';
-    const spread = Math.max(0, Math.min(180, Number(cfg.cometAngleSpread) || 14)) * Math.PI / 180;
+    const spreadValue = Number.isFinite(Number(cfg.cometAngleSpread)) ? Number(cfg.cometAngleSpread) : 14;
+    const spread = Math.max(0, Math.min(180, spreadValue)) * Math.PI / 180;
     if (mode === 'vertical') return Math.PI / 2;
     if (mode === 'horizontal') return Math.random() < 0.5 ? 0 : Math.PI;
     if (mode === 'omnidirectional') return _cometRandom(0, Math.PI * 2);
@@ -116,7 +117,7 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs, highFrequenc
             p.y += p.vy * dt;
             p.screenX = p.x; p.screenY = p.y; p.screenScale = 1;
         }
-        if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * (18 + energy * Math.max(0, (Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8)) * 18 + Math.max(0, Number(cfg.cometHighFrequencySensitivity) || 0.8) * Math.max(0, highFrequency || 0) * 30)) {
+        if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * (18 + energy * Math.max(0, (Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8)) * 18 + Math.max(0, Number.isFinite(Number(cfg.cometHighFrequencySensitivity)) ? Number(cfg.cometHighFrequencySensitivity) : 0.8) * Math.max(0, highFrequency || 0) * 30)) {
             p.dustParticles.push({ x: p.screenX || p.x, y: p.screenY || p.y, vx: _cometRandom(-28, 28) * p.dustSpread, vy: _cometRandom(-28, 28) * p.dustSpread, life: _cometRandom(0.15, 0.7), maxLife: 0.7, size: _cometRandom(0.4, 1.4) });
         }
         p.dustParticles.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; dustCount++; });
