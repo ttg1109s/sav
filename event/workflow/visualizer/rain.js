@@ -30,23 +30,12 @@ const RAIN_STREET_GROUND_STOPS_BY_MODE = {
 /** 2 kiểu hạt street (customEffect.rain.streetRainStyle: mưa / tuyết) — thông số bể hạt, lớp vẽ, màn mờ + quầng (chỉ tuyết),
  * vùng sáng, tia nước (chỉ mưa). Kiểu lạ -> 'normal'. */
 const RAIN_STREET_STYLES = {
-    normal: {
-        spec: STREET_RAIN_SPEC_NORMAL, layers: STREET_RAIN_STREAK_LAYERS, // core/visualizer/groups/rain/street.js
-        paintMist: () => {},
-        paintLampHaze: () => {},
-        paintLayer: paintStreetRainStreakLayer, // core
-        paintLit: paintStreetRainStreakLit, // core
-        splashHits: spawnStreetSplashes, // core
-        splashBurst: (W, H, groundY, dpr) => spawnStreetSplashes(buildStreetSplashBurst(W, H, groundY), dpr), // core
-    },
     snow: {
         spec: STREET_RAIN_SPEC_SNOW, layers: STREET_SNOW_LAYERS, // core
         paintMist: paintStreetSnowMist, // core
         paintLampHaze: paintStreetSnowLampHaze, // core
         paintLayer: paintStreetSnowLayer, // core
         paintLit: paintStreetSnowLit, // core
-        splashHits: () => {},
-        splashBurst: () => {},
     },
 };
 
@@ -209,7 +198,6 @@ const workflowVizRain = {
         });
 
         st.wind = RAIN_STREET_WIND_BY_ENABLED[cfg.streetWindEnabled !== false](st.wind, audio, isTransition);
-        this._splashOnSnare(frame, groundY, dpr, style); // trước tia nước của mưa — chùm snare được ưu tiên chỗ khi chạm trần
         advanceStreetRainDrops(W, H, groundY, dpr, density.activeCount, st.wind.value, nowMs); // core
         style.layers.forEach((layer) => style.paintLayer(ctx, s.streetRain, layer, dpr));
         lamps.forEach((l) => style.paintLit(ctx, s.streetRain, l.light, l.fill, dpr, nowMs));
