@@ -134,6 +134,8 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.cometTailLength': 'Tail length',
     'customEffectDrawer.field.cometBrightness': 'Brightness',
     'customEffectDrawer.field.cometGlow': 'Glow strength',
+    'customEffectDrawer.field.cometAudioSensitivity': 'Audio sensitivity',
+    'customEffectDrawer.field.cometBeatBurst': 'Spawn burst on beat',
     'customEffectDrawer.field.cometDirectionMode': 'Direction mode',
     'customEffectDrawer.cometDirection.diagonal': 'Diagonal',
     'customEffectDrawer.cometDirection.vertical': 'Vertical',
