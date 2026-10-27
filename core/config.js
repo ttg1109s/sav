@@ -73,6 +73,14 @@
                 streetDensity: 220, streetBuildingScale: 1.0,
                 // Street Light chỉ dùng tuyết; bật/tắt hướng gió (tắt = rơi thẳng).
                 streetWindEnabled: true,
+                // Comet Meteor Shower — Canvas 2D, thuộc group falling (registry key rain).
+                cometMaxMeteors: 18, cometSpawnRate: 3, cometTailLength: 100, cometDustPerMeteor: 8,
+                cometBrightness: 1, cometGlow: 16, cometSpeed: 220,
+                cometDirectionMode: 'diagonal', cometDirectionAngle: 315,
+                cometApproachSpeed: 0.28, cometPerspectiveStrength: 0.85, cometNearScale: 3,
+                cometSpawnSpread: 70, cometBehindMountains: 0.55,
+                cometMountainLayerCount: 3, cometMountainOpacity: 70, cometHorizonHeight: 22,
+                cometMountainColor: '#101827',
                 // Đèn thêm vào 3 cột gốc (tối đa 8) — generateStreetScene(), core/canvas-scene-setup.js; mỗi đèn
                 // xPercent/heightPx/flareScale riêng.
                 customLamps: [],
