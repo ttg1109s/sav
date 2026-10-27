@@ -74,28 +74,18 @@ const STREET_WIND_CALM = Object.freeze({ base: 0, gust: 0, value: 0 });
 /** Thông số từng kiểu: số hạt = mật độ × countMult; đường kính (mm) rải lệch về cỡ nhỏ theo sizeSkew (D = min + Δ·r^skew);
  * hệ số v_t = fallA·D^fallB·e^(fallC·D); đung đưa (m/s); thời gian phơi vệt (frame) + độ dài vệt tối đa (px CSS); bán kính bông
  * tuyết (px CSS mỗi mm). */
-const STREET_RAIN_SPEC_NORMAL = Object.freeze({
-    countMult: 1, diameterMinMm: 1.0, diameterMaxMm: 3.0, sizeSkew: 1, fallA: 4.874, fallB: 1, fallC: -0.195,
-    flutterMps: 0, exposure: 2.4, maxStreakPx: 60, flakePxPerMm: 0,
-});
 const STREET_RAIN_SPEC_SNOW = Object.freeze({
     countMult: 3, diameterMinMm: 1.0, diameterMaxMm: 8.0, sizeSkew: 2.5, fallA: 0.8, fallB: 0.16, fallC: 0,
     flutterMps: 0.35, exposure: 0, maxStreakPx: 0, flakePxPerMm: 0.18,
 });
 
 /** Lớp theo độ sâu `z` (0 xa – 1 gần): nét mảnh/mờ ở xa, dày/rõ ở gần. */
-const STREET_RAIN_STREAK_LAYERS = [
-    { zMin: 0, zMax: 0.34, width: 0.8, alpha: 0.24 },
-    { zMin: 0.34, zMax: 0.67, width: 1.1, alpha: 0.34 },
-    { zMin: 0.67, zMax: 1.01, width: 1.5, alpha: 0.48 },
-];
 const STREET_SNOW_LAYERS = [
     { zMin: 0, zMax: 0.34, alpha: 0.45 },
     { zMin: 0.34, zMax: 0.67, alpha: 0.65 },
     { zMin: 0.67, zMax: 1.01, alpha: 0.85 },
 ];
 /** Số tia nước tối đa cùng lúc. */
-const STREET_SPLASH_MAX = 120;
 
 /** Dải tần của từng đèn theo thứ tự `streetLamps` (đèn chính = bass, 2 đèn phụ = lowMid/mid, đèn tuỳ chỉnh xoay vòng). */
 const STREET_LAMP_BANDS = ['bass', 'lowMid', 'mid', 'highMid', 'treble', 'sub'];
@@ -105,7 +95,6 @@ const STREET_THUNDER_SUB_WINDOW_MS = 200;
 const STREET_THUNDER_SECTION_BEATS = 12;
 const STREET_THUNDER_FLUX_THRESHOLD = 0.5;
 /** Số tia nước của 1 chùm snare. */
-const STREET_SNARE_SPLASHES = 8;
 
 /** Tên dải tần cho `lampCount` đèn. @returns {string[]} */
 function resolveStreetLampBands(lampCount) {
@@ -123,13 +112,6 @@ function stepStreetWind(wind, melodyDirection, gustKick, frameIndex) {
 }
 
 /** Chùm tia nước ngẫu nhiên trên mặt đường (cú snare) — cùng định dạng điểm chạm của advanceStreetRainDrops(). */
-function buildStreetSplashBurst(canvasWidth, canvasHeight, groundY) {
-    return Array.from({ length: STREET_SNARE_SPLASHES }, () => {
-        const z = 0.4 + Math.random() * 0.6;
-        return { x: Math.random() * canvasWidth, y: groundY + (canvasHeight - groundY) * z * 0.85, z };
-    });
-}
-
 /** Có bắt đầu chớp trời không: bật, nhạc vừa chuyển đoạn, sub vừa có nốt mới đủ mạnh (`threshold` = mức dải sub), đã qua
  * hồi chiêu kể từ lần trước (`lastAtMs`). */
 function shouldStartStreetThunder(enabled, isTransition, subOnsetAgeMs, subLevel, threshold, nowMs, lastAtMs) {
@@ -236,29 +218,6 @@ function advanceStreetRainDrops(canvasWidth, canvasHeight, groundY, dpr, activeC
 
 /** Mưa thường, 1 lớp độ sâu: cả vệt cong mờ + 60% phía đầu đậm hơn (đuôi thon nhạt dần) — 2 path, 2 lần stroke. Đoạn
  * đầu là cung con t ∈ [0.4, 1] của chính Bézier đó (tách de Casteljau) nên nối liền, không gãy góc. */
-function paintStreetRainStreakLayer(ctx, drops, layer, dpr) {
-    const body = new Path2D();
-    const head = new Path2D();
-    for (let i = 0; i < drops.length; i++) {
-        const d = drops[i];
-        if (d.parked || d.z < layer.zMin || d.z >= layer.zMax) continue;
-        body.moveTo(d.tx, d.ty);
-        body.quadraticCurveTo(d.cx, d.cy, d.x, d.y);
-        head.moveTo(0.36 * d.tx + 0.48 * d.cx + 0.16 * d.x, 0.36 * d.ty + 0.48 * d.cy + 0.16 * d.y);
-        head.quadraticCurveTo(0.6 * d.cx + 0.4 * d.x, 0.6 * d.cy + 0.4 * d.y, d.x, d.y);
-    }
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = STREET_RAIN_COLOR;
-    ctx.globalAlpha = layer.alpha * 0.5;
-    ctx.lineWidth = layer.width * 0.75 * dpr;
-    ctx.stroke(body);
-    ctx.globalAlpha = layer.alpha * 0.8;
-    ctx.lineWidth = layer.width * dpr;
-    ctx.stroke(head);
-    ctx.restore();
-}
-
 /** Tuyết, 1 lớp độ sâu: mỗi bông = chấm tròn (bán kính = cỡ bông × độ gần) + 2 viền mờ (×1.3, ×1.7) nhạt dần cho mép mềm. */
 function paintStreetSnowLayer(ctx, drops, layer, dpr) {
     const outer = new Path2D();
@@ -297,29 +256,6 @@ function computeStreetLampLight(spec, groundY, dpr, smoothedEnergy) {
 }
 
 /** Mưa thường lọt vùng sáng: vẽ lại cộng sáng màu đèn, nhạt dần theo khoảng cách tới bóng đèn. */
-function paintStreetRainStreakLit(ctx, drops, light, lampFill, dpr) {
-    const r2 = light.litR * light.litR;
-    const path = new Path2D();
-    for (let i = 0; i < drops.length; i++) {
-        const d = drops[i];
-        const dx = d.x - light.x, dy = d.y - light.bulbY;
-        if (d.parked || d.y < light.capY || dx * dx + dy * dy > r2) continue;
-        path.moveTo(d.tx, d.ty);
-        path.quadraticCurveTo(d.cx, d.cy, d.x, d.y);
-    }
-    const grad = ctx.createRadialGradient(light.x, light.bulbY, 0, light.x, light.bulbY, light.litR);
-    grad.addColorStop(0, lampFill);
-    grad.addColorStop(1, 'transparent');
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = Math.min(1, light.glow * (1 - light.depth * 0.4));
-    ctx.strokeStyle = grad;
-    ctx.lineCap = 'round';
-    ctx.lineWidth = 1.6 * dpr;
-    ctx.stroke(path);
-    ctx.restore();
-}
-
 /** Tuyết lọt vùng sáng: tô lại bông cộng sáng màu đèn, nhạt dần theo khoảng cách + vài bông loé lấp lánh ở tâm (pha riêng
  * từng bông theo thời gian). */
 function paintStreetSnowLit(ctx, drops, light, lampFill, dpr, nowMs) {
@@ -411,155 +347,3 @@ function paintStreetLampPool(ctx, light, lampFill, canvasHeight, dpr) {
     ctx.restore();
 }
 
-// ----------------------------------- Tia nước -----------------------------------
-
-/** Sinh tia nước tại các điểm chạm (bỏ giọt quá xa — tia quá nhỏ; đủ STREET_SPLASH_MAX thì thôi). */
-function spawnStreetSplashes(hits, dpr) {
-    appState.mutate('streetSplashes', (arr) => {
-        for (let i = 0; i < hits.length && arr.length < STREET_SPLASH_MAX; i++) {
-            const h = hits[i];
-            if (h.z < 0.3) continue;
-            arr.push({ x: h.x, y: h.y, size: (1.5 + h.z * 3.5) * dpr, age: 0, life: 10 + Math.round(h.z * 8) });
-        }
-    }, { skipCheck: true });
-}
-
-/** Tiến tuổi tia nước, bỏ tia đã hết đời. */
-function advanceStreetSplashes() {
-    appState.mutate('streetSplashes', (arr) => {
-        for (let i = arr.length - 1; i >= 0; i--) {
-            arr[i].age += 1;
-            if (arr[i].age >= arr[i].life) arr.splice(i, 1);
-        }
-    }, { skipCheck: true });
-}
-
-/** Vẽ tia nước: 2 tia bắn chéo lên + gợn elip nhỏ loang ra, mờ dần theo tuổi. */
-function paintStreetSplashes(ctx, splashes, dpr) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(205, 220, 235, 1)';
-    ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(1, 0.9 * dpr);
-    splashes.forEach((sp) => {
-        const k = sp.age / sp.life;
-        const up = sp.size * 2.2 * Math.sin(k * Math.PI);
-        const out = sp.size * (0.6 + k * 1.6);
-        ctx.globalAlpha = 0.55 * (1 - k);
-        ctx.beginPath();
-        ctx.moveTo(sp.x - out * 0.4, sp.y);
-        ctx.lineTo(sp.x - out, sp.y - up);
-        ctx.moveTo(sp.x + out * 0.4, sp.y);
-        ctx.lineTo(sp.x + out, sp.y - up);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(sp.x, sp.y, out * 1.3, out * 0.35, 0, 0, Math.PI * 2);
-        ctx.stroke();
-    });
-    ctx.restore();
-}
-
-// ----------------------------------- Mặt đất, đèn, gợn nước -----------------------------------
-
-/** Mặt đất (gradient) từ các color-stop Workflow đã resolve theo color mode. */
-function paintRainGroundGradient(ctx, canvasWidth, canvasHeight, groundY, stopColors) {
-    const grad = ctx.createLinearGradient(0, groundY, 0, canvasHeight);
-    stopColors.forEach((s) => grad.addColorStop(s.offset, s.color));
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, groundY, canvasWidth, canvasHeight - groundY);
-}
-
-/** Tiến flicker + khung hình từng đèn. Mỗi đèn sáng theo mức dải tần của nó (`bandLevels[i]`), loé khi dải có nốt mới
- * (`onsetTimes[i]` mới hơn lần trước đèn đã thấy), rung nhẹ theo vibrato. Trả `colorArgs` để Workflow resolve màu
- * (colorAt()) + `onset` (để Workflow sinh gợn nước). @returns {object[]} specs, cùng thứ tự `streetLamps`. */
-function advanceRainLampsAndBuildSpecs(streetLamps, isPlaying, bandLevels, onsetTimes, vibrato, nowMs, dpr) {
-    const specs = [];
-    const shimmer = isPlaying && vibrato.active ? Math.sin((nowMs / 1000) * Math.PI * 2 * vibrato.rateHz) * 0.08 : 0;
-    appState.mutate('streetLamps', (arr) => arr.forEach((lamp, lampIdx) => {
-        const level = isPlaying ? bandLevels[lampIdx] || 0 : 0;
-        const onset = isPlaying && onsetTimes[lampIdx] > (lamp.lastOnsetMs || 0);
-        lamp.lastOnsetMs = onsetTimes[lampIdx];
-        const flickerTarget = 0.6 + level * (1 - lamp.depth * 0.6) * 1.2 + shimmer;
-        const eased = lamp.flicker + (flickerTarget - lamp.flicker) * 0.3;
-        lamp.flicker = onset ? Math.max(eased, flickerTarget + 0.4) : eased;
-        const glow = Math.max(0.12, Math.min(1.5, lamp.flicker));
-        const postTopY = lamp.baseY - lamp.height;
-        const postW = (lamp.main ? 5 : 3.5) * dpr;
-        const capW = postW * 3.2;
-        const flareScale = lamp.flareScale || 1;
-        const haloR = (lamp.main ? 150 : 95) * dpr * (1 - lamp.depth * 0.3) * (0.7 + glow * 0.55) * flareScale;
-        specs.push({
-            colorArgs: [lampIdx, streetLamps.length, Math.round(glow * 255)],
-            x: lamp.x, main: lamp.main, depth: lamp.depth, height: lamp.height,
-            postTopY, postW, capW, haloR, glow, onset,
-            postColor: lamp.depth > 0 ? `rgba(15,18,24,${0.9 - lamp.depth * 0.3})` : '#15181f',
-        });
-    }), { skipCheck: true });
-    return specs;
-}
-
-/** Vẽ 1 đèn đường (cột + chụp + quầng sáng + bóng đèn) từ spec + `lampFill` Workflow đã resolve. */
-function paintRainLamp(ctx, spec, lampFill, dpr) {
-    ctx.fillStyle = spec.postColor;
-    ctx.fillRect(spec.x - spec.postW / 2, spec.postTopY, spec.postW, spec.height);
-
-    ctx.beginPath();
-    ctx.moveTo(spec.x - spec.capW / 2, spec.postTopY);
-    ctx.lineTo(spec.x + spec.capW / 2, spec.postTopY);
-    ctx.lineTo(spec.x + spec.capW * 0.32, spec.postTopY - spec.capW * 0.5);
-    ctx.lineTo(spec.x - spec.capW * 0.32, spec.postTopY - spec.capW * 0.5);
-    ctx.closePath();
-    ctx.fillStyle = '#0c0e12';
-    ctx.fill();
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const lampGlow = ctx.createRadialGradient(spec.x, spec.postTopY + 6 * dpr, 1, spec.x, spec.postTopY + 6 * dpr, spec.haloR);
-    ctx.globalAlpha = 0.6 * spec.glow * (1 - spec.depth * 0.4);
-    lampGlow.addColorStop(0, lampFill);
-    lampGlow.addColorStop(1, 'transparent');
-    ctx.fillStyle = lampGlow;
-    ctx.beginPath();
-    ctx.arc(spec.x, spec.postTopY + 6 * dpr, spec.haloR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = Math.min(1, spec.glow);
-    ctx.fillStyle = lampFill;
-    ctx.beginPath();
-    ctx.arc(spec.x, spec.postTopY + 6 * dpr, (spec.main ? 5 : 3.5) * dpr, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-    ctx.restore();
-}
-
-/** Sinh 1 gợn nước dưới chân đèn chính (`color`/`glow` Workflow đã resolve). */
-function spawnRainRipple(lampX, groundY, canvasHeight, dpr, color, glow) {
-    appState.mutate('ripples', (arr) => arr.push({
-        x: lampX + (Math.random() - 0.5) * 60 * dpr, y: groundY + (canvasHeight - groundY) * 0.4,
-        radius: 4 * dpr, maxRadius: 50 * dpr, speed: 1.5 * dpr, alpha: 0.5, color, glow,
-    }), { skipCheck: true });
-}
-
-/** Tiến gợn nước (loang ra, mờ dần), bỏ gợn đã tắt hẳn. */
-function advanceRainRipples() {
-    appState.mutate('ripples', (arr) => {
-        for (let i = arr.length - 1; i >= 0; i--) {
-            const rip = arr[i];
-            rip.radius += rip.speed;
-            rip.alpha -= (rip.speed / rip.maxRadius) * 1.2;
-            if (rip.alpha <= 0) arr.splice(i, 1);
-        }
-    }, { skipCheck: true });
-}
-
-/** Vẽ gợn nước còn sống, mới trước cũ sau (màu đã lưu trên từng gợn lúc sinh). Kết thúc với globalAlpha = 1. */
-function paintRainRipples(ctx, ripples, dpr) {
-    ctx.lineWidth = 1.5 * dpr;
-    for (let i = ripples.length - 1; i >= 0; i--) {
-        const rip = ripples[i];
-        ctx.beginPath();
-        ctx.ellipse(rip.x, rip.y, Math.max(0.1, rip.radius), Math.max(0.1, rip.radius * 0.3), 0, 0, Math.PI * 2);
-        ctx.strokeStyle = rip.color;
-        ctx.globalAlpha = Math.max(0, rip.alpha);
-        ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-}
