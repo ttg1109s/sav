@@ -154,68 +154,62 @@ function paintRainRipples(ctx, ripples, dpr) {
  * Cập nhật nhịp sáng từng đèn và dựng thông số hình học cho frame hiện tại.
  * bandLevels là mức dải âm thanh; onsetTimes là timestamp của onset theo performance.now().
  */
-function advanceRainLampsAndBuildSpecs(lamps, isPlaying, bandLevels, onsetTimes, vibrato, nowMs, dpr) {
-    const total = lamps.length;
-    const vibratoPulse = vibrato && vibrato.active ? Math.min(1, (Number(vibrato.extentCents) || 0) / 100) : 0;
-    return lamps.map((lamp, i) => {
-        const band = Math.max(0, Math.min(1, (Number(bandLevels[i]) || 0)));
-        const onsetAt = Number(onsetTimes[i]) || 0;
-        const onset = isPlaying && onsetAt > 0 && nowMs - onsetAt >= 0 && nowMs - onsetAt < 140;
-        const pulse = onset ? 1 : 0;
-        const targetFlicker = isPlaying ? 0.55 + band * 0.75 + pulse * 0.45 : 0.42;
-        const flicker = (Number.isFinite(lamp.flicker) ? lamp.flicker : 1)
-            + (targetFlicker - (Number.isFinite(lamp.flicker) ? lamp.flicker : 1)) * 0.22;
-        lamp.flicker = flicker;
-        const depth = Number.isFinite(lamp.depth) ? lamp.depth : 0;
-        const height = Math.max(20 * dpr, Number(lamp.height) || 0);
-        const postTopY = lamp.baseY - height;
-        const flareScale = Math.max(0.5, Number(lamp.flareScale) || 1);
-        const capW = (lamp.main ? 15 : 11) * dpr * flareScale;
-        const haloR = (lamp.main ? 52 : 34) * dpr * flareScale * (0.9 + 0.18 * flicker + 0.08 * vibratoPulse);
-        const value = Math.max(0, Math.min(255, Math.round((isPlaying ? 28 + band * 190 : 32) + pulse * 35)));
-        return {
-            ...lamp,
-            postTopY,
-            capW,
-            haloR,
-            glow: Math.max(0.12, Math.min(1.5, flicker)),
-            depth,
-            onset,
-            colorArgs: [i, total, value],
-        };
-    });
+function advanceRainLampsAndBuildSpecs(streetLamps, isPlaying, bandLevels, onsetTimes, vibrato, nowMs, dpr) {
+    const specs = [];
+    const shimmer = isPlaying && vibrato.active ? Math.sin((nowMs / 1000) * Math.PI * 2 * vibrato.rateHz) * 0.08 : 0;
+    appState.mutate('streetLamps', (arr) => arr.forEach((lamp, lampIdx) => {
+        const level = isPlaying ? bandLevels[lampIdx] || 0 : 0;
+        const onset = isPlaying && onsetTimes[lampIdx] > (lamp.lastOnsetMs || 0);
+        lamp.lastOnsetMs = onsetTimes[lampIdx];
+        const flickerTarget = 0.6 + level * (1 - lamp.depth * 0.6) * 1.2 + shimmer;
+        const eased = lamp.flicker + (flickerTarget - lamp.flicker) * 0.3;
+        lamp.flicker = onset ? Math.max(eased, flickerTarget + 0.4) : eased;
+        const glow = Math.max(0.12, Math.min(1.5, lamp.flicker));
+        const postTopY = lamp.baseY - lamp.height;
+        const postW = (lamp.main ? 5 : 3.5) * dpr;
+        const capW = postW * 3.2;
+        const flareScale = lamp.flareScale || 1;
+        const haloR = (lamp.main ? 150 : 95) * dpr * (1 - lamp.depth * 0.3) * (0.7 + glow * 0.55) * flareScale;
+        specs.push({
+            colorArgs: [lampIdx, streetLamps.length, Math.round(glow * 255)],
+            x: lamp.x, main: lamp.main, depth: lamp.depth, height: lamp.height,
+            postTopY, postW, capW, haloR, glow, onset,
+            postColor: lamp.depth > 0 ? `rgba(15,18,24,${0.9 - lamp.depth * 0.3})` : '#15181f',
+        });
+    }), { skipCheck: true });
+    return specs;
 }
 
 /** Vẽ cột, tay đèn, chụp và bóng đèn; quầng/mặt đường được vẽ riêng trong workflow. */
-function paintRainLamp(ctx, spec, fill, dpr) {
-    const { x, baseY, postTopY, capW, glow, depth } = spec;
-    const poleW = Math.max(1 * dpr, (spec.main ? 3 : 2) * dpr * (1 - depth * 0.35));
-    const armY = postTopY + 4 * dpr;
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#171b24';
-    ctx.lineWidth = poleW;
+function paintRainLamp(ctx, spec, lampFill, dpr) {
+    ctx.fillStyle = spec.postColor;
+    ctx.fillRect(spec.x - spec.postW / 2, spec.postTopY, spec.postW, spec.height);
+
     ctx.beginPath();
-    ctx.moveTo(x, baseY);
-    ctx.lineTo(x, postTopY);
-    ctx.lineTo(x + capW * 0.55, armY);
-    ctx.stroke();
-    ctx.fillStyle = '#10141c';
-    ctx.beginPath();
-    ctx.moveTo(x - capW * 0.58, armY);
-    ctx.lineTo(x + capW * 0.9, armY);
-    ctx.lineTo(x + capW * 0.68, armY + 4 * dpr);
-    ctx.lineTo(x - capW * 0.42, armY + 4 * dpr);
+    ctx.moveTo(spec.x - spec.capW / 2, spec.postTopY);
+    ctx.lineTo(spec.x + spec.capW / 2, spec.postTopY);
+    ctx.lineTo(spec.x + spec.capW * 0.32, spec.postTopY - spec.capW * 0.5);
+    ctx.lineTo(spec.x - spec.capW * 0.32, spec.postTopY - spec.capW * 0.5);
     ctx.closePath();
+    ctx.fillStyle = '#0c0e12';
     ctx.fill();
-    const bulbR = Math.max(2 * dpr, capW * 0.18);
+
+    ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = Math.min(1, 0.45 + glow * 0.4);
-    ctx.fillStyle = fill;
+    const lampGlow = ctx.createRadialGradient(spec.x, spec.postTopY + 6 * dpr, 1, spec.x, spec.postTopY + 6 * dpr, spec.haloR);
+    ctx.globalAlpha = 0.6 * spec.glow * (1 - spec.depth * 0.4);
+    lampGlow.addColorStop(0, lampFill);
+    lampGlow.addColorStop(1, 'transparent');
+    ctx.fillStyle = lampGlow;
     ctx.beginPath();
-    ctx.arc(x + capW * 0.2, armY + 4 * dpr, bulbR, 0, Math.PI * 2);
+    ctx.arc(spec.x, spec.postTopY + 6 * dpr, spec.haloR, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = Math.min(1, spec.glow);
+    ctx.fillStyle = lampFill;
+    ctx.beginPath();
+    ctx.arc(spec.x, spec.postTopY + 6 * dpr, (spec.main ? 5 : 3.5) * dpr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
     ctx.restore();
 }
 
