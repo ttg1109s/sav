@@ -146,6 +146,7 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.cometLifetime': 'Meteor lifetime',
     'customEffectDrawer.field.cometDustSpread': 'Dust spread',
     'customEffectDrawer.field.cometBrightness': 'Brightness',
+    'customEffectDrawer.field.cometSize': 'Meteor size',
     'customEffectDrawer.field.cometGlow': 'Glow strength',
     'customEffectDrawer.field.cometAudioSensitivity': 'Audio sensitivity',
     'customEffectDrawer.field.cometBeatBurst': 'Spawn burst on beat',
