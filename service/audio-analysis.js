@@ -42,7 +42,8 @@ class AudioAnalysisStore {
         return {
             frameIndex: 0,
             // Năng lượng / nhịp
-            beatScale: 0, smoothedEnergy: 0, hueOffset: 0, energyPercent: 0, hasSignal: false,
+            beatScale: 0, smoothedEnergy: 0, hueOffset: 0,
+            energyPercent: 0, energyRmsPercent: 0, energyPeakPercent: 0, energySpectrumPercent: 0, hasSignal: false,
             flux: 0, fluxHistory: [], lastBeatTime: 0, bpm: null,
             // Cao độ
             pitch: { frequency: -1, confidence: 0, midi: null, name: null, time: 0, history: [], average: 0 },
@@ -138,7 +139,14 @@ class AudioAnalysisStore {
     smoothedEnergy() { return this._d.smoothedEnergy; }
     /** Hue chạy vòng 0-360 theo năng lượng. */
     hueOffset() { return this._d.hueOffset; }
+    /** Energy chính (RMS dBFS chuẩn hóa), tương thích với các consumer hiện có. */
     energyPercent() { return this._d.energyPercent; }
+    /** RMS Energy chuẩn hóa theo tham chiếu cố định -60..-6 dBFS. */
+    energyRmsPercent() { return this._d.energyRmsPercent; }
+    /** Peak Energy chuẩn hóa riêng theo cùng tham chiếu. */
+    energyPeakPercent() { return this._d.energyPeakPercent; }
+    /** Energy theo phổ FFT bằng công thức cũ; dùng để so sánh/diagnostic. */
+    energySpectrumPercent() { return this._d.energySpectrumPercent; }
     /** RMS trên ngưỡng im lặng. */
     hasSignal() { return this._d.hasSignal; }
     flux() { return this._d.flux; }
