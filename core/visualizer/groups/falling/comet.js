@@ -64,7 +64,7 @@ function _spawnCometMeteor(state, frame, energy) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
     const perspective = cfg.cometDirectionMode === 'perspectiveApproach';
     const angle = _cometDirection(cfg);
-    const speedVariation = Math.max(0, Math.min(100, Number(cfg.cometSpeedVariation) || 30)) / 100;
+    const speedVariation = Math.max(0, Math.min(100, (Number.isFinite(Number(cfg.cometSpeedVariation)) ? Number(cfg.cometSpeedVariation) : 30))) / 100;
     const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(1 - speedVariation, 1 + speedVariation) * (1 + energy * (Math.max(0, Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8) * 0.45));
     const x = _cometRandom(0, W);
     const y = _cometRandom(0, H * 0.72);
@@ -110,7 +110,7 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs) {
             p.y += p.vy * dt;
             p.screenX = p.x; p.screenY = p.y; p.screenScale = 1;
         }
-        if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * (18 + energy * Math.max(0, Number(cfg.cometAudioSensitivity) || 0.8) * 18)) {
+        if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * (18 + energy * Math.max(0, (Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8)) * 18)) {
             p.dustParticles.push({ x: p.screenX || p.x, y: p.screenY || p.y, vx: _cometRandom(-28, 28) * p.dustSpread, vy: _cometRandom(-28, 28) * p.dustSpread, life: _cometRandom(0.15, 0.7), maxLife: 0.7, size: _cometRandom(0.4, 1.4) });
         }
         p.dustParticles.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; dustCount++; });
