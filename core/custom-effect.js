@@ -207,12 +207,23 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'cometDustPerMeteor', labelKey: 'customEffectDrawer.field.cometDustPerMeteor', type: 'slider', min: 0, max: 32, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometTailLength', labelKey: 'customEffectDrawer.field.cometTailLength', type: 'slider', min: 10, max: 300, step: 5, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometTailOpacity', labelKey: 'customEffectDrawer.field.cometTailOpacity', type: 'sliderFloat', min: 0.05, max: 1, step: 0.05, decimals: 2, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometTailStretch', labelKey: 'customEffectDrawer.field.cometTailStretch', type: 'sliderFloat', min: 0.2, max: 3, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometBrightnessFalloff', labelKey: 'customEffectDrawer.field.cometBrightnessFalloff', type: 'sliderFloat', min: 0.5, max: 3, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometHighFrequencySensitivity', labelKey: 'customEffectDrawer.field.cometHighFrequencySensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'comet' }, 
         { id: 'cometLifetime', labelKey: 'customEffectDrawer.field.cometLifetime', type: 'sliderFloat', min: 0.25, max: 3, step: 0.25, decimals: 2, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometDustSpread', labelKey: 'customEffectDrawer.field.cometDustSpread', type: 'sliderFloat', min: 0.1, max: 3, step: 0.1, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometBrightness', labelKey: 'customEffectDrawer.field.cometBrightness', type: 'sliderFloat', min: 0.1, max: 2, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometGlow', labelKey: 'customEffectDrawer.field.cometGlow', type: 'slider', min: 0, max: 40, step: 1, card: 'glow', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometAudioSensitivity', labelKey: 'customEffectDrawer.field.cometAudioSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'comet' },
         { id: 'cometBeatBurst', labelKey: 'customEffectDrawer.field.cometBeatBurst', type: 'toggle', card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'comet' },
+        { id: 'cometSpawnRegion', labelKey: 'customEffectDrawer.field.cometSpawnRegion', type: 'select', card: 'layout', showIf: (cfg) => cfg.rainStyle === 'comet' && cfg.cometDirectionMode !== 'perspectiveApproach', options: [
+            { value: 'random', labelKey: 'customEffectDrawer.cometSpawnRegion.random' },
+            { value: 'top', labelKey: 'customEffectDrawer.cometSpawnRegion.top' },
+            { value: 'bottom', labelKey: 'customEffectDrawer.cometSpawnRegion.bottom' },
+            { value: 'left', labelKey: 'customEffectDrawer.cometSpawnRegion.left' },
+            { value: 'right', labelKey: 'customEffectDrawer.cometSpawnRegion.right' },
+        ] },
+        { id: 'cometAngleSpread', labelKey: 'customEffectDrawer.field.cometAngleSpread', type: 'slider', min: 0, max: 90, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'comet' && ['diagonal', 'directionalStream'].includes(cfg.cometDirectionMode) },
         { id: 'cometDirectionMode', labelKey: 'customEffectDrawer.field.cometDirectionMode', type: 'select', card: 'motion', rerender: true, showIf: (cfg) => cfg.rainStyle === 'comet', options: [
             { value: 'diagonal', labelKey: 'customEffectDrawer.cometDirection.diagonal' },
             { value: 'vertical', labelKey: 'customEffectDrawer.cometDirection.vertical' },
@@ -369,7 +380,7 @@ const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
 const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     bar: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, 'maxH'],
     lighting: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
-    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id), 'cometMaxMeteors', 'cometSpawnRate', 'cometDustPerMeteor', 'cometTailLength', 'cometTailOpacity', 'cometLifetime', 'cometDustSpread', 'cometBrightness', 'cometGlow', 'cometAudioSensitivity', 'cometBeatBurst', 'cometDirectionMode', 'cometSpeed', 'cometSpeedVariation', 'cometDirectionAngle', 'cometApproachSpeed', 'cometPerspectiveStrength', 'cometFarScale', 'cometNearScale', 'cometSpawnSpread', 'cometBehindMountains', 'cometMountainLayerCount', 'cometMountainOpacity', 'cometMountainHeight', 'cometHorizonHeight'],
+    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id), 'cometMaxMeteors', 'cometSpawnRate', 'cometDustPerMeteor', 'cometTailLength', 'cometTailOpacity', 'cometTailStretch', 'cometBrightnessFalloff', 'cometHighFrequencySensitivity', 'cometLifetime', 'cometDustSpread', 'cometBrightness', 'cometGlow', 'cometAudioSensitivity', 'cometBeatBurst', 'cometSpawnRegion', 'cometAngleSpread', 'cometDirectionMode', 'cometSpeed', 'cometSpeedVariation', 'cometDirectionAngle', 'cometApproachSpeed', 'cometPerspectiveStrength', 'cometFarScale', 'cometNearScale', 'cometSpawnSpread', 'cometBehindMountains', 'cometMountainLayerCount', 'cometMountainOpacity', 'cometMountainHeight', 'cometHorizonHeight'],
     vortex: [...CUSTOM_EFFECT_COLOR_FIELDS, 'warpSpeedBase', 'warpSpeedEnergyMult', 'redirectEnabled', 'sectionWindowBeats', 'fluxThreshold'],
     shape: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS], // MỚI 26/09/2026 — rubik/clock mỗi style giữ màu riêng; blur (lượt 2) chỉ clock đọc
     connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
