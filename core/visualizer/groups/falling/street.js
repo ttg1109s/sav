@@ -4,8 +4,8 @@
  * Ánh sáng đèn: quầng tròn quanh bóng đèn + vũng sáng trên mặt đường ướt + vệt phản chiếu dọc (KHÔNG còn nón sáng —
  * Giang bỏ 22/10/2026); giọt nào nằm trong vùng sáng tròn của đèn được vẽ lại sáng theo màu đèn, nhạt dần theo khoảng cách.
  *
- * Vật lý giọt (đơn vị px/frame ở 60 fps, × dpr; 1 m/s ≈ STREET_PX_PER_MPS px/frame):
- *   - Tốc độ rơi cuối v_t = a·D^b·e^(c·D) theo đường kính D (mm): 
+ * Vật lý bông tuyết (đơn vị px/frame ở 60 fps, × dpr; 1 m/s ≈ STREET_PX_PER_MPS px/frame):
+ *   - Tốc độ rơi cuối v_t = a·D^b·e^(c·D) theo đường kính D (mm):
  *     tuyết — Locatelli & Hobbs 1974, bông kết tinh nhánh (0.8·D^0.16 ≈ 0.8–1.1 m/s).
  *   - Lực cản kéo vận tốc hạt về vận tốc gió với thời gian hồi τ = v_t / g (hạt bám gió theo quán tính).
  *   - Gió theo độ cao: luật lũy thừa u(z) = u_ref·(z/z_ref)^α, đô thị α ≈ 0.4 — trên cao gió mạnh, sát đất yếu dần nên
@@ -163,7 +163,7 @@ function computeStreetSnowDensity(poolSize, isPlaying, energyPercent) {
 /** Tiến mọi hạt 1 frame. Hạt thứ i >= `activeCount` vẫn rơi nốt rồi "đỗ" trên đỉnh (không biến mất giữa trời); hạt đang
  * đỗ mà i < activeCount thì rơi tiếp — mật độ đổi mượt. Gió tại hạt = wind × hồ sơ độ cao × (1 + rối) + rung phùn; vận tốc
  * hồi về gió theo τ; quấn ngang khi trôi ra mép; chạm đất (y chạm = groundY + phần mặt đường theo z) -> về đỉnh.
- * @returns {{x:number, y:number, z:number}[]} các điểm chạm frame này (cho tia nước). */
+ */
 function advanceStreetSnowflakes(canvasWidth, canvasHeight, groundY, dpr, activeCount, wind, nowMs) {
     const roadH = canvasHeight - groundY;
     const windPx = wind * STREET_WIND_MPS * STREET_PX_PER_MPS * dpr;
@@ -203,8 +203,6 @@ function advanceStreetSnowflakes(canvasWidth, canvasHeight, groundY, dpr, active
 
 // ----------------------------------- Tuyết: vẽ -----------------------------------
 
-/** Mưa thường, 1 lớp độ sâu: cả vệt cong mờ + 60% phía đầu đậm hơn (đuôi thon nhạt dần) — 2 path, 2 lần stroke. Đoạn
- * đầu là cung con t ∈ [0.4, 1] của chính Bézier đó (tách de Casteljau) nên nối liền, không gãy góc. */
 /** Tuyết, 1 lớp độ sâu: mỗi bông = chấm tròn (bán kính = cỡ bông × độ gần) + 2 viền mờ (×1.3, ×1.7) nhạt dần cho mép mềm. */
 function paintStreetSnowLayer(ctx, drops, layer, dpr) {
     const outer = new Path2D();
