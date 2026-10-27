@@ -84,8 +84,32 @@
         const ANALYSIS_TICK_GAP_MS = 500;
         const MIDI_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-        /** Năng lượng tổng phổ quy ra % (0-100) — y hệt công thức cũ (trung bình biên độ × 1.5). */
-        function computeEnergyPercent(spectrum, binCount) {
+        /**
+         * Chuẩn tham chiếu cho Energy dựa trên mức tín hiệu miền thời gian (dBFS).
+         * -60 dBFS -> 0%; -6 dBFS -> 100%. Đây là thang hiển thị cố định, không phải LUFS.
+         */
+        const AUDIO_ENERGY_MIN_DB = -60;
+        const AUDIO_ENERGY_MAX_DB = -6;
+
+        /** Energy RMS: chuẩn hóa mức RMS dBFS thành phần trăm theo tham chiếu cố định. */
+        function computeEnergyRmsPercent(rmsDb) {
+            if (!Number.isFinite(rmsDb)) return 0;
+            return Math.max(0, Math.min(100, Math.round(
+                ((rmsDb - AUDIO_ENERGY_MIN_DB) / (AUDIO_ENERGY_MAX_DB - AUDIO_ENERGY_MIN_DB)) * 100
+            )));
+        }
+
+        /** Energy Peak: chuẩn hóa mức đỉnh dBFS theo cùng thang tham chiếu; độc lập với Energy RMS. */
+        function computeEnergyPeakPercent(peakDb) {
+            if (!Number.isFinite(peakDb)) return 0;
+            return Math.max(0, Math.min(100, Math.round(
+                ((peakDb - AUDIO_ENERGY_MIN_DB) / (AUDIO_ENERGY_MAX_DB - AUDIO_ENERGY_MIN_DB)) * 100
+            )));
+        }
+
+        /** Energy Spectrum: công thức phổ cũ (trung bình byte FFT × 1.5), giữ riêng để chẩn đoán/so sánh. */
+        function computeEnergySpectrumPercent(spectrum, binCount) {
+            if (!spectrum || binCount <= 0) return 0;
             let total = 0;
             for (let i = 0; i < binCount; i++) total += spectrum[i];
             return Math.min(100, Math.round(((total / binCount) / 255) * 100 * 1.5));

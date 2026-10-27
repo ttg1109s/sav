@@ -141,6 +141,10 @@ const workflowAudioAnalysis = {
     },
 
     _resetMediaFields(d) {
+        d.energyPercent = 0;
+        d.energyRmsPercent = 0;
+        d.energyPeakPercent = 0;
+        d.energySpectrumPercent = 0;
         d.fluxHistory.length = 0;
         d.bpm = null;
         d.pitch.frequency = -1; d.pitch.confidence = 0; d.pitch.midi = null; d.pitch.name = null; d.pitch.time = 0;
@@ -181,10 +185,13 @@ const workflowAudioAnalysis = {
         d.beatScale = computeBeatScale(this._spectrum, 0.1); // core — dải 0-2 kHz (10% số bin đầu; SỬA 07/10/2026: core tự quy ra số bin, Workflow không tính)
         d.smoothedEnergy = computeSmoothedEnergy(d.beatScale, d.smoothedEnergy); // core
         d.hueOffset = computeNextGlobalHueOffset(d.hueOffset, d.beatScale, isPlaying); // core
-        d.energyPercent = computeEnergyPercent(this._spectrum, binCount); // core
         d.flux = computeNormalizedSpectralFlux(this._spectrum, this._prevSpectrum, binCount, this._baselineValid); // core
         const onset = computeBandedOnsetStrength(this._spectrum, this._prevSpectrum, this._onsetBandEdges, this._baselineValid); // core/audio-tempo.js
-        this._measureFrame(d); // TRƯỚC khi ghi đè baseline (onset theo dải so với phổ frame trước)
+        this._measureFrame(d); // RMS/peak cần có trước khi chuẩn hóa các loại Energy
+        d.energyRmsPercent = computeEnergyRmsPercent(d.rmsDb); // core — phép đo chính theo RMS dBFS
+        d.energyPeakPercent = computeEnergyPeakPercent(d.peakDb); // core — chỉ số đỉnh độc lập
+        d.energySpectrumPercent = computeEnergySpectrumPercent(this._spectrum, binCount); // core — công thức phổ cũ để so sánh
+        d.energyPercent = d.energyRmsPercent; // API tương thích cho UI/effect; Energy chính hiện dựa trên RMS
         storeSpectrumBaseline(this._prevSpectrum, this._spectrum, binCount); // core
         this._baselineValid = true;
         d.hasSignal = d.rmsDb > SILENCE_ENTER_DB; // cổng pitch + ô Pitch (energy % dễ <= 1% với 1 giọng/nhạc cụ đơn)
