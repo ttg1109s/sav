@@ -102,6 +102,54 @@ function resolveStreetLampBands(lampCount) {
     return Array.from({ length: lampCount }, (_, i) => STREET_LAMP_BANDS[i % STREET_LAMP_BANDS.length]);
 }
 
+/** Tạo gợn sáng tại chân đèn khi dải âm thanh có onset. */
+function spawnRainRipple(x, groundY, canvasHeight, dpr, color, glowColor) {
+    const ripples = appState.get('ripples') || [];
+    ripples.push({
+        x, y: groundY, radius: 2 * dpr,
+        maxRadius: Math.min(canvasHeight * 0.12, 110 * dpr),
+        alpha: 0.7, color: color || '#dce8ff',
+        glowColor: glowColor || color || '#dce8ff',
+        lineWidth: 1.5 * dpr,
+    });
+    if (ripples.length > 80) ripples.splice(0, ripples.length - 80);
+    appState.set('ripples', ripples, { skipCheck: true });
+}
+
+/** Tiến hoá gợn sáng; chỉ giữ các gợn còn nhìn thấy. */
+function advanceRainRipples() {
+    appState.mutate('ripples', (ripples) => {
+        for (const ripple of ripples) {
+            ripple.radius += Math.max(0.7, ripple.lineWidth * 0.55);
+            ripple.alpha *= 0.965;
+        }
+        return ripples.filter((ripple) => ripple.alpha > 0.035 && ripple.radius < ripple.maxRadius);
+    }, { skipCheck: true });
+}
+
+/** Vẽ gợn sáng elip trên mặt đường, màu theo đèn phát onset. */
+function paintRainRipples(ctx, ripples, dpr) {
+    if (!Array.isArray(ripples) || ripples.length === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const ripple of ripples) {
+        const progress = Math.max(0, Math.min(1, ripple.radius / ripple.maxRadius));
+        ctx.globalAlpha = ripple.alpha * (1 - progress);
+        ctx.strokeStyle = ripple.color;
+        ctx.lineWidth = Math.max(0.6 * dpr, ripple.lineWidth * (1 - progress * 0.45));
+        ctx.beginPath();
+        ctx.ellipse(ripple.x, ripple.y, ripple.radius, Math.max(0.6 * dpr, ripple.radius * 0.16), 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = ripple.alpha * 0.2 * (1 - progress);
+        ctx.strokeStyle = ripple.glowColor;
+        ctx.lineWidth = Math.max(1 * dpr, ripple.lineWidth * 2);
+        ctx.beginPath();
+        ctx.ellipse(ripple.x, ripple.y, ripple.radius * 1.08, Math.max(0.8 * dpr, ripple.radius * 0.19), 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
 /**
  * Cập nhật nhịp sáng từng đèn và dựng thông số hình học cho frame hiện tại.
  * bandLevels là mức dải âm thanh; onsetTimes là timestamp của onset theo performance.now().
