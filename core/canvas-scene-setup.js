@@ -1,6 +1,6 @@
 /**
  * core/canvas-scene-setup.js — dựng cảnh tĩnh cho visualizer canvas 2D: kích thước canvas, giọt kính / dãy nhà (Rain glass),
- * sao hố đen, khối Rubik, mặt đất + đèn (Street Light/Snow; bể hạt: buildStreetRainPool(), core/visualizer/groups/falling/street.js).
+ * sao hố đen, khối Rubik, mặt đất + đèn (Street Light/Snow; bể hạt: buildStreetSnowPool(), core/visualizer/groups/falling/street.js).
  * Thuần — Workflow từng group gọi khi resize/chọn style.
  */
 
