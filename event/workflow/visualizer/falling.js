@@ -1,19 +1,19 @@
 /**
- * event/workflow/visualizer/falling.js — Group "rain" (hiển thị Falling; canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
+ * event/workflow/visualizer/falling.js — Group "falling" (canvas 2D, 2 style: glass / street). Rẽ nhánh -> guard + object map.
  * `onResize` (và chọn style) dựng lại giọt tĩnh, dãy nhà, cảnh phố.
  */
 
 /** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
-const RAIN_FFT_SIZE = 256;
+const FALLING_FFT_SIZE = 256;
 
 /** Cửa sổ nhà (glass): sáng -> đúng màu color mode; tắt -> màu tương phản. */
-const RAIN_GLASS_WINDOW_COLOR_BY_LIT = {
+const FALLING_GLASS_WINDOW_COLOR_BY_LIT = {
     true: (litColor) => litColor.css,
     false: (litColor) => resolveRainCityOffColor(litColor.h, litColor.s, litColor.l), // core
 };
 
 /** Màu cửa SÁNG (glass) theo luật màu (resolveEffectColorRule(), core/visualizer/effect-paint.js) — mỗi luật 1 core riêng. */
-const RAIN_CITY_LIT_COLOR_BY_RULE = {
+const FALLING_CITY_LIT_COLOR_BY_RULE = {
     gradient: (p, t, value) => resolveRainCityLitColorHsl(p.hueOffset, t, value), // core
     palette: (p, t, value) => resolveRainCityLitColorFromRgb(computeGradientPaletteRgb(p.gradientRgb, p.hueOffset, t, value)), // core + core/visualizer/effect-paint.js
     dynamic: (p, t) => resolveRainCityLitColorFromRgb(interpolateRgb(p.dynA, p.dynB, t)), // core + core/color-utils.js
@@ -21,38 +21,35 @@ const RAIN_CITY_LIT_COLOR_BY_RULE = {
 };
 
 /** Nền mặt đường (street) theo color mode — mode lạ dùng nền tối mặc định (nhánh `else` cũ). */
-const RAIN_STREET_GROUND_STOPS_BY_MODE = {
+const FALLING_STREET_GROUND_STOPS_BY_MODE = {
     solid: (cfg) => [{ offset: 0, color: interpolateColor('#0f141c', cfg.solidColor, 0.08) }, { offset: 1, color: '#08090f' }], // core/color-utils.js
     dynamic: (cfg) => [{ offset: 0, color: interpolateColor('#0f141c', cfg.dynA, 0.1) }, { offset: 1, color: interpolateColor('#08090f', cfg.dynB, 0.1) }], // core/color-utils.js
     gradient: () => [{ offset: 0, color: 'rgba(15, 20, 28, 0.9)' }, { offset: 1, color: 'rgba(8, 10, 15, 0.95)' }],
 };
 
-/** 2 kiểu hạt street (customEffect.rain.streetRainStyle: mưa / tuyết) — thông số bể hạt, lớp vẽ, màn mờ + quầng (chỉ tuyết),
- * vùng sáng, tia nước (chỉ mưa). Kiểu lạ -> 'normal'. */
-const RAIN_STREET_STYLES = {
-    snow: {
-        spec: STREET_RAIN_SPEC_SNOW, layers: STREET_SNOW_LAYERS, // core
-        paintMist: paintStreetSnowMist, // core
-        paintLampHaze: paintStreetSnowLampHaze, // core
-        paintLayer: paintStreetSnowLayer, // core
-        paintLit: paintStreetSnowLit, // core
-    },
+/** Street Light dùng duy nhất Snow — thông số bể hạt, lớp vẽ, màn mờ + quầng, vùng sáng. */
+const FALLING_STREET_SNOW = {
+    spec: STREET_SNOW_SPEC, layers: STREET_SNOW_LAYERS, // core
+    paintMist: paintStreetSnowMist, // core
+    paintLampHaze: paintStreetSnowLampHaze, // core
+    paintLayer: paintStreetSnowLayer, // core
+    paintLit: paintStreetSnowLit, // core
 };
 
 /** Gió street theo toggle streetWindEnabled: bật -> gió theo giai điệu + giật khi chuyển đoạn; tắt -> lặng (rơi thẳng). */
-const RAIN_STREET_WIND_BY_ENABLED = {
+const FALLING_STREET_WIND_BY_ENABLED = {
     true: (wind, audio, isTransition) => stepStreetWind(wind, audio.melodyDirection(), isTransition, audio.frameIndex()), // core
     false: () => STREET_WIND_CALM, // core
 };
 
-const workflowVizRain = {
+const workflowVizFalling = {
     defaultStyle: 'glass',
     /** Cỡ phổ VẼ style cần — host gọi khi kích hoạt style để xin qua audioAnalysis.requireSpectrum() (01/10/2026). */
-    spectrumSize() { return RAIN_FFT_SIZE; },
+    spectrumSize() { return FALLING_FFT_SIZE; },
 
     styles: {
-        glass: (frame) => workflowVizRain._drawGlass(frame),
-        street: (frame) => workflowVizRain._drawStreet(frame),
+        glass: (frame) => workflowVizFalling._drawGlass(frame),
+        street: (frame) => workflowVizFalling._drawStreet(frame),
     },
 
     /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, cửa sổ beat dò chuyển đoạn. */
@@ -73,9 +70,9 @@ const workflowVizRain = {
         const streetLamps = buildStreetLamps(canvas.width, canvas.height, groundY, viewport.dpr, rainCfg.customLamps); // core
         appState.set('streetLamps', streetLamps);
         this._street.bands = resolveStreetLampBands(streetLamps.length); // core/visualizer/groups/falling/street.js
-        const style = RAIN_STREET_STYLES.snow;
-        appState.set('streetRain', buildStreetRainPool(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr, style.spec)); // core
-        console.log('writer: "workflowVizRain.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Rain theo khung nhìn"');
+        const style = FALLING_STREET_SNOW;
+        appState.set('streetRain', buildStreetSnowPool(rainCfg.streetDensity, canvas.width, canvas.height, viewport.dpr, style.spec)); // core
+        console.log('writer: "workflowVizFalling.onResize", page: "ripples/glassStreaks/glassStaticDrops/cityBuildings/street*", content: "dựng lại cảnh Falling theo khung nhìn"');
     },
 
     /** Vừa chọn 1 style Rain (tay hoặc auto-switch) — dựng lại cảnh như `resizeCanvas()` cũ từng làm ở đây. */
@@ -88,7 +85,7 @@ const workflowVizRain = {
     _drawGlass(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying } = frame;
         const smoothedEnergy = frame.audio.smoothedEnergy(); // service/audio-analysis.js
-        const vizDataArray = frame.audio.spectrum(RAIN_FFT_SIZE); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(FALLING_FFT_SIZE); // service/audio-analysis.js
         ctx.lineCap = 'round';
         this._paintBackdrop(frame);
 
@@ -125,7 +122,7 @@ const workflowVizRain = {
     /** Dãy nhà thành phố sau kính (toggle glassCityVisible) — cửa sổ theo color mode. */
     _paintGlassCity(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying } = frame;
-        const vizDataArray = frame.audio.spectrum(RAIN_FFT_SIZE); // service/audio-analysis.js
+        const vizDataArray = frame.audio.spectrum(FALLING_FFT_SIZE); // service/audio-analysis.js
         if (cfg.glassCityVisible === false) return;
         const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
         const cityFrame = computeRainCityFrame(canvas.width, canvas.height, appState.get('cityBuildings'), dpr, vizDataArray, isPlaying); // core
@@ -157,8 +154,8 @@ const workflowVizRain = {
 
     // ===================== street =====================
 
-    /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> màn tuyết (tuyết) -> đèn (cột/quầng) + mặt đường ướt + quầng tán
-     * xạ (tuyết) -> hạt 3 lớp -> hạt sáng trong vùng đèn -> tia nước -> gợn nước. Âm thanh -> cảnh: xem đầu
+    /** Thứ tự lớp: nền -> chớp trời -> đất -> hàng rào -> màn tuyết -> đèn (cột/quầng) + mặt đường ướt + quầng tán
+     * xạ -> hạt tuyết 3 lớp -> hạt sáng trong vùng đèn -> gợn nước. Âm thanh -> cảnh: xem đầu
      * core/visualizer/groups/falling/street.js. */
     _drawStreet(frame) {
         const { ctx, canvas, cfg, dpr, isPlaying, audio } = frame;
@@ -166,7 +163,7 @@ const workflowVizRain = {
         const nowMs = performance.now();
         const smoothedEnergy = audio.smoothedEnergy(); // service/audio-analysis.js
         const st = this._street;
-        const style = RAIN_STREET_STYLES.snow;
+        const style = FALLING_STREET_SNOW;
         const s = appState.get(['streetRain', 'streetGroundY', 'streetLamps', 'ripples']);
         this._paintBackdrop(frame);
 
@@ -175,12 +172,12 @@ const workflowVizRain = {
         drawScreenFlash(ctx, W, H, computeStreetThunderAlpha(nowMs, st.thunderAt, cfg.flashMaxOpacity)); // core/visualizer/draw + core
 
         const groundY = s.streetGroundY || computeStreetGroundY(H, dpr); // core/canvas-scene-setup.js
-        const stopColors = (RAIN_STREET_GROUND_STOPS_BY_MODE[cfg.mode] || RAIN_STREET_GROUND_STOPS_BY_MODE.gradient)(cfg);
-        paintRainGroundGradient(ctx, W, H, groundY, stopColors); // core
+        const stopColors = (FALLING_STREET_GROUND_STOPS_BY_MODE[cfg.mode] || FALLING_STREET_GROUND_STOPS_BY_MODE.gradient)(cfg);
+        paintFallingGroundGradient(ctx, W, H, groundY, stopColors); // core
         paintParkFence(ctx, W, groundY, dpr); // core
 
-        st.energy = smoothStreetRainEnergy(st.energy, audio.energyPercent()); // core
-        const density = computeStreetRainDensity(s.streetRain.length, isPlaying, st.energy); // core — nghịch Energy % (chủ đích)
+        st.energy = smoothStreetSnowEnergy(st.energy, audio.energyPercent()); // core
+        const density = computeStreetSnowDensity(s.streetRain.length, isPlaying, st.energy); // core — nghịch Energy % (chủ đích)
         style.paintMist(ctx, W, H, groundY, density.ratio);
 
         const bandLevels = st.bands.map((b) => audio.band(b)); // service/audio-analysis.js
@@ -197,8 +194,8 @@ const workflowVizRain = {
             this._rippleOnLampOnset(l, groundY, H, dpr);
         });
 
-        st.wind = RAIN_STREET_WIND_BY_ENABLED[cfg.streetWindEnabled !== false](st.wind, audio, isTransition);
-        advanceStreetRainDrops(W, H, groundY, dpr, density.activeCount, st.wind.value, nowMs); // core
+        st.wind = FALLING_STREET_WIND_BY_ENABLED[cfg.streetWindEnabled !== false](st.wind, audio, isTransition);
+        advanceStreetSnowflakes(W, H, groundY, dpr, density.activeCount, st.wind.value, nowMs); // core
         style.layers.forEach((layer) => style.paintLayer(ctx, s.streetRain, layer, dpr));
         lamps.forEach((l) => style.paintLit(ctx, s.streetRain, l.light, l.fill, dpr, nowMs));
 
@@ -234,4 +231,4 @@ const workflowVizRain = {
 
 };
 
-workflowVisualizerRender.registerGroup('rain', workflowVizRain);
+workflowVisualizerRender.registerGroup('rain', workflowVizFalling);
