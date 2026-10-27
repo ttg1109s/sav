@@ -44,7 +44,7 @@
         const EFFECT_GROUPS = {
             bar: ['mirror', 'cascade', 'black hole', 'dot'], // 'dot' MỚI 25/09/2026 — trục thời gian chuyển từ connector brain
             lighting: ['thunder', 'fireworks'],
-            rain: ['glass', 'street'],
+            rain: ['glass', 'street', 'comet'], // Comet Meteor Shower dùng chung workflow Falling/Rain
             vortex: ['rings', 'bars', 'wave'],
             shape: ['rubik', 'clock'], // 'clock' MỚI 26/09/2026 — đồng hồ lộ máy (groups/shape/clock.js)
             connector: ['circuit'], // 'brain' XOÁ 01/10/2026, 'synapse' XOÁ 06/10/2026 (Giang) — lựa chọn cũ rơi về 'circuit' (core/config.js)
