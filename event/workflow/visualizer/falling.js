@@ -69,7 +69,12 @@ const workflowVizFalling = {
         const dt = computeFrameDeltaMs(now, state.lastFrameMs); // core/visualizer/frame-clock.js
         state.lastFrameMs = now;
         const energy = frame.audio.smoothedEnergy();
-        advanceCometMeteorState(state, frame, dt, energy, now); // core/visualizer/groups/falling/comet.js
+        const spectrum = frame.audio.spectrum(FALLING_COMET_FFT_SIZE) || [];
+        let highFrequency = 0;
+        const highStart = Math.floor(spectrum.length * 0.7);
+        for (let i = highStart; i < spectrum.length; i++) highFrequency += spectrum[i] || 0;
+        highFrequency = spectrum.length > highStart ? highFrequency / ((spectrum.length - highStart) * 255) : 0;
+        advanceCometMeteorState(state, frame, dt, energy, now, highFrequency); // core/visualizer/groups/falling/comet.js
         // Beat mới tạo burst nhỏ, luôn tôn trọng hard cap số meteor.
         const beatTime = frame.audio.lastBeatTime();
         if (state.lastBeatTime === null) state.lastBeatTime = beatTime;
