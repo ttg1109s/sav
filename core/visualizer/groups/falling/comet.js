@@ -43,6 +43,7 @@ function resetCometMeteorState(state, width, height, dpr, cfg) {
     state.height = height;
     state.lastSpawnMs = 0;
     state.lastFrameMs = 0;
+    state.lastBeatTime = null;
     state.mountains = buildCometMountainLayers(width, height, dpr, cfg);
 }
 
@@ -62,19 +63,20 @@ function _spawnCometMeteor(state, frame, energy) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
     const perspective = cfg.cometDirectionMode === 'perspectiveApproach';
     const angle = _cometDirection(cfg);
-    const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(0.7, 1.3) * (1 + energy * (Math.max(0, Number(cfg.cometAudioSensitivity) || 0.8) * 0.45));
+    const speed = Math.max(20, Number(cfg.cometSpeed) || 220) * _cometRandom(0.7, 1.3) * (1 + energy * (Math.max(0, Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8) * 0.45));
     const x = _cometRandom(0, W);
     const y = _cometRandom(0, H * 0.72);
-    const z = _cometRandom(0.15, 1);
+    const z = _cometRandom(0.65, 1);
     const spread = Math.max(0, Math.min(100, Number(cfg.cometSpawnSpread) || 70)) / 100;
-    const behind = Math.random() < Math.max(0, Math.min(1, Number(cfg.cometBehindMountains) || 0.55));
+    const behindRatio = Number.isFinite(Number(cfg.cometBehindMountains)) ? Number(cfg.cometBehindMountains) : 0.55;
+    const behind = Math.random() < Math.max(0, Math.min(1, behindRatio));
     state.particles.push({
-        id: state.nextId++, x: perspective ? (x - W / 2) * spread : x,
-        y: perspective ? (y - H / 2) * spread : y,
+        id: state.nextId++, x: perspective ? ((x - W / 2) / Math.max(1, W)) * spread : x,
+        y: perspective ? ((y - H / 2) / Math.max(1, H)) * spread : y,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         angle, z, age: 0, life: _cometRandom(1.1, 2.8),
         size: _cometRandom(0.7, 1.5), tail: Math.max(10, Number(cfg.cometTailLength) || 100),
-        dust: Math.max(0, Math.min(32, Math.round(Number(cfg.cometDustPerMeteor) || 8))),
+        dust: Math.max(0, Math.min(32, Math.round(Number.isFinite(Number(cfg.cometDustPerMeteor)) ? Number(cfg.cometDustPerMeteor) : 8)),
         dustParticles: [], behind, perspective,
         seed: Math.random() * 1000,
     });
@@ -98,7 +100,7 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs) {
             const focal = Math.max(0.1, Number(cfg.cometPerspectiveStrength) || 0.85) * Math.min(W, H);
             p.screenX = W / 2 + p.x * focal / Math.max(0.04, p.z);
             p.screenY = H / 2 + p.y * focal / Math.max(0.04, p.z);
-            p.screenScale = Math.min(8, Math.max(0.08, (Number(cfg.cometNearScale) || 3) / Math.max(0.08, p.z)));
+            p.screenScale = Math.min(8, Math.max(0.08, ((Number(cfg.cometNearScale) || 3) / 8) / Math.max(0.08, p.z)));
         } else {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
@@ -129,7 +131,7 @@ function paintCometMeteor(ctx, p, cfg, color, energy) {
     ctx.strokeStyle = grad;
     ctx.lineWidth = Math.max(0.5, p.size * scale * 1.5);
     ctx.shadowColor = color.glow || color.fill || '#ffffff';
-    ctx.shadowBlur = Math.max(0, Number(cfg.cometGlow) || 16) * scale;
+    ctx.shadowBlur = Math.max(0, Number.isFinite(Number(cfg.cometGlow)) ? Number(cfg.cometGlow) : 16) * scale;
     ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
     ctx.fillStyle = '#ffffff';
     ctx.beginPath(); ctx.arc(x, y, Math.max(0.7, p.size * scale), 0, Math.PI * 2); ctx.fill();
