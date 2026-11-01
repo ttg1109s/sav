@@ -85,11 +85,23 @@ const workflowVizFalling = {
             state.lastBeatTime = beatTime;
         } else if (beatTime > state.lastBeatTime) state.lastBeatTime = beatTime;
         this._paintBackdrop(frame);
-        const colorOf = (p, i) => workflowVisualizerRender.colorAt(i, Math.max(1, state.particles.length), energy);
-        // Lớp sau núi -> dãy núi từ xa tới gần -> lớp trước núi.
-        state.particles.filter(p => p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i), energy));
-        paintCometMountains(frame.ctx, state, frame.cfg);
-        state.particles.filter(p => !p.behind).forEach((p, i) => paintCometMeteor(frame.ctx, p, frame.cfg, colorOf(p, i + state.particles.length), energy));
+        const layers = state.mountains.slice().sort((a, b) => a.depth - b.depth);
+        const particleIndex = new Map(state.particles.map((p, i) => [p.id, i]));
+        const drawBand = (band) => state.particles
+            .filter(p => (Number.isInteger(p.mountainBand) ? p.mountainBand : (p.behind ? -1 : layers.length)) === band)
+            .forEach(p => {
+                const i = particleIndex.get(p.id) || 0;
+                const color = workflowVisualizerRender.colorAt(i, Math.max(1, state.particles.length), energy);
+                paintCometMeteor(frame.ctx, p, frame.cfg, color, energy);
+            });
+        // Thứ tự chiều sâu ổn định: hậu cảnh -> núi xa -> sao băng giữa các dãy
+        // -> núi gần -> sao băng tiền cảnh. Geometry núi giữ nguyên qua các frame.
+        drawBand(-1);
+        layers.forEach((layer, i) => {
+            paintCometMountainLayer(frame.ctx, layer);
+            drawBand(i);
+        });
+        drawBand(layers.length);
     },
 
     // ===================== Vòng đời =====================
