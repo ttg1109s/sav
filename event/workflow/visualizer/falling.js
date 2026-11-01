@@ -169,8 +169,8 @@ const workflowVizFalling = {
             gradientRgb: cfg.gradientPaletteRgb,
             hueOffset: frame.audio.hueOffset(),
         };
-        const litColorOf = RAIN_CITY_LIT_COLOR_BY_RULE[resolveEffectColorRule(cfg)]; // core/visualizer/effect-paint.js
-        const windowColors = cityFrame.windows.map((w) => RAIN_GLASS_WINDOW_COLOR_BY_LIT[!!w.lit](litColorOf(palette, w.t, w.value)));
+        const litColorOf = FALLING_CITY_LIT_COLOR_BY_RULE[resolveEffectColorRule(cfg)]; // core/visualizer/effect-paint.js
+        const windowColors = cityFrame.windows.map((w) => FALLING_GLASS_WINDOW_COLOR_BY_LIT[!!w.lit](litColorOf(palette, w.t, w.value)));
         paintRainCity(ctx, cityFrame, windowColors, cityOpacity); // core
     },
 
