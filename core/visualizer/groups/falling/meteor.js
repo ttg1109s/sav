@@ -1,12 +1,12 @@
 /**
  * core/visualizer/groups/falling/meteor.js
- * Meteor Meteor Shower — thuần Canvas 2D cho group falling (registry hiện dùng key "rain").
+ * Meteor Shower — thuần Canvas 2D cho group falling (registry hiện dùng key "rain").
  * Không tạo RAF/timer/listener; Workflow truyền frame, state và màu đã resolve.
  */
 
 const METEOR_DIRECTION_MODES = ['diagonal', 'vertical', 'horizontal', 'omnidirectional', 'directionalStream', 'perspectiveApproach', 'customAngle'];
 
-function createMeteorMeteorState() {
+function createMeteorState() {
     return { particles: [], mountains: [], lastSpawnMs: 0, lastFrameMs: 0, lastBeatTime: null, width: 0, height: 0, nextId: 1 };
 }
 
@@ -52,7 +52,7 @@ function buildMeteorMountainLayers(width, height, dpr, cfg) {
     }
     return layers;
 }
-function resetMeteorMeteorState(state, width, height, dpr, cfg) {
+function resetMeteorState(state, width, height, dpr, cfg) {
     const mountainKey = [
         width, height, dpr, cfg.meteorMountainLayerCount, cfg.meteorHorizonHeight,
         cfg.meteorMountainHeight, cfg.meteorMountainOpacity, cfg.meteorMountainColor
@@ -88,7 +88,7 @@ function _meteorDirection(cfg) {
     return (-Math.PI / 4) + _meteorRandom(-spread, spread);
 }
 
-function _spawnMeteorMeteor(state, frame, energy) {
+function _spawnMeteor(state, frame, energy) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
     const perspective = cfg.meteorDirectionMode === 'perspectiveApproach';
     const angle = _meteorDirection(cfg);
@@ -121,13 +121,13 @@ function _spawnMeteorMeteor(state, frame, energy) {
     });
 }
 
-function advanceMeteorMeteorState(state, frame, dtMs, energy, nowMs, highFrequency) {
+function advanceMeteorState(state, frame, dtMs, energy, nowMs, highFrequency) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
     const dt = Math.min(0.1, Math.max(0, dtMs / 1000));
     const maxMeteors = Math.max(1, Math.min(100, Math.round(Number(cfg.meteorMaxMeteors) || 18)));
     const spawnRate = Math.max(0.1, Math.min(30, Number(cfg.meteorSpawnRate) || 3));
     if (frame.isPlaying && state.particles.length < maxMeteors && nowMs - state.lastSpawnMs >= 1000 / spawnRate) {
-        _spawnMeteorMeteor(state, frame, energy);
+        _spawnMeteor(state, frame, energy);
         state.lastSpawnMs = nowMs;
     }
     const dustMax = Math.max(0, Math.min(2400, maxMeteors * 32));
@@ -172,7 +172,7 @@ function _meteorExitFade(p, width, height) {
     return _meteorClamp01(secondsToExit / 0.32);
 }
 
-function paintMeteorMeteor(ctx, p, cfg, color, energy) {
+function paintMeteor(ctx, p, cfg, color, energy) {
     const x = p.screenX, y = p.screenY, scale = p.screenScale;
     const fadeOut = Math.pow(Math.max(0, 1 - p.age / p.life), Math.max(0.1, Math.min(4, Number(cfg.meteorBrightnessFalloff) || 1)));
     const fadeIn = _meteorClamp01(p.age / Math.max(0.1, p.fadeInDuration || 0.28));
