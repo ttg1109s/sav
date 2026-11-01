@@ -10,42 +10,68 @@ function createCometMeteorState() {
     return { particles: [], mountains: [], lastSpawnMs: 0, lastFrameMs: 0, lastBeatTime: null, width: 0, height: 0, nextId: 1 };
 }
 
+function _cometHash(seed) {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+}
+
 function buildCometMountainLayers(width, height, dpr, cfg) {
-    const count = Math.max(1, Math.min(5, Math.round(cfg.cometMountainLayerCount || 3)));
-    const horizon = height * (1 - Math.max(5, Math.min(45, cfg.cometHorizonHeight || 22)) / 100);
+    const count = Math.max(1, Math.min(5, Math.round(Number(cfg.cometMountainLayerCount) || 3)));
+    const horizon = height * (1 - Math.max(5, Math.min(45, Number(cfg.cometHorizonHeight) || 22)) / 100);
     const heightScale = Math.max(0.5, Math.min(1.8, Number(cfg.cometMountainHeight) || 100)) / 100;
     const layers = [];
+    const safeWidth = Math.max(1, width);
     for (let layerIndex = 0; layerIndex < count; layerIndex++) {
         const depth = (layerIndex + 1) / count;
+        const step = Math.max(8 * dpr, width / 100);
+        const ridgeBase = horizon + depth * height * 0.13;
+        const peakSpacing = Math.max(90 * dpr, width / (5.5 + layerIndex * 0.8));
+        const phase = layerIndex * 0.37;
         const points = [];
-        const step = Math.max(24 * dpr, width / 22);
-        const seed = 37 + layerIndex * 101;
         for (let x = -step; x <= width + step; x += step) {
-            const waveA = Math.sin((x / width) * (3.1 + layerIndex * 0.9) * Math.PI + seed) * height * (0.035 + depth * 0.025) * heightScale;
-            const waveB = Math.sin((x / width) * (7.7 + layerIndex) * Math.PI + seed * 0.31) * height * 0.018 * heightScale;
-            const variation = ((Math.sin(x * 0.013 + seed) * 0.5) + (Math.cos(x * 0.027 + seed * 2) * 0.5)) * height * 0.018 * heightScale;
-            points.push({ x, y: horizon + waveA + waveB + variation + depth * height * 0.12 });
+            const cell = Math.floor((x + phase * peakSpacing) / peakSpacing);
+            const local = ((x + phase * peakSpacing) / peakSpacing) - cell;
+            const peakAt = 0.22 + _cometHash(cell * 9 + layerIndex * 31) * 0.56;
+            const halfWidth = 0.28 + _cometHash(cell * 17 + layerIndex * 13) * 0.16;
+            const distance = Math.abs(local - peakAt) / halfWidth;
+            // Sườn núi có đỉnh rõ, hai vai dốc và chân núi liên tục, không phải sóng sin tròn.
+            const peak = Math.pow(Math.max(0, 1 - distance), 1.35);
+            const secondary = Math.pow(Math.max(0, 1 - Math.abs(local - (peakAt + 0.28)) / 0.24), 2) * 0.22;
+            const ridgeNoise = (_cometHash(cell * 23 + layerIndex * 7) - 0.5) * 0.12;
+            const mountainHeight = height * (0.075 + depth * 0.055) * heightScale;
+            const y = ridgeBase - mountainHeight * Math.max(0, peak + secondary + ridgeNoise);
+            points.push({ x, y });
         }
+        const shade = Math.round(12 + (1 - depth) * 13);
         layers.push({
-            layerIndex,
-            depth,
-            points,
-            opacity: Math.max(0.12, Math.min(1, (cfg.cometMountainOpacity || 70) / 100) * (0.35 + depth * 0.65)),
-            color: cfg.cometMountainColor || '#101827',
+            layerIndex, depth, points,
+            opacity: Math.max(0.18, Math.min(1, (Number(cfg.cometMountainOpacity) || 70) / 100)),
+            color: cfg.cometMountainColor || `rgb(${shade}, ${shade + 5}, ${shade + 13})`,
             parallax: depth,
         });
     }
     return layers;
 }
-
 function resetCometMeteorState(state, width, height, dpr, cfg) {
-    state.particles.length = 0;
+    const mountainKey = [
+        width, height, dpr, cfg.cometMountainLayerCount, cfg.cometHorizonHeight,
+        cfg.cometMountainHeight, cfg.cometMountainOpacity, cfg.cometMountainColor
+    ].join('|');
+    const sizeChanged = state.width !== width || state.height !== height;
+    if (sizeChanged) {
+        state.particles.length = 0;
+        state.lastSpawnMs = 0;
+        state.lastFrameMs = 0;
+        state.lastBeatTime = null;
+    }
     state.width = width;
     state.height = height;
-    state.lastSpawnMs = 0;
-    state.lastFrameMs = 0;
-    state.lastBeatTime = null;
-    state.mountains = buildCometMountainLayers(width, height, dpr, cfg);
+    // Không dựng lại dãy núi ở mỗi lần host gọi onResize với cùng thông số.
+    // Đây là geometry tĩnh; cache tránh nhấp nháy do reset/rebuild liên tục.
+    if (state.mountainKey !== mountainKey || !state.mountains.length) {
+        state.mountains = buildCometMountainLayers(width, height, dpr, cfg);
+        state.mountainKey = mountainKey;
+    }
 }
 
 function _cometRandom(min, max) { return min + Math.random() * (max - min); }
@@ -86,7 +112,7 @@ function _spawnCometMeteor(state, frame, energy) {
         y: perspective ? ((y - H / 2) / Math.max(1, H)) * spread : y,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         angle, z, age: 0, life: _cometRandom(1.1, 2.8) * Math.max(0.25, Math.min(3, Number(cfg.cometLifetime) || 1)),
-        size: _cometRandom(0.7, 1.5) * Math.max(0.2, Number(cfg.cometSize) || 1), tail: Math.max(10, Number(cfg.cometTailLength) || 100),
+        size: _cometRandom(0.7, 1.5) * Math.max(0.2, Number(cfg.cometSize) || 1) * Math.max(0.2, Number(cfg.cometOverallScale) || 1), tail: Math.max(10, Number(cfg.cometTailLength) || 100) * Math.max(0.2, Number(cfg.cometOverallScale) || 1),
         dust: Math.max(0, Math.min(32, Math.round(Number.isFinite(Number(cfg.cometDustPerMeteor)) ? Number(cfg.cometDustPerMeteor) : 8))),
         dustParticles: [], behind, perspective, dustSpread: Math.max(0, Number(cfg.cometDustSpread) || 1),
         seed: Math.random() * 1000,
@@ -120,7 +146,7 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs, highFrequenc
             p.screenX = p.x; p.screenY = p.y; p.screenScale = 1;
         }
         if (p.dustParticles.length < p.dust && dustCount < dustMax && Math.random() < dt * (18 + energy * Math.max(0, (Number.isFinite(Number(cfg.cometAudioSensitivity)) ? Number(cfg.cometAudioSensitivity) : 0.8)) * 18 + Math.max(0, Number.isFinite(Number(cfg.cometHighFrequencySensitivity)) ? Number(cfg.cometHighFrequencySensitivity) : 0.8) * Math.max(0, highFrequency || 0) * 30)) {
-            p.dustParticles.push({ x: p.screenX || p.x, y: p.screenY || p.y, vx: _cometRandom(-28, 28) * p.dustSpread, vy: _cometRandom(-28, 28) * p.dustSpread, life: _cometRandom(0.15, 0.7), maxLife: 0.7, size: _cometRandom(0.4, 1.4) });
+            p.dustParticles.push({ x: p.screenX || p.x, y: p.screenY || p.y, vx: _cometRandom(-28, 28) * p.dustSpread, vy: _cometRandom(-28, 28) * p.dustSpread, life: _cometRandom(0.15, 0.7), maxLife: 0.7, size: _cometRandom(0.4, 1.4) * Math.max(0.2, Number(cfg.cometOverallScale) || 1) });
         }
         p.dustParticles.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; dustCount++; });
         p.dustParticles = p.dustParticles.filter(d => d.life > 0);
@@ -142,13 +168,13 @@ function paintCometMeteor(ctx, p, cfg, color, energy) {
     ctx.globalAlpha = brightness * Math.max(0, Math.min(1, Number(cfg.cometTailOpacity) || 0.75));
     ctx.lineCap = 'round';
     ctx.strokeStyle = grad;
-    ctx.lineWidth = Math.max(0.5, p.size * scale * 1.5);
+    ctx.lineWidth = Math.max(0.35, p.size * scale * 1.5);
     ctx.shadowColor = color.glow || color.fill || '#ffffff';
-    ctx.shadowBlur = Math.max(0, Number.isFinite(Number(cfg.cometGlow)) ? Number(cfg.cometGlow) : 16) * scale;
+    ctx.shadowBlur = Math.max(0, Number.isFinite(Number(cfg.cometGlow)) ? Number(cfg.cometGlow) : 16) * scale * Math.max(0.2, Number(cfg.cometOverallScale) || 1);
     ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
     ctx.globalAlpha = brightness;
     ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.arc(x, y, Math.max(0.7, p.size * scale), 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, Math.max(0.35, p.size * scale), 0, Math.PI * 2); ctx.fill();
     p.dustParticles.forEach(d => {
         ctx.globalAlpha = brightness * Math.max(0, d.life / d.maxLife) * 0.75;
         ctx.fillStyle = color.fill || '#ffffff';
