@@ -107,11 +107,13 @@ function _spawnCometMeteor(state, frame, energy) {
     const spread = Math.max(0, Math.min(100, Number(cfg.cometSpawnSpread) || 70)) / 100;
     const behindRatio = Number.isFinite(Number(cfg.cometBehindMountains)) ? Number(cfg.cometBehindMountains) : 0.55;
     const behind = Math.random() < Math.max(0, Math.min(1, behindRatio));
+    // -1 ở sau toàn bộ núi; 0..N-1 ở giữa từng lớp; N ở trước toàn bộ núi.
+    const mountainBand = behind ? -1 : Math.floor(_cometRandom(0, state.mountains.length + 1));
     state.particles.push({
         id: state.nextId++, x: perspective ? ((x - W / 2) / Math.max(1, W)) * spread : x,
         y: perspective ? ((y - H / 2) / Math.max(1, H)) * spread : y,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-        angle, z, age: 0, life: _cometRandom(1.1, 2.8) * Math.max(0.25, Math.min(3, Number(cfg.cometLifetime) || 1)),
+        angle, z, age: 0, fadeInDuration: 0.28, mountainBand, life: _cometRandom(1.1, 2.8) * Math.max(0.25, Math.min(3, Number(cfg.cometLifetime) || 1)),
         size: _cometRandom(0.7, 1.5) * Math.max(0.2, Number(cfg.cometSize) || 1) * Math.max(0.2, Number(cfg.cometOverallScale) || 1), tail: Math.max(10, Number(cfg.cometTailLength) || 100) * Math.max(0.2, Number(cfg.cometOverallScale) || 1),
         dust: Math.max(0, Math.min(32, Math.round(Number.isFinite(Number(cfg.cometDustPerMeteor)) ? Number(cfg.cometDustPerMeteor) : 8))),
         dustParticles: [], behind, perspective, dustSpread: Math.max(0, Number(cfg.cometDustSpread) || 1),
@@ -154,9 +156,27 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs, highFrequenc
     state.particles = state.particles.filter(p => p.age < p.life && (p.perspective ? p.z > 0.035 : p.screenX > -W * 0.3 && p.screenX < W * 1.3 && p.screenY > -H * 0.3 && p.screenY < H * 1.3));
 }
 
+function _cometClamp01(value) { return Math.max(0, Math.min(1, value)); }
+
+function _cometExitFade(p, width, height) {
+    const dx = p.vx || 0, dy = p.vy || 0;
+    const x = p.screenX, y = p.screenY;
+    const distances = [];
+    if (dx > 0.001) distances.push((width - x) / dx);
+    else if (dx < -0.001) distances.push(x / -dx);
+    if (dy > 0.001) distances.push((height - y) / dy);
+    else if (dy < -0.001) distances.push(y / -dy);
+    if (!distances.length) return 1;
+    const secondsToExit = Math.min(...distances);
+    return _cometClamp01(secondsToExit / 0.32);
+}
+
 function paintCometMeteor(ctx, p, cfg, color, energy) {
     const x = p.screenX, y = p.screenY, scale = p.screenScale;
-    const fade = Math.pow(Math.max(0, 1 - p.age / p.life), Math.max(0.1, Math.min(4, Number(cfg.cometBrightnessFalloff) || 1)));
+    const fadeOut = Math.pow(Math.max(0, 1 - p.age / p.life), Math.max(0.1, Math.min(4, Number(cfg.cometBrightnessFalloff) || 1)));
+    const fadeIn = _cometClamp01(p.age / Math.max(0.1, p.fadeInDuration || 0.28));
+    const edgeFade = _cometExitFade(p, ctx.canvas.width, ctx.canvas.height);
+    const fade = fadeOut * fadeIn * edgeFade;
     const brightness = Math.max(0, Math.min(2, Number(cfg.cometBrightness) || 1)) * fade * (1 + Math.max(0, Number(cfg.cometAudioSensitivity) || 0.8) * Math.max(0, energy || 0) * 0.8);
     const tail = p.tail * scale * Math.max(0.2, Number(cfg.cometTailStretch) || 1) * (p.perspective ? 0.75 + (1 - p.z) : 1);
     const angle = p.perspective ? Math.atan2(y - ctx.canvas.height / 2, x - ctx.canvas.width / 2) : p.angle;
@@ -183,16 +203,20 @@ function paintCometMeteor(ctx, p, cfg, color, energy) {
     ctx.restore();
 }
 
-function paintCometMountains(ctx, state, cfg) {
-    state.mountains.forEach((layer) => {
-        ctx.save();
-        ctx.globalAlpha = layer.opacity;
-        ctx.fillStyle = layer.color;
-        ctx.beginPath();
-        ctx.moveTo(0, ctx.canvas.height);
-        layer.points.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.lineTo(ctx.canvas.width, ctx.canvas.height);
-        ctx.closePath(); ctx.fill();
-        ctx.restore();
-    });
+function paintCometMountainLayer(ctx, layer) {
+    ctx.save();
+    ctx.globalAlpha = layer.opacity;
+    ctx.fillStyle = layer.color;
+    ctx.beginPath();
+    ctx.moveTo(0, ctx.canvas.height);
+    layer.points.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(ctx.canvas.width, ctx.canvas.height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+function paintCometMountains(ctx, state) {
+    state.mountains.slice().sort((a, b) => a.depth - b.depth)
+        .forEach(layer => paintCometMountainLayer(ctx, layer));
 }
