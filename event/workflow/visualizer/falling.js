@@ -54,13 +54,13 @@ const workflowVizFalling = {
         meteor: (frame) => workflowVizFalling._drawMeteor(frame),
     },
 
-    _meteor: createMeteorMeteorState(),
+    _meteor: createMeteorState(),
     _meteorColorIndex: 0,
 
     /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, cửa sổ beat dò chuyển đoạn. */
     _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
 
-    // ===================== Meteor Meteor Shower =====================
+    // ===================== Meteor Shower =====================
 
     /** Sao băng và núi dùng cùng canvas của host; không tạo RAF/timer riêng. */
     _drawMeteor(frame) {
@@ -74,14 +74,14 @@ const workflowVizFalling = {
         const highStart = Math.floor(spectrum.length * 0.7);
         for (let i = highStart; i < spectrum.length; i++) highFrequency += spectrum[i] || 0;
         highFrequency = spectrum.length > highStart ? highFrequency / ((spectrum.length - highStart) * 255) : 0;
-        advanceMeteorMeteorState(state, frame, dt, energy, now, highFrequency); // core/visualizer/groups/falling/meteor.js
+        advanceMeteorState(state, frame, dt, energy, now, highFrequency); // core/visualizer/groups/falling/meteor.js
         // Beat mới tạo burst nhỏ, luôn tôn trọng hard cap số meteor.
         const beatTime = frame.audio.lastBeatTime();
         if (state.lastBeatTime === null) state.lastBeatTime = beatTime;
         else if (frame.isPlaying && frame.cfg.meteorBeatBurst !== false && beatTime > state.lastBeatTime) {
             const cap = Math.max(1, Math.min(100, Math.round(Number(frame.cfg.meteorMaxMeteors) || 18)));
             const burst = Math.min(4, cap - state.particles.length);
-            for (let i = 0; i < burst; i++) _spawnMeteorMeteor(state, frame, energy);
+            for (let i = 0; i < burst; i++) _spawnMeteor(state, frame, energy);
             state.lastBeatTime = beatTime;
         } else if (beatTime > state.lastBeatTime) state.lastBeatTime = beatTime;
         this._paintBackdrop(frame);
@@ -92,7 +92,7 @@ const workflowVizFalling = {
             .forEach(p => {
                 const i = particleIndex.get(p.id) || 0;
                 const color = workflowVisualizerRender.colorAt(i, Math.max(1, state.particles.length), energy);
-                paintMeteorMeteor(frame.ctx, p, frame.cfg, color, energy);
+                paintMeteor(frame.ctx, p, frame.cfg, color, energy);
             });
         // Thứ tự chiều sâu ổn định: hậu cảnh -> núi xa -> sao băng giữa các dãy
         // -> núi gần -> sao băng tiền cảnh. Geometry núi giữ nguyên qua các frame.
@@ -110,7 +110,7 @@ const workflowVizFalling = {
      * lại dãy nhà + cảnh phố theo kích thước mới. */
     onResize(viewport) {
         const rainCfg = resolveEffectConfig(appConfigViz.getAll().customEffect, 'rain'); // core/custom-effect.js
-        resetMeteorMeteorState(this._meteor, canvas.width, canvas.height, viewport.dpr, rainCfg);
+        resetMeteorState(this._meteor, canvas.width, canvas.height, viewport.dpr, rainCfg);
         appState.set('ripples', []);
         appState.set('glassStreaks', []);
         appState.set('glassStaticDrops', buildGlassStaticDrops(rainCfg.glassDropDensity, canvas.width, canvas.height, viewport.dpr)); // core/canvas-scene-setup.js
