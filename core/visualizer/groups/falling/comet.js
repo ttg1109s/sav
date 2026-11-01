@@ -159,8 +159,9 @@ function advanceCometMeteorState(state, frame, dtMs, energy, nowMs, highFrequenc
 function _cometClamp01(value) { return Math.max(0, Math.min(1, value)); }
 
 function _cometExitFade(p, width, height) {
-    const dx = p.vx || 0, dy = p.vy || 0;
     const x = p.screenX, y = p.screenY;
+    const dx = p.perspective ? (x - width / 2) : (p.vx || 0);
+    const dy = p.perspective ? (y - height / 2) : (p.vy || 0);
     const distances = [];
     if (dx > 0.001) distances.push((width - x) / dx);
     else if (dx < -0.001) distances.push(x / -dx);
