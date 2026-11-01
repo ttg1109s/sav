@@ -73,7 +73,7 @@
                 streetDensity: 220, streetBuildingScale: 1.0,
                 // Street Light chỉ dùng tuyết; bật/tắt hướng gió (tắt = rơi thẳng).
                 streetWindEnabled: true,
-                // Meteor Meteor Shower — Canvas 2D, thuộc group falling (registry key rain).
+                // Meteor Shower — Canvas 2D, thuộc group falling (registry key rain).
                 meteorMaxMeteors: 18, meteorSpawnRate: 3, meteorTailLength: 100, meteorDustPerMeteor: 8, meteorOverallScale: 1,
                 meteorBrightness: 1, meteorSize: 1, meteorGlow: 16, meteorSpeed: 220, meteorSpeedVariation: 30, meteorAudioSensitivity: 0.8, meteorBeatBurst: true,
                 meteorTailOpacity: 0.75, meteorTailStretch: 1, meteorDustSpread: 1, meteorLifetime: 1, meteorFarScale: 0.35, meteorMountainHeight: 100,
