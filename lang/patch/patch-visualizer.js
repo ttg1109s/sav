@@ -128,6 +128,7 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',
     'visualizerSettingsDrawer.rainStyle.street': 'Street Light',
     'visualizerSettingsDrawer.rainStyle.comet': 'Comet Meteor Shower',
+    'customEffectDrawer.field.cometOverallScale': 'Overall meteor size (0.25–2.5×)',
     'customEffectDrawer.field.cometMaxMeteors': 'Maximum meteors',
     'customEffectDrawer.field.cometSpawnRate': 'Spawn rate (per second)',
     'customEffectDrawer.field.cometDustPerMeteor': 'Dust particles per meteor',
