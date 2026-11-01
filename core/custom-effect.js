@@ -87,7 +87,7 @@ const CUSTOM_EFFECT_NO_BLUR_STYLES = { lighting: ['fireworks'] };
  * style (shape) — nhất quán, không cần rẽ nhánh riêng. */
 const CUSTOM_EFFECT_STYLE = {
     bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole', 'dot'] },
-    rain: { field: 'rainStyle', options: ['glass', 'street', 'meteor'] }, // Meteor Meteor Shower
+    rain: { field: 'rainStyle', options: ['glass', 'street', 'meteor'] }, // Meteor Shower
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik', 'clock'] },
@@ -101,7 +101,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
         mirror: 'visualizerSettingsDrawer.barStyle.mirror', cascade: 'visualizerSettingsDrawer.barStyle.cascade',
         'black hole': 'visualizerSettingsDrawer.barStyle.blackHole', dot: 'visualizerSettingsDrawer.barStyle.dot',
     },
-    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street', meteor: 'visualizerSettingsDrawer.rainStyle.meteor' }, // Meteor Meteor Shower
+    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street', meteor: 'visualizerSettingsDrawer.rainStyle.meteor' }, // Meteor Shower
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik', clock: 'visualizerSettingsDrawer.shapeStyle.clock' },
@@ -201,7 +201,7 @@ const CUSTOM_EFFECT_FIELDS = {
         // ── motion ──
         { id: 'glassStreakFrequency', labelKey: 'customEffectDrawer.field.glassStreakFrequency', type: 'slider', min: 0, max: 100, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'streetWindEnabled', labelKey: 'customEffectDrawer.field.streetWindEnabled', type: 'toggle', card: 'motion', showIf: (cfg) => cfg.rainStyle === 'street' },
-        // Meteor Meteor Shower — density and rendering cost
+        // Meteor Shower — density and rendering cost
         { id: 'meteorOverallScale', labelKey: 'customEffectDrawer.field.meteorOverallScale', type: 'sliderFloat', min: 0.25, max: 2.5, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
         { id: 'meteorMaxMeteors', labelKey: 'customEffectDrawer.field.meteorMaxMeteors', type: 'slider', min: 1, max: 60, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
         { id: 'meteorSpawnRate', labelKey: 'customEffectDrawer.field.meteorSpawnRate', type: 'sliderFloat', min: 0.5, max: 15, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
