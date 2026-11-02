@@ -90,6 +90,8 @@ function _meteorDirection(cfg) {
 
 function _spawnMeteor(state, frame, energy) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
+    energy = Number.isFinite(energy) ? Math.max(0, Math.min(1, energy)) : 0;
+    if (!Number.isFinite(W) || !Number.isFinite(H) || W <= 0 || H <= 0) return;
     const perspective = cfg.meteorDirectionMode === 'perspectiveApproach';
     const angle = _meteorDirection(cfg);
     const speedVariation = Math.max(0, Math.min(100, (Number.isFinite(Number(cfg.meteorSpeedVariation)) ? Number(cfg.meteorSpeedVariation) : 30))) / 100;
@@ -123,7 +125,12 @@ function _spawnMeteor(state, frame, energy) {
 
 function advanceMeteorState(state, frame, dtMs, energy, nowMs, highFrequency) {
     const cfg = frame.cfg, W = frame.canvas.width, H = frame.canvas.height;
-    const dt = Math.min(0.1, Math.max(0, dtMs / 1000));
+    if (!Number.isFinite(W) || !Number.isFinite(H) || W <= 0 || H <= 0) return;
+    const safeDtMs = Number.isFinite(dtMs) ? dtMs : 0;
+    const dt = Math.min(0.1, Math.max(0, safeDtMs / 1000));
+    energy = Number.isFinite(energy) ? Math.max(0, Math.min(1, energy)) : 0;
+    highFrequency = Number.isFinite(highFrequency) ? Math.max(0, highFrequency) : 0;
+    nowMs = Number.isFinite(nowMs) ? nowMs : 0;
     const maxMeteors = Math.max(1, Math.min(100, Math.round(Number(cfg.meteorMaxMeteors) || 18)));
     const spawnRate = Math.max(0.1, Math.min(30, Number(cfg.meteorSpawnRate) || 3));
     if (frame.isPlaying && state.particles.length < maxMeteors && nowMs - state.lastSpawnMs >= 1000 / spawnRate) {
@@ -153,7 +160,15 @@ function advanceMeteorState(state, frame, dtMs, energy, nowMs, highFrequency) {
         p.dustParticles.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; dustCount++; });
         p.dustParticles = p.dustParticles.filter(d => d.life > 0);
     });
-    state.particles = state.particles.filter(p => p.age < p.life && (p.perspective ? p.z > 0.035 : p.screenX > -W * 0.3 && p.screenX < W * 1.3 && p.screenY > -H * 0.3 && p.screenY < H * 1.3));
+    state.particles = state.particles.filter(p =>
+        Number.isFinite(p.age) && Number.isFinite(p.life) && Number.isFinite(p.screenX) &&
+        Number.isFinite(p.screenY) && Number.isFinite(p.screenScale) && Number.isFinite(p.size) &&
+        Number.isFinite(p.tail) && Number.isFinite(p.z) && p.dustParticles.every(d =>
+            Number.isFinite(d.x) && Number.isFinite(d.y) && Number.isFinite(d.size) &&
+            Number.isFinite(d.life) && Number.isFinite(d.maxLife) && Number.isFinite(d.vx) && Number.isFinite(d.vy)
+        ) && p.age < p.life && (p.perspective ? p.z > 0.035 :
+            p.screenX > -W * 0.3 && p.screenX < W * 1.3 && p.screenY > -H * 0.3 && p.screenY < H * 1.3)
+    );
 }
 
 function _meteorClamp01(value) { return Math.max(0, Math.min(1, value)); }
@@ -173,7 +188,10 @@ function _meteorExitFade(p, width, height) {
 }
 
 function paintMeteor(ctx, p, cfg, color, energy) {
+    if (!ctx || !p) return;
     const x = p.screenX, y = p.screenY, scale = p.screenScale;
+    energy = Number.isFinite(energy) ? Math.max(0, Math.min(1, energy)) : 0;
+    if (![x, y, scale, p.size, p.tail, p.angle, p.age, p.life].every(Number.isFinite) || scale <= 0 || p.life <= 0) return;
     const fadeOut = Math.pow(Math.max(0, 1 - p.age / p.life), Math.max(0.1, Math.min(4, Number(cfg.meteorBrightnessFalloff) || 1)));
     const fadeIn = _meteorClamp01(p.age / Math.max(0.1, p.fadeInDuration || 0.28));
     const edgeFade = _meteorExitFade(p, ctx.canvas.width, ctx.canvas.height);
@@ -182,6 +200,8 @@ function paintMeteor(ctx, p, cfg, color, energy) {
     const tail = p.tail * scale * Math.max(0.2, Number(cfg.meteorTailStretch) || 1) * (p.perspective ? 0.75 + (1 - p.z) : 1);
     const angle = p.perspective ? Math.atan2(y - ctx.canvas.height / 2, x - ctx.canvas.width / 2) : p.angle;
     const tx = x - Math.cos(angle) * tail, ty = y - Math.sin(angle) * tail;
+    const radius = p.size * scale;
+    if (![tx, ty, tail, angle, brightness, radius].every(Number.isFinite) || tail < 0 || radius < 0) return;
     const grad = ctx.createLinearGradient(tx, ty, x, y);
     grad.addColorStop(0, 'rgba(255,255,255,0)');
     grad.addColorStop(1, color.fill || '#ffffff');
@@ -197,6 +217,7 @@ function paintMeteor(ctx, p, cfg, color, energy) {
     ctx.fillStyle = '#ffffff';
     ctx.beginPath(); ctx.arc(x, y, Math.max(0.35, p.size * scale), 0, Math.PI * 2); ctx.fill();
     p.dustParticles.forEach(d => {
+        if (![d.x, d.y, d.size, d.life, d.maxLife].every(Number.isFinite) || d.maxLife <= 0 || d.size < 0) return;
         ctx.globalAlpha = brightness * Math.max(0, d.life / d.maxLife) * 0.75;
         ctx.fillStyle = color.fill || '#ffffff';
         ctx.beginPath(); ctx.arc(d.x, d.y, d.size * scale, 0, Math.PI * 2); ctx.fill();

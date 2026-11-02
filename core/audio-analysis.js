@@ -32,16 +32,24 @@
 
         /** Trung bình biên độ dải bass (`bassRatio` = tỉ lệ số bin đầu của vizDataArray, vd 0.1), chuẩn hoá 0-1. */
         function computeBeatScale(vizDataArray, bassRatio) {
-            const bassCount = Math.floor(vizDataArray.length * bassRatio); // SỬA 07/10/2026 — trước đây Workflow tự tính số bin
+            if (!vizDataArray || !Number.isFinite(vizDataArray.length) || vizDataArray.length === 0) return 0;
+            const ratio = Number.isFinite(bassRatio) ? Math.max(0, Math.min(1, bassRatio)) : 0;
+            const bassCount = Math.min(vizDataArray.length, Math.max(1, Math.floor(vizDataArray.length * ratio)));
             let bassSum = 0;
-            for (let i = 0; i < bassCount; i++) bassSum += vizDataArray[i];
-            return (bassSum / bassCount) / 255;
+            for (let i = 0; i < bassCount; i++) {
+                const sample = Number(vizDataArray[i]);
+                if (Number.isFinite(sample)) bassSum += Math.max(0, Math.min(255, sample));
+            }
+            return Math.max(0, Math.min(1, bassSum / bassCount / 255));
         }
 
         /** Làm mượt beatScale theo thời gian (EMA hệ số 0.15) — dùng cho mọi hiệu ứng cần phản ứng
          * "mượt" với nhạc thay vì giật theo từng khung hình thô. */
         function computeSmoothedEnergy(beatScale, prevSmoothedEnergy) {
-            return prevSmoothedEnergy + (beatScale - prevSmoothedEnergy) * 0.15;
+            const current = Number.isFinite(beatScale) ? Math.max(0, Math.min(1, beatScale)) : 0;
+            const previous = Number.isFinite(prevSmoothedEnergy) ? Math.max(0, Math.min(1, prevSmoothedEnergy)) : current;
+            const next = previous + (current - previous) * 0.15;
+            return Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : current;
         }
 
         /** Tiến hue-cycle 1 bước (chỉ khi đang phát) — guard clause thuần (KHÔNG phải rẽ nhánh 2

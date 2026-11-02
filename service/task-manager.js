@@ -23,7 +23,8 @@
              * @param {string} mode - 'interval' | 'timeout' (bù giờ) | 'raf' (requestAnimationFrame)
              * @param {number} count - Số lần chạy (0 = vô hạn)
              */
-            constructor(time = 0, callback = () => { }, mode = 'interval', count = 0) {
+            constructor(time = 0, callback = () => { }, mode = 'interval', count = 0, taskName = 'anonymous') {
+                this.taskName = taskName;
                 this.time = time;
                 this.callback = callback;
                 this.mode = mode;
@@ -62,7 +63,7 @@
                     try {
                         this.callback();
                     } catch (error) {
-                        console.error("TaskManager Interval Error:", error);
+                        console.error(`[TaskManager] Interval Error (${this.taskName}):`, error);
                     }
 
                     this.#tickCount();
@@ -83,7 +84,7 @@
                 try {
                     this.callback();
                 } catch (error) {
-                    console.error("TaskManager Timeout Error:", error);
+                    console.error(`[TaskManager] Timeout Error (${this.taskName}):`, error);
                 }
 
                 if (!this.#tickCount()) return;
@@ -109,7 +110,7 @@
                 try {
                     this.callback();
                 } catch (error) {
-                    console.error("TaskManager Raf Error:", error);
+                    console.error(`[TaskManager] Raf Error (${this.taskName}):`, error);
                 }
 
                 this.isBusy = false;
@@ -196,7 +197,7 @@
                     if (this.isBusy) return;
                     this.isBusy = true;
                     this.lastTick = Date.now();
-                    try { this.callback(); } catch (e) { console.error("TaskManager Resume Error:", e); }
+                    try { this.callback(); } catch (e) { console.error(`[TaskManager] Resume Error (${this.taskName}):`, e); }
                     const continueLoop = this.#tickCount();
                     this.isBusy = false;
 
@@ -279,7 +280,8 @@
                     config.time,
                     config.exe,
                     config.mode,
-                    config.count ?? 0
+                    config.count ?? 0,
+                    taskName
                 );
                 this.running[taskName] = false;
             }
