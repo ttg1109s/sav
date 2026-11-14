@@ -71,12 +71,6 @@ const routerPlayerControls = (() => {
                 break;
             }
 
-            case 'playerControls.info.click': {
-                // Dùng chính modal Info/Chi tiết của Playlist cho media đang phát.
-                workflowPlaylist.openSongEditModal(appState.get('currentKey'));
-                break;
-            }
-
             case 'playerControls.settingsDrawer.open': {
                 workflowAppSettings.open(); // liên tuyến — Settings mở trong Generic Drawer (event/workflow/app-settings.js)
                 break;
