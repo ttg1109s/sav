@@ -30,13 +30,18 @@
 .pc-layout {
     display: grid; grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "info" "progress" "meta" "controls";
-    width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box;
+    width: 100%; margin: 0; box-sizing: border-box;
     padding: 12px 16px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 .pc-surface[data-pc-style="floating"] .pc-layout { padding-bottom: 10px; }
-/* Nghệ sĩ 25% | tên 50% | album 25% — cố định, thiếu tag (Video/Photo không có nghệ sĩ) chỉ trống chữ, tên luôn ở giữa. */
-.pc-info-row { grid-area: info; display: flex; align-items: center; justify-content: space-between; min-width: 0; }
-.pc-title { flex: 0 0 50%; min-width: 0; padding: 0 8px; text-align: center; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; white-space: nowrap; }
+/* Hàng thông tin dùng toàn bộ bề ngang: tên bài bên trái, Info bên phải. */
+.pc-info-row { grid-area: info; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; position: relative; }
+.pc-title { flex: 1 1 auto; min-width: 0; padding: 0; text-align: left; font-weight: 700; font-size: 14px; line-height: 1.35; overflow: hidden; white-space: nowrap; }
+.pc-info-wrap { position: relative; flex: 0 0 auto; }
+.pc-info-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 40px; min-height: 36px; padding: 6px 9px; border-radius: 9999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.pc-info-button:active { transform: scale(0.96); }
+.pc-info-popover { position: absolute; z-index: 60; right: 0; bottom: calc(100% + 8px); width: max-content; min-width: 190px; max-width: min(320px, calc(100vw - 32px)); padding: 4px 12px; border: 1px solid var(--viz-border, rgba(255,255,255,.12)); border-radius: 14px; background: rgba(var(--viz-surface-rgb, 24,24,27), .96); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); box-shadow: 0 10px 28px var(--viz-shadow, rgba(0,0,0,.35)); }
+.pc-info-popover > div:last-child { border-bottom: 0; }
 /* Trik marquee phổ biến: nội dung được nhân đôi, track dịch đúng bằng chiều rộng một bản + khoảng cách. */
 .pc-title-track { display: inline-block; width: auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
 .pc-title-copy { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
