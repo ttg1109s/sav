@@ -148,37 +148,14 @@
             if (document.fonts?.ready) document.fonts.ready.then(refreshTitleMarquee);
         }
 
-        /** Nhãn Bottom Player + đồng bộ popup Info; artist/album rỗng thì không dựng dòng tương ứng. */
+        /** Nhãn Bottom Player; chỉ hiện nút Info khi Album hoặc Artist có dữ liệu. */
         function setPlayerTrackLabels(title, artist, album) {
             setPlayerTitleText(title);
             const artistText = String(artist || '').trim();
             const albumText = String(album || '').trim();
             playerArtist.textContent = artistText;
             playerAlbum.textContent = albumText;
-        }
-
-        /** Gắn nội dung Info đã render ở component/workflow và đồng bộ trạng thái nút. @param {string} html @param {boolean} hasInfo */
-        function setPlayerTrackInfoPopoverHtml(html, hasInfo) {
-            playerInfoPopover.innerHTML = html || '';
-            btnPlayerInfo.classList.toggle('hidden', !hasInfo);
-            setPlayerTrackInfoPopoverOpen(false);
-        }
-
-        /** Mở/đóng popup Info; không cho mở nếu cả Album và Artist đều rỗng. @param {boolean} isOpen */
-        function setPlayerTrackInfoPopoverOpen(isOpen) {
-            const open = !!isOpen && !btnPlayerInfo.classList.contains('hidden');
-            btnPlayerInfo.setAttribute('aria-expanded', String(open));
-            playerInfoPopover.classList.toggle('hidden', !open);
-        }
-
-        /** Đảo trạng thái popup Info theo thao tác nút. */
-        function togglePlayerTrackInfoPopover() {
-            setPlayerTrackInfoPopoverOpen(btnPlayerInfo.getAttribute('aria-expanded') !== 'true');
-        }
-
-        /** Đóng popup Info khi chạm ra ngoài hoặc nhấn Escape. */
-        function closePlayerTrackInfoPopover() {
-            setPlayerTrackInfoPopoverOpen(false);
+            btnPlayerInfo.classList.toggle('hidden', !(artistText || albumText));
         }
 
         /** Thông tin media trên thông báo/màn khoá (Media Session); trình duyệt không hỗ trợ thì bỏ qua.
