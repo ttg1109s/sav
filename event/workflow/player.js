@@ -72,10 +72,12 @@ const workflowPlayer = {
      */
     playMedia(key, options) {
         const request = resolvePlayMediaRequest(options);
-        const state = appState.get(['playlistCache', 'isPhotoPlayerMode']);
+        const state = appState.get(['playlistCache', 'isPhotoPlayerMode', 'isVideoPlayerMode', 'activeMediaSource', 'activePlayListFolder']);
         if (request.switchScreen || !playbackQueueContext) {
             const s = appState.get(['playlistOrder', 'displayOrder', 'shuffleIndices', 'pendingResortKeys', 'isShuffle', 'repeatMode']);
             playbackQueueContext = {
+                mediaSource: state.activeMediaSource,
+                folderId: state.activePlayListFolder[state.activeMediaSource] || null,
                 playlistOrder: [...s.playlistOrder],
                 displayOrder: [...s.displayOrder],
                 shuffleIndices: [...s.shuffleIndices],
@@ -87,6 +89,7 @@ const workflowPlayer = {
         }
         const cache = request.switchScreen ? state.playlistCache : playbackQueueContext.playlistCache;
         const mediaType = resolvePlaylistItemMediaType(cache.get(key)); // core/playlist/render.js
+        playbackQueueContext.mediaType = mediaType;
         this._exitPhotoPlayerModeIfLeaving(state.isPhotoPlayerMode, mediaType);
         return (PLAY_MEDIA_BY_TYPE[mediaType] || PLAY_MEDIA_BY_TYPE.song)(key, request, state.isPhotoPlayerMode); // core/player-controls.js
     },
@@ -120,8 +123,12 @@ const workflowPlayer = {
 
     /** @param {string} key @param {boolean} switchScreen */
     _playSong(key, switchScreen) {
-        const { currentKey, gameplayArmedGameId } = appState.get(['currentKey', 'gameplayArmedGameId']);
-        return SONG_PLAY_BY_SAME_KEY[key === currentKey](key, switchScreen, gameplayArmedGameId);
+        const { currentKey, gameplayArmedGameId, isVideoPlayerMode, isPhotoPlayerMode } = appState.get([
+            'currentKey', 'gameplayArmedGameId', 'isVideoPlayerMode', 'isPhotoPlayerMode',
+        ]);
+        // Key có thể trùng giữa các loại media; chỉ replay nếu item hiện tại thực sự là Song.
+        const isSameSong = key === currentKey && !isVideoPlayerMode && !isPhotoPlayerMode;
+        return SONG_PLAY_BY_SAME_KEY[isSameSong](key, switchScreen, gameplayArmedGameId);
     },
 
     /** Bấm lại đúng bài đang nạp: đổi màn, phát nếu đang dừng, vẫn gửi 'gameplay.mediaChanged' (Game Mode đang armed phải tự
