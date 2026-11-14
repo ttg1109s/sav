@@ -24,7 +24,7 @@ const RELOAD_SONG_RESUME_BY_WAS_PLAYING = {
 const PLAY_MEDIA_BY_TYPE = {
     video: (key, request) => eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen: request.switchScreen, direction: request.direction } }),
     photo: (key, request, isPhotoPlayerMode) => PHOTO_PLAY_BY_IN_MODE[isPhotoPlayerMode](key, request),
-    song: (key, request) => workflowPlayer._playSong(key, request.switchScreen),
+    song: (key, request, isPhotoPlayerMode, previousPlaybackMediaType) => workflowPlayer._playSong(key, request.switchScreen, previousPlaybackMediaType),
 };
 
 /** Photo: đã ở mode -> chỉ đổi ảnh (`direction` chọn slot Transition Next/Prev); chưa -> vào mode (ảnh đầu hiện tĩnh). Tự chuyển
@@ -73,6 +73,9 @@ const workflowPlayer = {
     playMedia(key, options) {
         const request = resolvePlayMediaRequest(options);
         const state = appState.get(['playlistCache', 'isPhotoPlayerMode', 'isVideoPlayerMode', 'activeMediaSource', 'activePlayListFolder']);
+        const previousPlaybackMediaType = state.isVideoPlayerMode ? 'video'
+            : state.isPhotoPlayerMode ? 'photo'
+                : (playbackQueueContext && playbackQueueContext.mediaType) || 'song';
         if (request.switchScreen || !playbackQueueContext) {
             const s = appState.get(['playlistOrder', 'displayOrder', 'shuffleIndices', 'pendingResortKeys', 'isShuffle', 'repeatMode']);
             playbackQueueContext = {
@@ -91,7 +94,7 @@ const workflowPlayer = {
         const mediaType = resolvePlaylistItemMediaType(cache.get(key)); // core/playlist/render.js
         playbackQueueContext.mediaType = mediaType;
         this._exitPhotoPlayerModeIfLeaving(state.isPhotoPlayerMode, mediaType);
-        return (PLAY_MEDIA_BY_TYPE[mediaType] || PLAY_MEDIA_BY_TYPE.song)(key, request, state.isPhotoPlayerMode); // core/player-controls.js
+        return (PLAY_MEDIA_BY_TYPE[mediaType] || PLAY_MEDIA_BY_TYPE.song)(key, request, state.isPhotoPlayerMode, previousPlaybackMediaType); // core/player-controls.js
     },
 
     /** Queue phát bất biến trước các thao tác duyệt source/folder; currentKey và player mode luôn lấy trạng thái live. */
@@ -122,12 +125,10 @@ const workflowPlayer = {
     },
 
     /** @param {string} key @param {boolean} switchScreen */
-    _playSong(key, switchScreen) {
-        const { currentKey, gameplayArmedGameId, isVideoPlayerMode, isPhotoPlayerMode } = appState.get([
-            'currentKey', 'gameplayArmedGameId', 'isVideoPlayerMode', 'isPhotoPlayerMode',
-        ]);
-        // Key có thể trùng giữa các loại media; chỉ replay nếu item hiện tại thực sự là Song.
-        const isSameSong = key === currentKey && !isVideoPlayerMode && !isPhotoPlayerMode;
+    _playSong(key, switchScreen, previousPlaybackMediaType) {
+        const { currentKey, gameplayArmedGameId } = appState.get(['currentKey', 'gameplayArmedGameId']);
+        // Key có thể trùng giữa các loại media; chỉ replay nếu phiên trước thực sự là Song.
+        const isSameSong = key === currentKey && previousPlaybackMediaType === 'song';
         return SONG_PLAY_BY_SAME_KEY[isSameSong](key, switchScreen, gameplayArmedGameId);
     },
 
