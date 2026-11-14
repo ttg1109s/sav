@@ -155,9 +155,12 @@
             const albumText = String(album || '').trim();
             playerArtist.textContent = artistText;
             playerAlbum.textContent = albumText;
-            playerInfoPopover.innerHTML = renderPlayerTrackInfoHtml(artistText, albumText);
-            if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList);
-            btnPlayerInfo.classList.toggle('hidden', !artistText && !albumText);
+        }
+
+        /** Gắn nội dung Info đã render ở component/workflow và đồng bộ trạng thái nút. @param {string} html @param {boolean} hasInfo */
+        function setPlayerTrackInfoPopoverHtml(html, hasInfo) {
+            playerInfoPopover.innerHTML = html || '';
+            btnPlayerInfo.classList.toggle('hidden', !hasInfo);
             setPlayerTrackInfoPopoverOpen(false);
         }
 
