@@ -44,6 +44,20 @@ if (btnPrev) {
     });
 }
 
+if (btnPlayerInfo) {
+    btnPlayerInfo.addEventListener('click', () => {
+        eventBus.send({ router: 'playerControls', type: 'playerControls.info.toggle', payload: {} });
+    });
+    document.addEventListener('pointerdown', (e) => {
+        if (!btnPlayerInfo.contains(e.target) && !playerInfoPopover.contains(e.target)) {
+            eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
+    });
+}
+
 // ===================== Media Session — Next/Prev ở thông báo, màn hình khoá, nút tai nghe =====================
 // MỚI (25/09/2026, Giang yêu cầu "thiếu control next, prev ở thông báo, màn hình khoá") — BỎ một phần quyết định Ver 8
 // (mục 2, "không còn setActionHandler nào", xem core/player-controls.js): CHỈ mở lại nexttrack/previoustrack. Gửi ĐÚNG
