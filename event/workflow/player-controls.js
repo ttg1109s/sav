@@ -762,6 +762,15 @@ const workflowPlayerControls = {
      * với 2 nút to "Phát"/"Trộn bài" (event/workflow/playlist-empty-state.js) — 2 nút đó LUÔN ép về
      * top-level trước khi phát/trộn, còn Shuffle ở đây LUÔN tôn trọng hiện hành — 2 hành vi khác nhau CHỦ ĐÍCH.
      */
+    /** Ứng với nút Info trên Bottom Player — bật/tắt popup Album/Artist. */
+    toggleTrackInfoPopover() {
+        togglePlayerTrackInfoPopover(); // core/player-controls.js
+    },
+
+    closeTrackInfoPopover() {
+        closePlayerTrackInfoPopover(); // core/player-controls.js
+    },
+
     toggleShuffleAndReshuffle() {
         const { isShuffle, displayOrder, playlistOrder } = appState.get(['isShuffle', 'displayOrder', 'playlistOrder']);
         const next = toggleShuffle(isShuffle); // core/player-controls.js — trả giá trị MỚI
