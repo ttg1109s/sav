@@ -502,8 +502,6 @@ const workflowVideoPlayer = {
         const title = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // core/file-manager/video.js
         const album = String(record.album || '').trim();
         setPlayerTrackLabels(title, '', album); // core/player-controls.js
-        setPlayerTrackInfoPopoverHtml(renderPlayerTrackInfoHtml('', album), !!album); // core/player-controls.js + components/bottom-player.js
-        applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — popup Info được dựng động
         setMediaSessionMetadata(title, '', []); // core/player-controls.js
         // Cover ở player bottom = thumb của video — tái dùng `this._thumbObjectUrl` (poster).
         mountRecordArt(recordContainer, renderRecordArtHtml(false), this._thumbObjectUrl, t('videoPlayer.untitled')); // core/record-art-ui.js + components/bottom-player.js
