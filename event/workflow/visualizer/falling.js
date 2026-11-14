@@ -5,7 +5,6 @@
 
 /** Cỡ phổ VẼ của group (01/10/2026: group tự khai báo, host xin qua audioAnalysis.requireSpectrum()). */
 const FALLING_FFT_SIZE = 256;
-const FALLING_METEOR_FFT_SIZE = 256;
 
 /** Cửa sổ nhà (glass): sáng -> đúng màu color mode; tắt -> màu tương phản. */
 const FALLING_GLASS_WINDOW_COLOR_BY_LIT = {
@@ -51,58 +50,10 @@ const workflowVizFalling = {
     styles: {
         glass: (frame) => workflowVizFalling._drawGlass(frame),
         street: (frame) => workflowVizFalling._drawStreet(frame),
-        meteor: (frame) => workflowVizFalling._drawMeteor(frame),
     },
-
-    _meteor: createMeteorState(),
-    _meteorColorIndex: 0,
 
     /** Trạng thái riêng của street: dải tần từng đèn, gió, Energy % đã làm mượt, mốc chớp trời, cửa sổ beat dò chuyển đoạn. */
     _street: { bands: [], wind: null, energy: 0, thunderAt: -Infinity, beatWin: createBeatFluxWindow() }, // core/visualizer/beat-window.js
-
-    // ===================== Meteor Shower =====================
-
-    /** Sao băng và núi dùng cùng canvas của host; không tạo RAF/timer riêng. */
-    _drawMeteor(frame) {
-        const state = this._meteor;
-        const now = performance.now();
-        const dt = computeFrameDeltaMs(now, state.lastFrameMs); // core/visualizer/frame-clock.js
-        state.lastFrameMs = now;
-        const energy = frame.audio.smoothedEnergy();
-        const spectrum = frame.audio.spectrum(FALLING_METEOR_FFT_SIZE) || [];
-        let highFrequency = 0;
-        const highStart = Math.floor(spectrum.length * 0.7);
-        for (let i = highStart; i < spectrum.length; i++) highFrequency += spectrum[i] || 0;
-        highFrequency = spectrum.length > highStart ? highFrequency / ((spectrum.length - highStart) * 255) : 0;
-        advanceMeteorState(state, frame, dt, energy, now, highFrequency); // core/visualizer/groups/falling/meteor.js
-        // Beat mới tạo burst nhỏ, luôn tôn trọng hard cap số meteor.
-        const beatTime = frame.audio.lastBeatTime();
-        if (state.lastBeatTime === null) state.lastBeatTime = beatTime;
-        else if (frame.isPlaying && frame.cfg.meteorBeatBurst !== false && beatTime > state.lastBeatTime) {
-            const cap = Math.max(1, Math.min(100, Math.round(Number(frame.cfg.meteorMaxMeteors) || 18)));
-            const burst = Math.min(4, cap - state.particles.length);
-            for (let i = 0; i < burst; i++) _spawnMeteor(state, frame, energy);
-            state.lastBeatTime = beatTime;
-        } else if (beatTime > state.lastBeatTime) state.lastBeatTime = beatTime;
-        this._paintBackdrop(frame);
-        const layers = state.mountains.slice().sort((a, b) => a.depth - b.depth);
-        const particleIndex = new Map(state.particles.map((p, i) => [p.id, i]));
-        const drawBand = (band) => state.particles
-            .filter(p => (Number.isInteger(p.mountainBand) ? p.mountainBand : (p.behind ? -1 : layers.length)) === band)
-            .forEach(p => {
-                const i = particleIndex.get(p.id) || 0;
-                const color = workflowVisualizerRender.colorAt(i, Math.max(1, state.particles.length), energy);
-                paintMeteor(frame.ctx, p, frame.cfg, color, energy);
-            });
-        // Thứ tự chiều sâu ổn định: hậu cảnh -> núi xa -> sao băng giữa các dãy
-        // -> núi gần -> sao băng tiền cảnh. Geometry núi giữ nguyên qua các frame.
-        drawBand(-1);
-        layers.forEach((layer, i) => {
-            paintMeteorMountainLayer(frame.ctx, layer);
-            drawBand(i);
-        });
-        drawBand(layers.length);
-    },
 
     // ===================== Vòng đời =====================
 
@@ -110,7 +61,6 @@ const workflowVizFalling = {
      * lại dãy nhà + cảnh phố theo kích thước mới. */
     onResize(viewport) {
         const rainCfg = resolveEffectConfig(appConfigViz.getAll().customEffect, 'rain'); // core/custom-effect.js
-        resetMeteorState(this._meteor, canvas.width, canvas.height, viewport.dpr, rainCfg);
         appState.set('ripples', []);
         appState.set('glassStreaks', []);
         appState.set('glassStaticDrops', buildGlassStaticDrops(rainCfg.glassDropDensity, canvas.width, canvas.height, viewport.dpr)); // core/canvas-scene-setup.js

@@ -73,16 +73,6 @@
                 streetDensity: 220, streetBuildingScale: 1.0,
                 // Street Light chỉ dùng tuyết; bật/tắt hướng gió (tắt = rơi thẳng).
                 streetWindEnabled: true,
-                // Meteor Shower — Canvas 2D, thuộc group falling (registry key rain).
-                meteorMaxMeteors: 18, meteorSpawnRate: 3, meteorTailLength: 100, meteorDustPerMeteor: 8, meteorOverallScale: 1,
-                meteorBrightness: 1, meteorSize: 1, meteorGlow: 16, meteorSpeed: 220, meteorSpeedVariation: 30, meteorAudioSensitivity: 0.8, meteorBeatBurst: true,
-                meteorTailOpacity: 0.75, meteorTailStretch: 1, meteorDustSpread: 1, meteorLifetime: 1, meteorFarScale: 0.35, meteorMountainHeight: 100,
-                meteorAngleSpread: 14, meteorSpawnRegion: 'random', meteorBrightnessFalloff: 1, meteorHighFrequencySensitivity: 0.8,
-                meteorDirectionMode: 'diagonal', meteorDirectionAngle: 315,
-                meteorApproachSpeed: 0.28, meteorPerspectiveStrength: 0.85, meteorNearScale: 3,
-                meteorSpawnSpread: 70, meteorBehindMountains: 0.55,
-                meteorMountainLayerCount: 3, meteorMountainOpacity: 70, meteorHorizonHeight: 22,
-                meteorMountainColor: '#101827',
                 // Đèn thêm vào 3 cột gốc (tối đa 8) — generateStreetScene(), core/canvas-scene-setup.js; mỗi đèn
                 // xPercent/heightPx/flareScale riêng.
                 customLamps: [],

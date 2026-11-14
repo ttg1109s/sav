@@ -87,7 +87,7 @@ const CUSTOM_EFFECT_NO_BLUR_STYLES = { lighting: ['fireworks'] };
  * style (shape) — nhất quán, không cần rẽ nhánh riêng. */
 const CUSTOM_EFFECT_STYLE = {
     bar: { field: 'barStyle', options: ['mirror', 'cascade', 'black hole', 'dot'] },
-    rain: { field: 'rainStyle', options: ['glass', 'street', 'meteor'] }, // Meteor Shower
+    rain: { field: 'rainStyle', options: ['glass', 'street'] },
     vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
     lighting: { field: 'lightingStyle', options: ['thunder', 'fireworks'] },
     shape: { field: 'shapeStyle', options: ['rubik', 'clock'] },
@@ -101,7 +101,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
         mirror: 'visualizerSettingsDrawer.barStyle.mirror', cascade: 'visualizerSettingsDrawer.barStyle.cascade',
         'black hole': 'visualizerSettingsDrawer.barStyle.blackHole', dot: 'visualizerSettingsDrawer.barStyle.dot',
     },
-    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street', meteor: 'visualizerSettingsDrawer.rainStyle.meteor' }, // Meteor Shower
+    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street' },
     vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
     lighting: { thunder: 'visualizerSettingsDrawer.lightingStyle.thunder', fireworks: 'visualizerSettingsDrawer.lightingStyle.fireworks' },
     shape: { rubik: 'visualizerSettingsDrawer.shapeStyle.rubik', clock: 'visualizerSettingsDrawer.shapeStyle.clock' },
@@ -201,53 +201,6 @@ const CUSTOM_EFFECT_FIELDS = {
         // ── motion ──
         { id: 'glassStreakFrequency', labelKey: 'customEffectDrawer.field.glassStreakFrequency', type: 'slider', min: 0, max: 100, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'glass' },
         { id: 'streetWindEnabled', labelKey: 'customEffectDrawer.field.streetWindEnabled', type: 'toggle', card: 'motion', showIf: (cfg) => cfg.rainStyle === 'street' },
-        // Meteor Shower — density and rendering cost
-        { id: 'meteorOverallScale', labelKey: 'customEffectDrawer.field.meteorOverallScale', type: 'sliderFloat', min: 0.25, max: 2.5, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorMaxMeteors', labelKey: 'customEffectDrawer.field.meteorMaxMeteors', type: 'slider', min: 1, max: 60, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorSpawnRate', labelKey: 'customEffectDrawer.field.meteorSpawnRate', type: 'sliderFloat', min: 0.5, max: 15, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorDustPerMeteor', labelKey: 'customEffectDrawer.field.meteorDustPerMeteor', type: 'slider', min: 0, max: 32, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorTailLength', labelKey: 'customEffectDrawer.field.meteorTailLength', type: 'slider', min: 10, max: 300, step: 5, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorTailOpacity', labelKey: 'customEffectDrawer.field.meteorTailOpacity', type: 'sliderFloat', min: 0.05, max: 1, step: 0.05, decimals: 2, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorTailStretch', labelKey: 'customEffectDrawer.field.meteorTailStretch', type: 'sliderFloat', min: 0.2, max: 3, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorBrightnessFalloff', labelKey: 'customEffectDrawer.field.meteorBrightnessFalloff', type: 'sliderFloat', min: 0.5, max: 3, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorHighFrequencySensitivity', labelKey: 'customEffectDrawer.field.meteorHighFrequencySensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'meteor' }, 
-        { id: 'meteorLifetime', labelKey: 'customEffectDrawer.field.meteorLifetime', type: 'sliderFloat', min: 0.25, max: 3, step: 0.25, decimals: 2, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorDustSpread', labelKey: 'customEffectDrawer.field.meteorDustSpread', type: 'sliderFloat', min: 0.1, max: 3, step: 0.1, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorBrightness', labelKey: 'customEffectDrawer.field.meteorBrightness', type: 'sliderFloat', min: 0.1, max: 2, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorSize', labelKey: 'customEffectDrawer.field.meteorSize', type: 'sliderFloat', min: 0.2, max: 3, step: 0.1, decimals: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor' }, 
-        { id: 'meteorGlow', labelKey: 'customEffectDrawer.field.meteorGlow', type: 'slider', min: 0, max: 40, step: 1, card: 'glow', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorAudioSensitivity', labelKey: 'customEffectDrawer.field.meteorAudioSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1, card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorBeatBurst', labelKey: 'customEffectDrawer.field.meteorBeatBurst', type: 'toggle', card: 'reaction', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorSpawnRegion', labelKey: 'customEffectDrawer.field.meteorSpawnRegion', type: 'select', card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode !== 'perspectiveApproach', options: [
-            { value: 'random', labelKey: 'customEffectDrawer.meteorSpawnRegion.random' },
-            { value: 'top', labelKey: 'customEffectDrawer.meteorSpawnRegion.top' },
-            { value: 'bottom', labelKey: 'customEffectDrawer.meteorSpawnRegion.bottom' },
-            { value: 'left', labelKey: 'customEffectDrawer.meteorSpawnRegion.left' },
-            { value: 'right', labelKey: 'customEffectDrawer.meteorSpawnRegion.right' },
-        ] },
-        { id: 'meteorAngleSpread', labelKey: 'customEffectDrawer.field.meteorAngleSpread', type: 'slider', min: 0, max: 90, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'meteor' && ['diagonal', 'directionalStream'].includes(cfg.meteorDirectionMode) },
-        { id: 'meteorDirectionMode', labelKey: 'customEffectDrawer.field.meteorDirectionMode', type: 'select', card: 'motion', rerender: true, showIf: (cfg) => cfg.rainStyle === 'meteor', options: [
-            { value: 'diagonal', labelKey: 'customEffectDrawer.meteorDirection.diagonal' },
-            { value: 'vertical', labelKey: 'customEffectDrawer.meteorDirection.vertical' },
-            { value: 'horizontal', labelKey: 'customEffectDrawer.meteorDirection.horizontal' },
-            { value: 'omnidirectional', labelKey: 'customEffectDrawer.meteorDirection.omnidirectional' },
-            { value: 'directionalStream', labelKey: 'customEffectDrawer.meteorDirection.directionalStream' },
-            { value: 'perspectiveApproach', labelKey: 'customEffectDrawer.meteorDirection.perspectiveApproach' },
-            { value: 'customAngle', labelKey: 'customEffectDrawer.meteorDirection.customAngle' },
-        ] },
-        { id: 'meteorSpeed', labelKey: 'customEffectDrawer.field.meteorSpeed', type: 'slider', min: 40, max: 700, step: 10, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode !== 'perspectiveApproach' },
-        { id: 'meteorSpeedVariation', labelKey: 'customEffectDrawer.field.meteorSpeedVariation', type: 'slider', min: 0, max: 100, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode !== 'perspectiveApproach' }, 
-        { id: 'meteorDirectionAngle', labelKey: 'customEffectDrawer.field.meteorDirectionAngle', type: 'slider', min: 0, max: 360, step: 5, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode === 'customAngle' },
-        { id: 'meteorApproachSpeed', labelKey: 'customEffectDrawer.field.meteorApproachSpeed', type: 'sliderFloat', min: 0.05, max: 0.8, step: 0.05, decimals: 2, card: 'motion', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode === 'perspectiveApproach' },
-        { id: 'meteorPerspectiveStrength', labelKey: 'customEffectDrawer.field.meteorPerspectiveStrength', type: 'sliderFloat', min: 0.2, max: 1.8, step: 0.1, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode === 'perspectiveApproach' },
-        { id: 'meteorFarScale', labelKey: 'customEffectDrawer.field.meteorFarScale', type: 'sliderFloat', min: 0.05, max: 2, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode === 'perspectiveApproach' },
-        { id: 'meteorNearScale', labelKey: 'customEffectDrawer.field.meteorNearScale', type: 'sliderFloat', min: 1, max: 6, step: 0.5, decimals: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' && cfg.meteorDirectionMode === 'perspectiveApproach' }, 
-        { id: 'meteorSpawnSpread', labelKey: 'customEffectDrawer.field.meteorSpawnSpread', type: 'slider', min: 10, max: 100, step: 5, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorBehindMountains', labelKey: 'customEffectDrawer.field.meteorBehindMountains', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor' },
-        { id: 'meteorMountainLayerCount', labelKey: 'customEffectDrawer.field.meteorMountainLayerCount', type: 'slider', min: 1, max: 5, step: 1, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor', refresh: 'resizeCanvas' },
-        { id: 'meteorMountainOpacity', labelKey: 'customEffectDrawer.field.meteorMountainOpacity', type: 'slider', min: 10, max: 100, step: 5, card: 'element', showIf: (cfg) => cfg.rainStyle === 'meteor', refresh: 'resizeCanvas' },
-        { id: 'meteorMountainHeight', labelKey: 'customEffectDrawer.field.meteorMountainHeight', type: 'slider', min: 50, max: 180, step: 5, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor', refresh: 'resizeCanvas' }, 
-        { id: 'meteorHorizonHeight', labelKey: 'customEffectDrawer.field.meteorHorizonHeight', type: 'slider', min: 5, max: 45, step: 1, card: 'layout', showIf: (cfg) => cfg.rainStyle === 'meteor', refresh: 'resizeCanvas' },
     ],
     shape: [ // ĐỔI TÊN (05/09/2026) — trước đây khoá 'rubik', field không đổi.
         // SỬA (26/09/2026) — group có thêm style 'clock' -> field rubik gắn showIf theo style.
@@ -382,7 +335,7 @@ const CUSTOM_EFFECT_BLUR_FIELDS = ['blurEnabled', 'blurIntensity'];
 const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
     bar: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, 'maxH'],
     lighting: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
-    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id), 'meteorOverallScale', 'meteorMaxMeteors', 'meteorSpawnRate', 'meteorDustPerMeteor', 'meteorTailLength', 'meteorTailOpacity', 'meteorTailStretch', 'meteorBrightnessFalloff', 'meteorHighFrequencySensitivity', 'meteorLifetime', 'meteorDustSpread', 'meteorBrightness', 'meteorSize', 'meteorGlow', 'meteorAudioSensitivity', 'meteorBeatBurst', 'meteorSpawnRegion', 'meteorAngleSpread', 'meteorDirectionMode', 'meteorSpeed', 'meteorSpeedVariation', 'meteorDirectionAngle', 'meteorApproachSpeed', 'meteorPerspectiveStrength', 'meteorFarScale', 'meteorNearScale', 'meteorSpawnSpread', 'meteorBehindMountains', 'meteorMountainLayerCount', 'meteorMountainOpacity', 'meteorMountainHeight', 'meteorHorizonHeight'],
+    rain: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_FLASH_FIELDS.map((f) => f.id)],
     vortex: [...CUSTOM_EFFECT_COLOR_FIELDS, 'warpSpeedBase', 'warpSpeedEnergyMult', 'redirectEnabled', 'sectionWindowBeats', 'fluxThreshold'],
     shape: [...CUSTOM_EFFECT_COLOR_FIELDS, ...CUSTOM_EFFECT_BLUR_FIELDS], // MỚI 26/09/2026 — rubik/clock mỗi style giữ màu riêng; blur (lượt 2) chỉ clock đọc
     connector: [...CUSTOM_EFFECT_COLOR_FIELDS, 'glowEnabled', 'glowIntensity', 'fireThreshold', 'lateralInhibitStrength', 'sectionWindowBeats', 'fluxThreshold'],
@@ -394,22 +347,25 @@ const CUSTOM_EFFECT_PER_STYLE_FIELDS = {
 function resolveEffectConfig(customEffect, type) {
     const saved = customEffect && customEffect[type] ? { ...customEffect[type] } : {};
     if (type === 'rain') {
-        // Preserve saved settings from the former comet namespace.
-        if (saved.rainStyle === 'comet') saved.rainStyle = 'meteor';
+        // Remove obsolete Meteor Shower settings from existing saved configurations.
+        if (saved.rainStyle === 'meteor' || saved.rainStyle === 'comet') saved.rainStyle = 'glass';
         Object.keys(saved).forEach((key) => {
-            if (key.startsWith('comet')) {
-                const nextKey = 'meteor' + key.slice(5);
-                if (saved[nextKey] === undefined) saved[nextKey] = saved[key];
-            }
+            if (key.startsWith('meteor') || key.startsWith('comet')) delete saved[key];
         });
-        if (saved.byStyle && saved.byStyle.comet) {
-            const legacy = saved.byStyle.comet;
-            const migrated = { ...(saved.byStyle.meteor || {}) };
-            Object.keys(legacy).forEach((key) => {
-                const nextKey = key.startsWith('comet') ? 'meteor' + key.slice(5) : key;
-                if (migrated[nextKey] === undefined) migrated[nextKey] = legacy[key];
+        if (saved.byStyle) {
+            const byStyle = { ...saved.byStyle };
+            delete byStyle.meteor;
+            delete byStyle.comet;
+            Object.keys(byStyle).forEach((style) => {
+                const values = byStyle[style];
+                if (!values || typeof values !== 'object') return;
+                const cleanValues = { ...values };
+                Object.keys(cleanValues).forEach((key) => {
+                    if (key.startsWith('meteor') || key.startsWith('comet')) delete cleanValues[key];
+                });
+                byStyle[style] = cleanValues;
             });
-            saved.byStyle = { ...saved.byStyle, meteor: migrated };
+            saved.byStyle = byStyle;
         }
     }
     const merged = { ...DEFAULT_CUSTOM_EFFECT[type], ...saved };
