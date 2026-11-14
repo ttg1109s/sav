@@ -19,11 +19,10 @@ const TPL_BOTTOM_PLAYER = `
                 <div class="pc-info-row">
                     <h2 id="player-title" class="pc-title" data-uitk="pcText" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
                     <div class="pc-info-wrap">
-                        <button id="btn-player-info" class="pc-info-button hidden" type="button" aria-expanded="false" aria-controls="player-info-popover" data-uitk="pcToggleBtn" title="${t('playlistView.songEdit.tabDetails')}" aria-label="${t('playlistView.songEdit.tabDetails')}">
+                        <button id="btn-player-info" class="pc-info-button hidden" type="button" data-uitk="pcIconBtn" title="Info" aria-label="Info">
                             ${iconSvg('information-circle', 'w-4 h-4')}
-                            <span>${t('playlistView.songEdit.tabDetails')}</span>
+                            <span>Info</span>
                         </button>
-                        <div id="player-info-popover" class="pc-info-popover hidden" role="dialog" aria-label="${t('playlistView.songEdit.tabDetails')}"></div>
                     </div>
                     <!-- Giữ hai node dữ liệu để setPlayerTrackLabels() và Photo Player tiếp tục dùng chung API hiện có. -->
                     <div class="hidden" aria-hidden="true">
@@ -62,12 +61,3 @@ function renderRecordArtHtml(isPaused) {
     return `<img id="record-art" src="" class="pc-play-cover animate-spin-slow${isPaused ? ' paused' : ''}" alt="">`;
 }
 
-/** Nội dung Info của Bottom Player — tái sử dụng renderer/escape của tab Chi tiết Playlist. */
-function renderPlayerTrackInfoHtml(artist, album) {
-    const rows = [];
-    const artistText = String(artist || '').trim();
-    const albumText = String(album || '').trim();
-    if (albumText) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(albumText)));
-    if (artistText) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), renderSongInfoTextValue(artistText)));
-    return rows.join('');
-}
