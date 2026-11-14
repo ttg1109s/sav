@@ -145,7 +145,7 @@ const workflowPhotoPlayer = {
         workflowAutoSwitchVisual.syncPlayState();
 
         const title = record.customName || stripFileExtension(record.filename) || t('photoPlayer.untitled'); // core/file-manager/video.js
-        const album = record.album || '';
+        const album = String(record.album || '').trim();
         applyPhotoPlayerTrackInfo(title, album); // core/photo-player.js
         setPlayerTrackInfoPopoverHtml(renderPlayerTrackInfoHtml('', album), !!album); // core/player-controls.js + components/bottom-player.js
         applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — popup Info được dựng động
