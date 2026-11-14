@@ -500,7 +500,7 @@ const workflowVideoPlayer = {
 
         // Tên: ưu tiên tên người dùng tự đặt, filename thì bỏ đuôi. Video không có nghệ sĩ; album rỗng thì ô trống chữ.
         const title = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // core/file-manager/video.js
-        const album = record.album || '';
+        const album = String(record.album || '').trim();
         setPlayerTrackLabels(title, '', album); // core/player-controls.js
         setPlayerTrackInfoPopoverHtml(renderPlayerTrackInfoHtml('', album), !!album); // core/player-controls.js + components/bottom-player.js
         applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — popup Info được dựng động
