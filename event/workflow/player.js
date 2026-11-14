@@ -190,7 +190,7 @@ const workflowPlayer = {
         const placeholders = [t('common.unknownArtist'), t('common.song.unknownArtist'), t('common.songEdit.defaultArtist'), 'Unknown artist', 'Unknown Artist'];
         const labels = resolveSongTrackLabels(tag, placeholders); // core/player-controls.js
         setPlayerTrackLabels(labels.title, labels.artist, labels.album); // core/player-controls.js
-        setPlayerTrackInfoPopoverHtml(renderPlayerTrackInfoHtml(labels.artist, labels.album), !!(labels.artist || labels.album)); // core/player-controls.js + components/bottom-player.js
+        setPlayerTrackInfoPopoverHtml(renderPlayerTrackInfoHtml(labels.artist, labels.album), !!(String(labels.artist || '').trim() || String(labels.album || '').trim())); // core/player-controls.js + components/bottom-player.js
         applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — popup Info được dựng động
     },
 
