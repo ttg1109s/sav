@@ -500,7 +500,10 @@ const workflowVideoPlayer = {
 
         // Tên: ưu tiên tên người dùng tự đặt, filename thì bỏ đuôi. Video không có nghệ sĩ; album rỗng thì ô trống chữ.
         const title = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // core/file-manager/video.js
-        setPlayerTrackLabels(title, '', record.album || ''); // core/player-controls.js
+        const album = record.album || '';
+        setPlayerTrackLabels(title, '', album); // core/player-controls.js
+        setPlayerTrackInfoPopoverHtml(renderPlayerTrackInfoHtml('', album), !!album); // core/player-controls.js + components/bottom-player.js
+        applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList); // core/ui-theme/apply-ui.js — popup Info được dựng động
         setMediaSessionMetadata(title, '', []); // core/player-controls.js
         // Cover ở player bottom = thumb của video — tái dùng `this._thumbObjectUrl` (poster).
         mountRecordArt(recordContainer, renderRecordArtHtml(false), this._thumbObjectUrl, t('videoPlayer.untitled')); // core/record-art-ui.js + components/bottom-player.js
