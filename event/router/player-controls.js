@@ -71,6 +71,16 @@ const routerPlayerControls = (() => {
                 break;
             }
 
+            case 'playerControls.info.toggle': {
+                workflowPlayerControls.toggleTrackInfoPopover();
+                break;
+            }
+
+            case 'playerControls.info.close': {
+                workflowPlayerControls.closeTrackInfoPopover();
+                break;
+            }
+
             case 'playerControls.settingsDrawer.open': {
                 workflowAppSettings.open(); // liên tuyến — Settings mở trong Generic Drawer (event/workflow/app-settings.js)
                 break;
