@@ -155,7 +155,11 @@
             const albumText = String(album || '').trim();
             playerArtist.textContent = artistText;
             playerAlbum.textContent = albumText;
-            btnPlayerInfo.classList.toggle('hidden', !(artistText || albumText));
+            const infoLines = [];
+            if (albumText) infoLines.push(`${t('playlistView.songInfo.fieldAlbum')}: ${albumText}`);
+            if (artistText) infoLines.push(`${t('playlistView.songInfo.fieldArtist')}: ${artistText}`);
+            btnPlayerInfo.dataset.infoText = infoLines.join(' · ');
+            btnPlayerInfo.classList.toggle('hidden', !infoLines.length);
         }
 
         /** Thông tin media trên thông báo/màn khoá (Media Session); trình duyệt không hỗ trợ thì bỏ qua.
