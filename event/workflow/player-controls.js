@@ -100,7 +100,8 @@ const PREV_TRACK_BY_BOUNDARY = {
  * displayOrder MỚI. */
 const WRAP_QUEUE_BY_MODE = {
     shuffle: (s) => s.shuffleIndices,
-    resort: () => workflowPlaylistOrder.recomputeDisplayOrder(), // event/workflow/playlist-order.js
+    // Không được resort từ Browse Context: queue phát đã được snapshot khi người dùng chọn media.
+    resort: (s) => s.displayOrder,
     sequential: (s) => s.displayOrder,
 };
 
@@ -619,11 +620,11 @@ const workflowPlayerControls = {
      */
     goToNextTrack(force = false) {
         workflowWakeLock.request();
-        const s = appState.get(TRACK_STEP_STATE_KEYS);
+        const s = workflowPlayer.getPlaybackQueueState(); // queue phát, không phải scope UI đang duyệt
         if (s.playlistOrder.length === 0) return; // guard
-        const list = s.isShuffle ? s.shuffleIndices : s.displayOrder; // NGUỒN danh sách
+        const list = s.isShuffle ? s.shuffleIndices : s.displayOrder;
         const step = computeListStep(list, s.currentKey, 1); // core/playlist/order.js
-        NEXT_TRACK_BY_ACTION[resolveNextTrackAction(s.repeatMode, force, step.atBoundary)](s, list[step.index]); // core/playlist/order.js
+        NEXT_TRACK_BY_ACTION[resolveNextTrackAction(s.repeatMode, force, step.atBoundary)](s, list[step.index]);
     },
 
     /**
@@ -633,7 +634,7 @@ const workflowPlayerControls = {
      */
     goToPrevTrack() {
         workflowWakeLock.request();
-        const s = appState.get(TRACK_STEP_STATE_KEYS);
+        const s = workflowPlayer.getPlaybackQueueState();
         if (s.playlistOrder.length === 0) return; // guard
         const list = s.isShuffle ? s.shuffleIndices : s.displayOrder;
         const step = computeListStep(list, s.currentKey, -1); // core/playlist/order.js
@@ -763,17 +764,19 @@ const workflowPlayerControls = {
      * top-level trước khi phát/trộn, còn Shuffle ở đây LUÔN tôn trọng hiện hành — 2 hành vi khác nhau CHỦ ĐÍCH.
      */
     toggleShuffleAndReshuffle() {
-        const { isShuffle, displayOrder, playlistOrder } = appState.get(['isShuffle', 'displayOrder', 'playlistOrder']);
-        const next = toggleShuffle(isShuffle); // core/player-controls.js — trả giá trị MỚI
-        syncShuffleUI(next); // core/player-controls.js
-        updateShuffleArrayFromQueue(displayOrder, playlistOrder, next); // core/playlist/order.js — displayOrder = "hiện hành" (section HOẶC top-level)
-        this._persistPlayerConfig(); // nhớ trạng thái Shuffle
+        const next = toggleShuffle(appState.get('isShuffle')); // core/player-controls.js
+        const playback = workflowPlayer.getPlaybackQueueState();
+        syncShuffleUI(next);
+        updateShuffleArrayFromQueue(playback.displayOrder, playback.playlistOrder, next);
+        workflowPlayer.setPlaybackShuffle(next, appState.get('shuffleIndices'));
+        this._persistPlayerConfig();
     },
 
     /** Ứng với 'playerControls.repeat.click' — xoay vòng Repeat, đồng bộ nút, lưu bền. */
     cycleRepeatModeAndPersist() {
         const next = cycleRepeatMode(appState.get('repeatMode')); // core/player-controls.js
-        syncRepeatUI(next); // core/player-controls.js
+        workflowPlayer.setPlaybackRepeatMode(next);
+        syncRepeatUI(next);
         this._persistPlayerConfig();
     },
 
