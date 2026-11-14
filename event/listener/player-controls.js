@@ -44,11 +44,6 @@ if (btnPrev) {
     });
 }
 
-if (btnPlayerInfo) {
-    btnPlayerInfo.addEventListener('click', () => {
-        eventBus.send({ router: 'playerControls', type: 'playerControls.info.click', payload: {} });
-    });
-}
 
 // ===================== Media Session — Next/Prev ở thông báo, màn hình khoá, nút tai nghe =====================
 // MỚI (25/09/2026, Giang yêu cầu "thiếu control next, prev ở thông báo, màn hình khoá") — BỎ một phần quyết định Ver 8
