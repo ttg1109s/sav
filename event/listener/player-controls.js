@@ -49,12 +49,15 @@ if (btnPlayerInfo) {
         eventBus.send({ router: 'playerControls', type: 'playerControls.info.toggle', payload: {} });
     });
     document.addEventListener('pointerdown', (e) => {
-        if (!btnPlayerInfo.contains(e.target) && !playerInfoPopover.contains(e.target)) {
+        if (btnPlayerInfo.getAttribute('aria-expanded') === 'true'
+            && !btnPlayerInfo.contains(e.target) && !playerInfoPopover.contains(e.target)) {
             eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
         }
     });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
+        if (e.key === 'Escape' && btnPlayerInfo.getAttribute('aria-expanded') === 'true') {
+            eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
+        }
     });
 }
 
