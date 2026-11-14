@@ -71,13 +71,9 @@ const routerPlayerControls = (() => {
                 break;
             }
 
-            case 'playerControls.info.toggle': {
-                workflowPlayerControls.toggleTrackInfoPopover();
-                break;
-            }
-
-            case 'playerControls.info.close': {
-                workflowPlayerControls.closeTrackInfoPopover();
+            case 'playerControls.info.click': {
+                // Dùng chính modal Info/Chi tiết của Playlist cho media đang phát.
+                workflowPlaylist.openSongEditModal(appState.get('currentKey'));
                 break;
             }
 
