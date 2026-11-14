@@ -46,18 +46,7 @@ if (btnPrev) {
 
 if (btnPlayerInfo) {
     btnPlayerInfo.addEventListener('click', () => {
-        eventBus.send({ router: 'playerControls', type: 'playerControls.info.toggle', payload: {} });
-    });
-    document.addEventListener('pointerdown', (e) => {
-        if (btnPlayerInfo.getAttribute('aria-expanded') === 'true'
-            && !btnPlayerInfo.contains(e.target) && !playerInfoPopover.contains(e.target)) {
-            eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
-        }
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && btnPlayerInfo.getAttribute('aria-expanded') === 'true') {
-            eventBus.send({ router: 'playerControls', type: 'playerControls.info.close', payload: {} });
-        }
+        eventBus.send({ router: 'playerControls', type: 'playerControls.info.click', payload: {} });
     });
 }
 
