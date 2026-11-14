@@ -21,7 +21,6 @@ const TPL_BOTTOM_PLAYER = `
                     <div class="pc-info-wrap">
                         <button id="btn-player-info" class="info-icon-btn pc-info-button hidden" type="button" data-uitk="pcIconBtn" title="Info" aria-label="Info">
                             ${iconSvg('information-circle', 'w-4 h-4')}
-                            <span>Info</span>
                         </button>
                     </div>
                     <!-- Giữ hai node dữ liệu để setPlayerTrackLabels() và Photo Player tiếp tục dùng chung API hiện có. -->
