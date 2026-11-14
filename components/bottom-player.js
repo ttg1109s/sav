@@ -65,7 +65,9 @@ function renderRecordArtHtml(isPaused) {
 /** Nội dung Info của Bottom Player — tái sử dụng renderer/escape của tab Chi tiết Playlist. */
 function renderPlayerTrackInfoHtml(artist, album) {
     const rows = [];
-    if (album) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(album)));
-    if (artist) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), renderSongInfoTextValue(artist)));
+    const artistText = String(artist || '').trim();
+    const albumText = String(album || '').trim();
+    if (albumText) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(albumText)));
+    if (artistText) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), renderSongInfoTextValue(artistText)));
     return rows.join('');
 }
