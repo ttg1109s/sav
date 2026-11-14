@@ -19,7 +19,7 @@ const TPL_BOTTOM_PLAYER = `
                 <div class="pc-info-row">
                     <h2 id="player-title" class="pc-title" data-uitk="pcText" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
                     <div class="pc-info-wrap">
-                        <button id="btn-player-info" class="pc-info-button hidden" type="button" data-uitk="pcIconBtn" title="Info" aria-label="Info">
+                        <button id="btn-player-info" class="info-icon-btn pc-info-button hidden" type="button" data-uitk="pcIconBtn" title="Info" aria-label="Info">
                             ${iconSvg('information-circle', 'w-4 h-4')}
                             <span>Info</span>
                         </button>
