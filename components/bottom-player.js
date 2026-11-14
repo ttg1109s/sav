@@ -2,7 +2,7 @@
  * Component: Bottom Player (thanh điều khiển phát nhạc ở dưới cùng) — components/app-mount.js chèn lúc khởi động.
  *
  * Bố cục 1 cột mọi khổ màn (assets/css/player-control.css, `.pc-layout`; màn rộng chỉ giới hạn bề ngang + căn giữa):
- *   nghệ sĩ 25% | tên media 50% | album 25% (thiếu tag thì ô trống chữ) · thanh tiến trình · giờ đang phát | tổng ·
+ *   tên media bên trái | nút Info bên phải (mở Album/Artist nếu có) · thanh tiến trình · giờ đang phát | tổng ·
  *   Shuffle · Prev · Play · Next · Repeat. Phụ đề neo phía trên thanh (core/player-control-style.js::dockSubtitleDisplay()).
  * Ảnh bìa (#record-container) nằm TRONG nút Play/Pause — hiện/ẩn theo `data-pc-cover` của `.pc-surface`; nốt nhạc bay
  * (core/visualizer/draw/flying-note-ui.js) cũng sinh từ đây.
@@ -15,11 +15,21 @@ const TPL_BOTTOM_PLAYER = `
     <div id="player-container" class="fixed bottom-0 left-0 w-full z-40 pointer-events-auto flex flex-col hidden">
         <div id="player-panel" class="pc-surface group" data-pc-style="glass" data-pc-cover="on">
             <div class="pc-layout">
-                <!-- Nghệ sĩ 25% · tên 50% · album 25% cố định; thiếu tag thì ô chỉ trống chữ. Ghi qua setPlayerTrackLabels(). -->
+                <!-- Tên media căn trái; Info chỉ hiện khi Album hoặc Artist có dữ liệu. Artist của Video/Photo luôn rỗng. -->
                 <div class="pc-info-row">
-                    <p id="player-artist" class="pc-artist" data-uitk="pcText"></p>
                     <h2 id="player-title" class="pc-title" data-uitk="pcText" data-i18n="bottomPlayer.noSongSelected">${t('bottomPlayer.noSongSelected')}</h2>
-                    <p id="player-album" class="pc-album" data-uitk="pcText"></p>
+                    <div class="pc-info-wrap">
+                        <button id="btn-player-info" class="pc-info-button hidden" type="button" aria-expanded="false" aria-controls="player-info-popover" data-uitk="pcToggleBtn" title="${t('playlistView.songEdit.tabDetails')}" aria-label="${t('playlistView.songEdit.tabDetails')}">
+                            ${iconSvg('information-circle', 'w-4 h-4')}
+                            <span>${t('playlistView.songEdit.tabDetails')}</span>
+                        </button>
+                        <div id="player-info-popover" class="pc-info-popover hidden" role="dialog" aria-label="${t('playlistView.songEdit.tabDetails')}"></div>
+                    </div>
+                    <!-- Giữ hai node dữ liệu để setPlayerTrackLabels() và Photo Player tiếp tục dùng chung API hiện có. -->
+                    <div class="hidden" aria-hidden="true">
+                        <span id="player-artist" data-uitk="pcText"></span>
+                        <span id="player-album" data-uitk="pcText"></span>
+                    </div>
                 </div>
 
                 <!-- step 0.001 = seek mịn tới ms; listener gửi thẳng e.target.value. Photo Player mode chỉ ẩn #progress-bar-row. -->
@@ -50,4 +60,12 @@ const TPL_BOTTOM_PLAYER = `
  * @param {boolean} isPaused - media đang dừng lúc dựng @returns {string} */
 function renderRecordArtHtml(isPaused) {
     return `<img id="record-art" src="" class="pc-play-cover animate-spin-slow${isPaused ? ' paused' : ''}" alt="">`;
+}
+
+/** Nội dung Info của Bottom Player — tái sử dụng renderer/escape của tab Chi tiết Playlist. */
+function renderPlayerTrackInfoHtml(artist, album) {
+    const rows = [];
+    if (album) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.album, 'emerald', t('playlistView.songInfo.fieldAlbum'), renderSongInfoTextValue(album)));
+    if (artist) rows.push(renderSongInfoRowHtml(SONG_INFO_ICON.artist, 'violet', t('playlistView.songInfo.fieldArtist'), renderSongInfoTextValue(artist)));
+    return rows.join('');
 }
