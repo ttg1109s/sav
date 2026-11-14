@@ -148,10 +148,34 @@
             if (document.fonts?.ready) document.fonts.ready.then(refreshTitleMarquee);
         }
 
-        /** Nhãn Bottom Player — chuỗi rỗng thì ô đó trống chữ (vẫn giữ chỗ). @param {string} title @param {string} artist @param {string} album */
+        /** Nhãn Bottom Player + đồng bộ popup Info; artist/album rỗng thì không dựng dòng tương ứng. */
         function setPlayerTrackLabels(title, artist, album) {
             setPlayerTitleText(title);
-            playerArtist.textContent = artist; playerAlbum.textContent = album;
+            const artistText = String(artist || '').trim();
+            const albumText = String(album || '').trim();
+            playerArtist.textContent = artistText;
+            playerAlbum.textContent = albumText;
+            playerInfoPopover.innerHTML = renderPlayerTrackInfoHtml(artistText, albumText);
+            if (typeof applyUiThemeToDom === 'function') applyUiThemeToDom(playerInfoPopover, _activeUiThemeKeyList);
+            btnPlayerInfo.classList.toggle('hidden', !artistText && !albumText);
+            setPlayerTrackInfoPopoverOpen(false);
+        }
+
+        /** Mở/đóng popup Info; không cho mở nếu cả Album và Artist đều rỗng. @param {boolean} isOpen */
+        function setPlayerTrackInfoPopoverOpen(isOpen) {
+            const open = !!isOpen && !btnPlayerInfo.classList.contains('hidden');
+            btnPlayerInfo.setAttribute('aria-expanded', String(open));
+            playerInfoPopover.classList.toggle('hidden', !open);
+        }
+
+        /** Đảo trạng thái popup Info theo thao tác nút. */
+        function togglePlayerTrackInfoPopover() {
+            setPlayerTrackInfoPopoverOpen(btnPlayerInfo.getAttribute('aria-expanded') !== 'true');
+        }
+
+        /** Đóng popup Info khi chạm ra ngoài hoặc nhấn Escape. */
+        function closePlayerTrackInfoPopover() {
+            setPlayerTrackInfoPopoverOpen(false);
         }
 
         /** Thông tin media trên thông báo/màn khoá (Media Session); trình duyệt không hỗ trợ thì bỏ qua.
