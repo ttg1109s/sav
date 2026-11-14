@@ -58,18 +58,55 @@ const SONG_LOAD_NOTICE_BY_STATUS = {
     loaded: () => {},
 };
 
+// Snapshot riêng của phiên phát. Browse scope có thể thay playlistCache/order bất cứ lúc nào,
+// nhưng Next/Prev và phân loại item phải luôn dùng đúng queue/cache đã tạo phiên phát.
+let playbackQueueContext = null;
+
 const workflowPlayer = {
 
     /**
+     * Bắt đầu một phiên phát từ Browse Context (switchScreen=true). Các lệnh Next/Prev (false)
+     * tiếp tục dùng snapshot này, không đọc cache/queue của folder đang được duyệt.
      * @param {string} key
-     * @param {{switchScreen?: boolean, direction?: 'next'|'prev'}} [options] - `switchScreen` (mặc định true): CHỈ Next/Prev
-     *   và tự chuyển bài truyền false — không cưỡng chế rời Playlist UI. `direction`: chỉ Video/Photo dùng (2 preset Transition).
+     * @param {{switchScreen?: boolean, direction?: 'next'|'prev'}} [options]
      */
     playMedia(key, options) {
-        const { playlistCache, isPhotoPlayerMode } = appState.get(['playlistCache', 'isPhotoPlayerMode']);
-        const mediaType = resolvePlaylistItemMediaType(playlistCache.get(key)); // core/playlist/render.js
-        this._exitPhotoPlayerModeIfLeaving(isPhotoPlayerMode, mediaType);
-        return (PLAY_MEDIA_BY_TYPE[mediaType] || PLAY_MEDIA_BY_TYPE.song)(key, resolvePlayMediaRequest(options), isPhotoPlayerMode); // core/player-controls.js — loại lạ đi luồng Song
+        const request = resolvePlayMediaRequest(options);
+        const state = appState.get(['playlistCache', 'isPhotoPlayerMode']);
+        if (request.switchScreen || !playbackQueueContext) {
+            const s = appState.get(['playlistOrder', 'displayOrder', 'shuffleIndices', 'pendingResortKeys', 'isShuffle', 'repeatMode']);
+            playbackQueueContext = {
+                playlistOrder: [...s.playlistOrder],
+                displayOrder: [...s.displayOrder],
+                shuffleIndices: [...s.shuffleIndices],
+                pendingResortKeys: new Set(s.pendingResortKeys),
+                playlistCache: new Map(state.playlistCache),
+                isShuffle: !!s.isShuffle,
+                repeatMode: s.repeatMode,
+            };
+        }
+        const cache = request.switchScreen ? state.playlistCache : playbackQueueContext.playlistCache;
+        const mediaType = resolvePlaylistItemMediaType(cache.get(key)); // core/playlist/render.js
+        this._exitPhotoPlayerModeIfLeaving(state.isPhotoPlayerMode, mediaType);
+        return (PLAY_MEDIA_BY_TYPE[mediaType] || PLAY_MEDIA_BY_TYPE.song)(key, request, state.isPhotoPlayerMode); // core/player-controls.js
+    },
+
+    /** Queue phát bất biến trước các thao tác duyệt source/folder; currentKey và player mode luôn lấy trạng thái live. */
+    getPlaybackQueueState() {
+        const live = appState.get(['currentKey', 'isVideoPlayerMode', 'isPhotoPlayerMode']);
+        if (!playbackQueueContext) return { ...appState.get(TRACK_STEP_STATE_KEYS) };
+        return { ...playbackQueueContext, ...live };
+    },
+
+    /** Đồng bộ toggle của Player vào phiên phát, không lấy queue từ Browse Context. */
+    setPlaybackShuffle(isShuffle, shuffleIndices) {
+        if (!playbackQueueContext) return;
+        playbackQueueContext.isShuffle = !!isShuffle;
+        playbackQueueContext.shuffleIndices = [...shuffleIndices];
+    },
+
+    setPlaybackRepeatMode(repeatMode) {
+        if (playbackQueueContext) playbackQueueContext.repeatMode = repeatMode;
     },
 
     /** Đang ở Photo Player mode mà item MỚI không phải Photo -> thoát mode TRƯỚC (1 chỗ cho mọi hướng thoát). KHÔNG `await` —
