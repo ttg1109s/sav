@@ -336,7 +336,7 @@ function renderSongNodeParts(view, durationLabel) {
     const pausedDotHtml = `<div class="w-2 h-2 rounded-full shadow-[0_0_5px_rgba(14,165,233,0.8)]" data-uitk="btnPrimaryPillBg"></div>`;
     return {
         title: escapeHtml(view.title),
-        secondLineHtml: view.artist ? `${escapeHtml(view.artist)} <span class="opacity-50">·</span> ${durationLabel}` : durationLabel,
+        secondLineHtml: view.artist ? `${durationLabel} <span class="opacity-50">·</span> ${escapeHtml(view.artist)}` : durationLabel,
         coverSrcAttr: view.hasRealCover ? '' : `src="${DEFAULT_VINYL}"`,
         eqIconHtml: view.isActuallyPlaying ? eqBarsHtml : (view.isPlaying ? pausedDotHtml : ''),
     };
